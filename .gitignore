@@ -25,9 +25,6 @@ Thumbs.db
 /temp/
 *.tmp
 
-# GitHub Actions (local only - deployed separately)
-.github/
-
 # Local development files
 *.sql
 .env.production
