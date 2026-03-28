@@ -1,0 +1,71 @@
+
+
+.skill-item{
+	max-width:210px;
+	width: 100%;
+	margin-bottom: 30px;
+	color: black;
+	font-family: Arial, sans-serif;
+}
+
+.chart-container{
+	position: relative;
+	padding-top: 100%;
+}
+
+.skill-item .chart,
+.skill-item .chart canvas{
+	position: absolute;
+	top: 0;
+	left: 15%;
+	width: 100% !important;
+	height: 100% !important;
+}
+
+.skill-item .chart:before{
+	content: "";
+	width: 25;
+	height: 100%;
+}
+
+.skill-item .chart:before,
+.skill-item .percent{
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.skill-item .percent{
+	position: relative;
+	line-height: 1;
+	font-size: 25px;
+	font-weight: 500;
+	z-index: 2;
+	top: 0;
+	left: 15%;
+}
+
+.skill-item  .percent:after{
+	content: attr(data-after);
+	font-size: 15px;
+}
+
+
+.details {
+  text-align: left;
+  margin-left: 50%;
+  font-size: 12px;
+  float: left;
+}
+
+.details .percentage {
+  font-weight: 700;
+  color: #e63946;
+}
+
+@media (max-width:768px){
+    .details{
+        margin-top: 70%;
+        margin-left: 13%;
+        text-align: center;
+    }
+}

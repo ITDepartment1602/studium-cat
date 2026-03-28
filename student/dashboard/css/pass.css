@@ -1,0 +1,83 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f4f4f4;
+}
+
+.container {
+    width: 30%;
+    max-width: 500px;
+    height: auto;
+    background-color: #ffffff;
+    box-shadow: 4px 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    padding: 30px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.exam-summary {
+    margin-bottom: 20px;
+}
+
+.checkmark {
+    font-size: 6rem;
+    color: #4caf50;
+    margin-bottom: 50px;
+    display: none;
+}
+
+.exam-results h1 {
+    color: #40539b;
+    font-size: 3rem;
+    margin-bottom: 20px;
+}
+
+.cngs {
+    font-size: 20px;
+    color: #333;
+}
+
+.progress-circle {
+    width: 150px;
+    height: 150px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    margin: 20px auto;
+}
+
+.progress-circle-text {
+    position: absolute;
+    font-size: 30px;
+    font-weight: bold;
+    color: #333;
+}
+
+.circle-svg {
+    transform: rotate(-90deg);
+}
+.circle-background {
+    fill: none;
+    stroke: #e6e6e6;
+    stroke-width: 8;
+}
+
+
+.circle-progress {
+    fill: none;
+    stroke: #4caf50;
+    stroke-width: 4;
+    stroke-dasharray: 565;
+    stroke-dashoffset: 565;
+    transition: 1s ease;
+}
+
+.progress-circle[data-score="85"] .circle-progress {
+    stroke-dashoffset: calc(565 - (565 * 85) / 100);
+}

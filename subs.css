@@ -1,0 +1,142 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background-color: #f4f3ee;
+}
+
+h2 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.subscription-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.subscription-box {
+  background:#ffffff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  border-radius: 10px;
+  width: 350px;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.5s ease;
+}
+
+.subscription-box:hover {
+  transform: translateY(-20px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.10);
+  background:#fdfefe;
+}
+
+
+
+
+.subscription-box b {
+  font-size: 27px;
+  color:#221f1e;
+
+}
+.subscription-box .offer {
+  margin: 10px 0;
+  font-size: 11px;
+  color: #8b8e8d;
+  display: inline-block;
+  padding: 12px 20px;
+  font-weight: bold;
+  background: linear-gradient(130deg, #ffffff, #0869aa);
+  border-radius: 30px;
+  transition: all 0.3s ease;
+
+
+}
+
+
+
+.subscription-box a {
+  display: inline-block;
+  margin: 10px 0;
+
+  text-decoration: none;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+
+
+.subscription-box ul {
+  list-style-type: circle;
+  padding: 0;
+  margin: 10px 0 0;
+  text-align: left;
+}
+
+.subscription-box ul li {
+  margin-bottom: 5px;
+}
+
+
+.subscription-box .Dolyar {
+
+  font-size: 30px;
+  font-weight: bold;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+  font-family: 'Arial', sans-serif;
+  margin: 10px 0;
+}
+
+
+
+
+.butones1 {
+  display: inline-block;
+  padding: 12px 20px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+  background:#ffa69e;
+  border: none;
+  border-radius: 30px;
+  text-decoration: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+
+
+.butones2 {
+  display: inline-block;
+  padding: 12px 20px;
+  font-size: 18px;
+  font-weight: bold;
+    color: #fff;
+  background:#ffa69e;
+  border: none;
+  border-radius: 30px;
+  text-decoration: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+
+}
+.afterpay {
+  font-size: 14px;
+  color:#0067a9;
+
+}
+
+
+.butones:hover {
+  background: linear-gradient(45deg, #0056b3, #007bff);
+  transform: scale(1.05);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+  text-decoration: none;
+}
+
+.butones:active {
+  transform: scale(1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
