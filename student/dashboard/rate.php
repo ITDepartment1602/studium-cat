@@ -69,9 +69,10 @@
 <br><br>
 
       <?php
-         $con = mysqli_connect('localhost','root','','quiz') or die('connection failed');
-          $select = mysqli_query($con, "SELECT sum(sahi) FROM `history` WHERE email = '$user_id'") or die('query failed');
-          while ($rows = mysqli_fetch_array($select)) {
+         include '../../config.php';
+         mysqli_select_db($con, DB_QUIZ_NAME);
+         $select = mysqli_query($con, "SELECT sum(sahi) FROM `history` WHERE email = '$user_id'") or die('query failed');
+         while ($rows = mysqli_fetch_array($select)) {
       ?>
     <div class="row1">
         <div class="progress-bar" role="progressbar" aria-valuenow="<?php echo $rows['sum(sahi)']; ?>" aria-valuemin="0" aria-valuemax="1190">   

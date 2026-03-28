@@ -1,43 +1,36 @@
 <?php 
+include '../../config.php';
 
- class count
- {
+class count
+{
+	public $conn;
+	public $user_details;
+	public $course_count=0;
+	public $video_count=0;
+	public $packege_count=0;
+	public $books_count=0;
+	public $old_count=0;
+	public $latitude_count=0;
+	public $faq_list;
 
- 	public $host="localhost";
- 	public $username="root";
- 	public $pass="";
- 	public $db_name="quiz";
- 	public $conn;
- 	public $user_details;
- 	public $course_count=0;
- 	public $video_count=0;
- 	public $packege_count=0;
- 	public $books_count=0;
- 	public $old_count=0;
- 	public $latitude_count=0;
- 	public $faq_list;
-
- 	public function __construct()
- 	{
- 		$this->conn=new mysqli($this->host,$this->username,$this->pass,$this->db_name);
- 		if ($this->conn->connect_errno)
- 		 {
- 			die("connection failed");
- 		}
- 	}
+	public function __construct()
+	{
+		global $connQuiz;
+		$this->conn = $connQuiz;
+	}
 // ===================================================================================
- 	public function show_users()     // function to display users list
- 	{
- 		$query="select * from signup";
- 		$result=$this->conn->query($query);
- 		
- 		while($row=$result->fetch_array(MYSQLI_ASSOC))
- 		{
- 			$this->user_details[]=$row;
- 		}
- 		return $this->user_details;
- 	}
- 	
+	public function show_users()     // function to display users list
+	{
+		$query="select * from signup";
+		$result=$this->conn->query($query);
+		
+		while($row=$result->fetch_array(MYSQLI_ASSOC))
+		{
+			$this->user_details[]=$row;
+		}
+		return $this->user_details;
+	}
+	
 // =================================================================================================================
 
  	public function user()           //function to display number of inquires

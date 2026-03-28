@@ -1,24 +1,28 @@
 <?php
+include '../../config.php';
 
 class CountTopics
 {
-    public $host = "localhost";
-    public $username = "root";
-    public $pass = "";
-    public $db_name = "quiz";
     public $conn;
     public $topicsCount = [];
 
     public function __construct()
     {
-        $this->conn = new mysqli($this->host, $this->username, $this->pass, $this->db_name);
-        if ($this->conn->connect_errno) {
-            die("Connection failed: " . $this->conn->connect_error);
-        }
+        global $con;
+        $this->conn = $con;
+    }
+
+    public function __destruct()
+    {
+        // Don't close connection here as it's shared
     }
 
     public function countTopics()
     {
+        // Select quiz database
+        global $con;
+        mysqli_select_db($con, DB_QUIZ_NAME);
+        
         // Define the topics to count
         $topics = [
             'Pain Meds', 'Antepartum', 'Assignment/Delegation', 'Cardiovascular', 'Oncology',

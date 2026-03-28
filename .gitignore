@@ -25,5 +25,11 @@ Thumbs.db
 /temp/
 *.tmp
 
-# Database dumps (optional - remove if you want to track these)
-# *.sql
+# GitHub Actions (local only - deployed separately)
+.github/
+
+# Local development files
+*.sql
+.env.production
+
+# Note: .htaccess IS included for production deployment

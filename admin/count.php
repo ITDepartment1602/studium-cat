@@ -1,14 +1,9 @@
 <?php
+include '../config.php';
 
 class count
 {
-
-
- 	public $host="127.0.0.1";
- 	public $username="u436962267_studium";
- 	public $pass="Nclexamplified2023";
- 	public $db_name="u436962267_studium";
- 	public $conn;
+	public $conn;
 	public $user_details;
 	public $course_count = 0;
 	public $video_count = 0;
@@ -18,16 +13,12 @@ class count
 	public $latitude_count = 0;
 	public $faq_list;
 	public $expire_count = 0;
-
-public $active_count = 0;
+	public $active_count = 0;
 
 	public function __construct()
 	{
-		$this->conn = new mysqli($this->host, $this->username, $this->pass, $this->db_name);
-		if ($this->conn->connect_errno) {
-			die("Connection failed: " . $this->conn->connect_error);
-		}
-
+		global $con;
+		$this->conn = $con;
 		// Set timezone to Philippine time
 		$this->conn->query("SET time_zone = '+08:00'");
 	}

@@ -1,15 +1,12 @@
 <?php
+include '../../../config.php';
 
 if ( isset($_GET['id']) ){
     $id = $_GET['id'];
     $kilanlan = $_GET['kilanlan'];
-    $servername = "localhost";
-    $username = "root";
-    $password = "";
-    $database = "quiz";
-    $connect = new mysqli($servername, $username, $password, $database);
+    mysqli_select_db($con, DB_QUIZ_NAME);
     $sql = "DELETE from exam_mode where email='$id' AND kilanlan='$kilanlan'";
-    $connect->query($sql);
+    $con->query($sql);
 }
 ?>
 <?php
