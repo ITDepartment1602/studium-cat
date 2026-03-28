@@ -1,14 +1,39 @@
 <?php 
-include '../config.php';
+/**
+ * Admin Delete User
+ * 
+ * DELETE endpoint for removing users. Uses new secure architecture.
+ */
 
-if ( isset($_GET['id']) ){
-	$id = $_GET['id'];
+require_once __DIR__ . '/../config.php';
 
-	$sql = "DELETE from login where id=$id";
-	$con->query($sql);
+// Require admin access
+requireAdmin();
+
+// Get and validate user ID
+$userId = getInt('id');
+
+if (!$userId) {
+    redirect('../admin', 'Invalid user ID', 'error');
 }
 
-header("location: ../admin");
-exit;
+// Check if user exists before deleting
+$user = getUserById($userId);
 
- ?>
+if (!$user) {
+    redirect('../admin', 'User not found', 'error');
+}
+
+// Prevent deleting self
+if ($userId === getCurrentUserId()) {
+    redirect('../admin', 'Cannot delete yourself', 'error');
+}
+
+// Perform deletion
+if (deleteUser($userId)) {
+    logActivity('delete_user', getCurrentUserId(), "Deleted user: {$user['email']}");
+    redirect('../admin', 'User deleted successfully', 'success');
+} else {
+    redirect('../admin', 'Failed to delete user', 'error');
+}
+?>

@@ -45,22 +45,16 @@ function getQuizConnection() {
     return Database::getInstance()->getQuizConnection();
 }
 
-// Legacy PDO compatibility - wrap database calls
+// Legacy PDO compatibility
 $conn = new class($db) {
     private $db;
     public function __construct($db) { $this->db = $db; }
-    public function prepare($sql) { 
-        return new class($this->db, $sql) {
-            private $db, $sql;
-            public function __construct($db, $sql) { $this->db = $db; $this->sql = $sql; }
-            public function execute($params = []) { 
-                return $this->db->query($this->sql, $params); 
-            }
-        };
-    }
-    public function query($sql, $params = []) { 
-        return $this->db->query($sql, $params); 
-    }
+    public function prepare($sql) { return new class($this->db, $sql) {
+        private $db, $sql;
+        public function __construct($db, $sql) { $this->db = $db; $this->sql = $sql; }
+        public function execute($params = []) { return $this->db->query($this->sql, $params); }
+    };}
+    public function query($sql, $params = []) { return $this->db->query($sql, $params); }
 };
 
 // Helper function to safely include files - prevents multiple includes
