@@ -1,19 +1,19 @@
-name: Simple FTP Test
+name: Deploy Dev Branch to dev.studium.cat
 
 on:
-  workflow_dispatch:
   push:
     branches: [ dev ]
+  workflow_dispatch:
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Create test file
-      run: echo "TEST - $(date)" > TEST_FILE_PLEASE_FIND_ME.txt && cat TEST_FILE_PLEASE_FIND_ME.txt
+    - name: Checkout code
+      uses: actions/checkout@v4
     
-    - name: Upload test file
+    - name: Deploy to Hostinger
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
@@ -21,12 +21,24 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         protocol: ftp
         port: 21
-        server-dir: ./
+        timeout: 60000
+        server-dir: domains/studium.cat/public_html/dev/
         local-dir: ./
+        state-name: .ftp-deploy-sync-state.json
         exclude: |
-          **/*
-        include: |
-          TEST_FILE_PLEASE_FIND_ME.txt
+          **/.git
+          **/.git/**
+          **/.github
+          **/.github/**
+          **/.gitignore
+          **/.env
+          **/.env.local
+          **/README.md
+          **/*.sql
+          **/node_modules
+          **/node_modules/**
+          **/vendor
+          **/vendor/**
     
-    - name: Test Complete
-      run: echo "Look for TEST_FILE_PLEASE_FIND_ME.txt in Hostinger File Manager!"
+    - name: Deployment complete
+      run: echo "✅ Deployed to https://dev.studium.cat/"
