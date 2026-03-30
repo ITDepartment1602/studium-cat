@@ -1,4 +1,4 @@
-name: Deploy Dev Branch to dev.studium.cat
+name: Deploy and Find Files
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Deploy to Hostinger via FTP
+    - name: Deploy to FTP ROOT to find actual location
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
@@ -21,8 +21,8 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         protocol: ftp
         port: 21
-        timeout: 60000
-        server-dir: /domains/studium.cat/public_html/dev/
+        timeout: 120000
+        server-dir: ./
         local-dir: ./
         state-name: .ftp-deploy-sync-state.json
         exclude: |
@@ -31,16 +31,23 @@ jobs:
           **/.github
           **/.github/**
           **/.gitignore
-          **/.env
-          **/.env.local
-          **/README.md
-          **/*.sql
-          **/node_modules
-          **/node_modules/**
-          **/vendor
-          **/vendor/**
     
-    - name: Deployment complete
+    - name: Instructions
       run: |
-        echo "✅ Deployed to /domains/studium.cat/public_html/dev/"
-        echo "📍 Visit: https://dev.studium.cat/"
+        echo "=============================================="
+        echo "DIAGNOSTIC DEPLOYMENT COMPLETE"
+        echo "=============================================="
+        echo ""
+        echo "Now check File Manager:"
+        echo "1. Go to File Manager"
+        echo "2. Look at the ROOT directory"
+        echo "3. Find where these folders appeared:"
+        echo "   - admin/"
+        echo "   - student/"
+        echo "   - img/"
+        echo "   - Look for 'index.php'"
+        echo ""
+        echo "Report back with:"
+        echo "- What folders/files do you see in File Manager ROOT?"
+        echo "- Where did the 'admin' folder appear?"
+        echo "=============================================="
