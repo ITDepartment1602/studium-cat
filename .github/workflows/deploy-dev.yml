@@ -40,9 +40,12 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: /public_html/dev/
+        protocol: ftps
+        port: 21
+        server-dir: /domains/studium.cat/public_html/dev/
         local-dir: ./
-        dangerous-clean-slate: true
+        log-level: verbose
+        security: loose
         exclude: |
           **/.git*
           **/.git*/**
