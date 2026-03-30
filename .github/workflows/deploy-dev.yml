@@ -13,28 +13,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.1'
-    
-    - name: Prepare deployment files
-      run: |
-        # Remove development files that shouldn't be deployed
-        rm -rf .git .github .gitignore
-        rm -f README.md
-        rm -f *.sql
-        rm -f tmp_*.txt
-        rm -f .env.local
-        rm -f config_backup.php
-        rm -f REFACTORING_GUIDE.md
-        # Show what we're deploying
-        echo "Files to deploy:"
-        ls -la
-        echo "Total files count:"
-        find . -type f | wc -l
-    
-    - name: Deploy to Hostinger Dev Subdomain
+    - name: Deploy to Hostinger via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
@@ -42,11 +21,25 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         protocol: ftp
         port: 21
+        timeout: 60000
         server-dir: /domains/studium.cat/public_html/dev/
+        local-dir: ./
+        state-name: .ftp-deploy-sync-state.json
         exclude: |
-          **/.git*
-          **/.git*/**
+          **/.git
+          **/.git/**
+          **/.github
+          **/.github/**
+          **/.gitignore
+          **/.env
+          **/.env.local
+          **/README.md
+          **/*.sql
+          **/node_modules
           **/node_modules/**
+          **/vendor
           **/vendor/**
-          .github/
-          .gitignore
+    
+    - name: Deployment complete
+      if: always()
+      run: echo "✅ Deployment complete! Check https://dev.studium.cat/"
