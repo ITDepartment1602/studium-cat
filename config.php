@@ -113,6 +113,16 @@ function isLoggedIn(): bool {
 }
 
 /**
+ * Login user - set session variables
+ */
+function loginUser(array $user): void {
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['user_email'] = $user['email'];
+    $_SESSION['user_name'] = $user['fullname'] ?? '';
+    $_SESSION['user_status'] = $user['status'] ?? 'user';
+}
+
+/**
  * Require login
  */
 function requireLogin(string $redirect = '../login/'): void {
