@@ -22,7 +22,7 @@ jobs:
         protocol: ftp
         port: 21
         timeout: 60000
-        server-dir: /home/u436962267/domains/studium.cat/public_html/dev/
+        server-dir: /domains/studium.cat/public_html/dev/
         local-dir: ./
         state-name: .ftp-deploy-sync-state.json
         exclude: |
@@ -41,4 +41,6 @@ jobs:
           **/vendor/**
     
     - name: Deployment complete
-      run: echo "✅ Deployed to https://dev.studium.cat/"
+      run: |
+        echo "✅ Deployed to /domains/studium.cat/public_html/dev/"
+        echo "📍 Visit: https://dev.studium.cat/"
