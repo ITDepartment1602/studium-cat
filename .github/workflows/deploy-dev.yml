@@ -1,19 +1,19 @@
-name: Deploy and Find Files
+name: Simple FTP Test
 
 on:
+  workflow_dispatch:
   push:
     branches: [ dev ]
-  workflow_dispatch:
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - name: Create test file
+      run: echo "TEST - $(date)" > TEST_FILE_PLEASE_FIND_ME.txt && cat TEST_FILE_PLEASE_FIND_ME.txt
     
-    - name: Deploy to FTP ROOT to find actual location
+    - name: Upload test file
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
@@ -21,33 +21,12 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         protocol: ftp
         port: 21
-        timeout: 120000
         server-dir: ./
         local-dir: ./
-        state-name: .ftp-deploy-sync-state.json
         exclude: |
-          **/.git
-          **/.git/**
-          **/.github
-          **/.github/**
-          **/.gitignore
+          **/*
+        include: |
+          TEST_FILE_PLEASE_FIND_ME.txt
     
-    - name: Instructions
-      run: |
-        echo "=============================================="
-        echo "DIAGNOSTIC DEPLOYMENT COMPLETE"
-        echo "=============================================="
-        echo ""
-        echo "Now check File Manager:"
-        echo "1. Go to File Manager"
-        echo "2. Look at the ROOT directory"
-        echo "3. Find where these folders appeared:"
-        echo "   - admin/"
-        echo "   - student/"
-        echo "   - img/"
-        echo "   - Look for 'index.php'"
-        echo ""
-        echo "Report back with:"
-        echo "- What folders/files do you see in File Manager ROOT?"
-        echo "- Where did the 'admin' folder appear?"
-        echo "=============================================="
+    - name: Test Complete
+      run: echo "Look for TEST_FILE_PLEASE_FIND_ME.txt in Hostinger File Manager!"
