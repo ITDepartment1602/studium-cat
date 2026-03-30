@@ -1,6 +1,6 @@
 <?php
 include '../../../config.php';
-session_start()
+session_start();
 //quiz start
 if(@$_GET['q']== 'quiz' && @$_GET['step']== 2) {
 $eid=@$_GET['eid'];

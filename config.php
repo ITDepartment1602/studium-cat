@@ -135,26 +135,10 @@ function requireLogin(string $redirect = '../login/'): void {
 
 /**
  * Get quiz database connection
- * On production, quiz tables might be in main DB, so fallback to $con if separate quiz DB fails
+ * On production, quiz tables are in the main database
  */
 function getQuizConnection() {
-    static $quizCon = null;
-    if ($quizCon === null) {
-        global $con;
-        $isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
-        
-        if ($isProduction) {
-            // Try separate quiz database first
-            $quizCon = @mysqli_connect('127.0.0.1', 'u940051167_quiz', 'Nclexamplified2023', 'u940051167_quiz');
-            // If that fails, use main connection (quiz tables might be in main DB)
-            if (!$quizCon) {
-                $quizCon = $con;
-            }
-        } else {
-            $quizCon = mysqli_connect('localhost', 'root', '', 'quiz') 
-                or die('quiz connection failed: ' . mysqli_connect_error());
-        }
-    }
-    return $quizCon;
+    global $con;
+    return $con;
 }
 ?>
