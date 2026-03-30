@@ -22,7 +22,7 @@ jobs:
         protocol: ftp
         port: 21
         timeout: 60000
-        server-dir: domains/studium.cat/public_html/dev/
+        server-dir: dev/
         local-dir: ./
         state-name: .ftp-deploy-sync-state.json
         exclude: |
