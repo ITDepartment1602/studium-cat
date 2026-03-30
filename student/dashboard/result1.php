@@ -207,7 +207,7 @@ input[type=text], input[type=number], input[type=email]{
 <h2>Chance of passing</h2>
 
       <?php
-         $con = mysqli_connect('localhost','root','','quiz') or die('connection failed');
+         $con = getQuizConnection();
           $select = mysqli_query($con, "SELECT sum(sahi) FROM `history` WHERE email = '$user_id'") or die('query failed');
           while ($rows = mysqli_fetch_array($select)) {
       ?>

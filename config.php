@@ -120,4 +120,24 @@ function requireLogin(string $redirect = '../login/'): void {
         redirect($redirect, 'Please login first', 'error');
     }
 }
+
+// ============== QUIZ DATABASE ==============
+
+/**
+ * Get quiz database connection
+ */
+function getQuizConnection() {
+    static $quizCon = null;
+    if ($quizCon === null) {
+        $isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
+        if ($isProduction) {
+            $quizCon = mysqli_connect('127.0.0.1', 'u940051167_quiz', 'Nclexamplified2023', 'u940051167_quiz') 
+                or die('quiz connection failed');
+        } else {
+            $quizCon = mysqli_connect('localhost', 'root', '', 'quiz') 
+                or die('quiz connection failed');
+        }
+    }
+    return $quizCon;
+}
 ?>
