@@ -20,9 +20,19 @@ jobs:
     
     - name: Prepare deployment files
       run: |
-        # Remove development files
+        # Remove development files that shouldn't be deployed
         rm -rf .git .github .gitignore
-        echo "Deployment prepared for dev.studium.cat"
+        rm -f README.md
+        rm -f *.sql
+        rm -f tmp_*.txt
+        rm -f .env.local
+        rm -f config_backup.php
+        rm -f REFACTORING_GUIDE.md
+        # Show what we're deploying
+        echo "Files to deploy:"
+        ls -la
+        echo "Total files count:"
+        find . -type f | wc -l
     
     - name: Deploy to Hostinger Dev Subdomain
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -31,14 +41,10 @@ jobs:
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: /public_html/dev/
+        local-dir: ./
+        dangerous-clean-slate: true
         exclude: |
           **/.git*
           **/.git*/**
-          README.md
           **/node_modules/**
           **/vendor/**
-          *.sql
-          tmp_*.txt
-          .env.local
-          config_backup.php
-          REFACTORING_GUIDE.md
