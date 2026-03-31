@@ -104,8 +104,10 @@ try {
 }
 
 // Legacy quiz support
-function getQuizConnection() {
-    return db()->getQuizConnection();
+if (!function_exists('getQuizConnection')) {
+    function getQuizConnection() {
+        return db()->getQuizConnection();
+    }
 }
 
 // ── 6. AUTO-CREATE REQUIRED TABLES ───────────────────────────
@@ -156,54 +158,68 @@ if (isset($con)) {
 
 // ── 7. HELPER FUNCTIONS ───────────────────────────────────────
 
-function redirect(string $url, ?string $message = null, string $type = 'success'): void {
-    if ($message) {
-        $_SESSION['flash_' . $type] = $message;
-    }
-    header('Location: ' . $url);
-    exit;
-}
-
-function post(string $key, $default = null) {
-    if (!isset($_POST[$key])) return $default;
-    $v = $_POST[$key];
-    if (is_array($v)) {
-        return array_map(fn($i) => htmlspecialchars(strip_tags(trim($i)), ENT_QUOTES, 'UTF-8'), $v);
-    }
-    return htmlspecialchars(strip_tags(trim($v)), ENT_QUOTES, 'UTF-8');
-}
-
-function isLoggedIn(): bool {
-    return isset($_SESSION['user_id']) || isset($_SESSION['admin_id']);
-}
-
-function requireLogin(): void {
-    if (!isLoggedIn()) {
-        redirect(BASE_URL . 'index.php', 'Please log in first.', 'error');
+if (!function_exists('redirect')) {
+    function redirect(string $url, ?string $message = null, string $type = 'success'): void {
+        if ($message) {
+            $_SESSION['flash_' . $type] = $message;
+        }
+        header('Location: ' . $url);
+        exit;
     }
 }
 
-function authenticateUser(string $email, string $password): ?array {
-    $user = db()->fetchOne("SELECT * FROM login WHERE email = ? LIMIT 1", [$email]);
-    if (!$user) return null;
-    if (password_verify($password, $user['password'])) return $user;
-    if ($password === $user['password']) return $user; // legacy support
-    return null;
+if (!function_exists('post')) {
+    function post(string $key, $default = null) {
+        if (!isset($_POST[$key])) return $default;
+        $v = $_POST[$key];
+        if (is_array($v)) {
+            return array_map(fn($i) => htmlspecialchars(strip_tags(trim($i)), ENT_QUOTES, 'UTF-8'), $v);
+        }
+        return htmlspecialchars(strip_tags(trim($v)), ENT_QUOTES, 'UTF-8');
+    }
 }
 
-function loginUser(array $user): void {
-    $_SESSION['user_id']     = $user['id'];
-    $_SESSION['user_email']  = $user['email'];
-    $_SESSION['user_name']   = $user['fullname'] ?? '';
-    $_SESSION['user_status'] = $user['status']   ?? 'user';
+if (!function_exists('isLoggedIn')) {
+    function isLoggedIn(): bool {
+        return isset($_SESSION['user_id']) || isset($_SESSION['admin_id']);
+    }
 }
 
-function debug($data, bool $die = false): void {
-    if (!IS_PRODUCTION) {
-        echo '<pre style="background:#f3f4f6;padding:10px;border-radius:6px;font-size:12px;margin:10px;">';
-        print_r($data);
-        echo '</pre>';
-        if ($die) exit;
+if (!function_exists('requireLogin')) {
+    function requireLogin(): void {
+        if (!isLoggedIn()) {
+            redirect(BASE_URL . 'index.php', 'Please log in first.', 'error');
+        }
+    }
+}
+
+if (!function_exists('authenticateUser')) {
+    function authenticateUser(string $email, string $password): ?array {
+        $user = db()->fetchOne("SELECT * FROM login WHERE email = ? LIMIT 1", [$email]);
+        if (!$user) return null;
+        if (password_verify($password, $user['password'])) return $user;
+        if ($password === $user['password']) return $user; // legacy support
+        return null;
+    }
+}
+
+if (!function_exists('loginUser')) {
+    function loginUser(array $user): void {
+        $_SESSION['user_id']     = $user['id'];
+        $_SESSION['user_email']  = $user['email'];
+        $_SESSION['user_name']   = $user['fullname'] ?? '';
+        $_SESSION['user_status'] = $user['status']   ?? 'user';
+    }
+}
+
+if (!function_exists('debug')) {
+    function debug($data, bool $die = false): void {
+        if (!IS_PRODUCTION) {
+            echo '<pre style="background:#f3f4f6;padding:10px;border-radius:6px;font-size:12px;margin:10px;">';
+            print_r($data);
+            echo '</pre>';
+            if ($die) exit;
+        }
     }
 }
 ?>
