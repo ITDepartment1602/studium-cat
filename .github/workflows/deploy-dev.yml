@@ -19,9 +19,9 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        protocol: ftp
+        protocol: ftps
         port: 21
-        timeout: 60000
+        timeout: 90000
         server-dir: dev/
         local-dir: ./
         state-name: .ftp-deploy-sync-state.json
