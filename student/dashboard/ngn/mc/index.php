@@ -1,8 +1,8 @@
 <?php
 // multiplechoice/index.php
 
-include '../../../../config.php';
-session_start();
+require_once '../../../../config.php';
+// session_start handled by config.php
 
 /* =====================================================
    FETCH RANDOM QUESTION

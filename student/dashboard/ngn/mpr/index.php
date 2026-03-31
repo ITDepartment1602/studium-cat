@@ -1,7 +1,6 @@
 <?php
-// mpr/index.php
-include '../../../../config.php';
-session_start();
+require_once '../../../../config.php';
+// session_start handled by config.php
 
 $question_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if($question_id > 0){

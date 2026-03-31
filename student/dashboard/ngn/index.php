@@ -1,6 +1,6 @@
 <?php
 // Config handles DB + session
-include '../../../config.php';
+require_once '../../../config.php';
 
 // Hide errors from users in production
 $isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);

@@ -1,8 +1,8 @@
 <?php
 // sata/index.php - Select All That Apply Question
 
-include '../../../../config.php';
-session_start();
+require_once '../../../../config.php';
+// session_start handled by config.php
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 

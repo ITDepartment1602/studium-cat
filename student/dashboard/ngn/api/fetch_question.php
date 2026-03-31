@@ -1,6 +1,6 @@
 <?php
-include '../../../../config.php';
-session_start();
+require_once '../../../../config.php';
+// session_start handled by config.php
 
 // For now, get random question from HIGHLIGHT table
 $q = mysqli_query($con, "SELECT * FROM highlight ORDER BY RAND() LIMIT 1");

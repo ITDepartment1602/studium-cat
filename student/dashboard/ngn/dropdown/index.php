@@ -1,6 +1,6 @@
 <?php
-include '../../../../config.php';
-session_start();
+require_once '../../../../config.php';
+// session_start handled by config.php
 
 function table_exists($con, $table) {
     $safe = mysqli_real_escape_string($con, $table);
