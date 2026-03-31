@@ -1,6 +1,50 @@
 <?php
-session_start();
+// Config handles DB + session
 include '../../../config.php';
+
+// Hide errors from users in production
+$isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
+if ($isProduction) { error_reporting(0); ini_set('display_errors', 0); }
+
+// Auto-create temporary tables if missing on production DB
+mysqli_query($con, "
+    CREATE TABLE IF NOT EXISTS `temporary_exam_state` (
+        `student_id` int(11) NOT NULL,
+        `examTaken` int(11) NOT NULL,
+        `question_set` text NOT NULL,
+        `current_question` int(11) NOT NULL DEFAULT 0,
+        `timer` int(11) NOT NULL DEFAULT 0,
+        `updated_at` datetime NOT NULL,
+        PRIMARY KEY (`student_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+");
+mysqli_query($con, "
+    CREATE TABLE IF NOT EXISTS `temporary_exam_result` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `student_id` int(11) NOT NULL,
+        `examTaken` int(11) NOT NULL,
+        `question_uid` varchar(100) NOT NULL,
+        `question_type` varchar(50) DEFAULT NULL,
+        `question_id` int(11) DEFAULT NULL,
+        `user_answer` text,
+        `correct_answer` text,
+        `isCorrect` tinyint(1) DEFAULT 0,
+        `score` float DEFAULT 0,
+        `max_points` int(11) DEFAULT 1,
+        `earned_points` int(11) DEFAULT 0,
+        `rationale` text,
+        `topic` varchar(255) DEFAULT NULL,
+        `system` varchar(255) DEFAULT NULL,
+        `cnc` varchar(255) DEFAULT NULL,
+        `dlevel` varchar(100) DEFAULT NULL,
+        `time_taken` int(11) DEFAULT 0,
+        `totalTime` int(11) DEFAULT 0,
+        `question_number` int(11) DEFAULT NULL,
+        `timestamp` datetime DEFAULT current_timestamp(),
+        PRIMARY KEY (`id`),
+        KEY `student_exam` (`student_id`, `examTaken`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+");
 
 // Verify login
 if (!isset($_SESSION['user_id'])) {

@@ -1,13 +1,36 @@
 <?php
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
+// Config handles DB connection + session start
 include '../../config.php';
-session_start([
-  'cookie_lifetime' => 0, // Session lasts until the browser is closed
-]);
+
+// Only show errors locally; hide on production
+$isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
+if (!$isProduction) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+} else {
+    error_reporting(0);
+    ini_set('display_errors', 0);
+}
+
+// Redirect if not logged in
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../../login/');
+    exit;
+}
 $user_id = $_SESSION['user_id'];
+
+// Auto-create temporary_exam_state table if it doesn't exist (needed on fresh production DB)
+mysqli_query($con, "
+    CREATE TABLE IF NOT EXISTS `temporary_exam_state` (
+        `student_id` int(11) NOT NULL,
+        `examTaken` int(11) NOT NULL,
+        `question_set` text NOT NULL,
+        `current_question` int(11) NOT NULL DEFAULT 0,
+        `timer` int(11) NOT NULL DEFAULT 0,
+        `updated_at` datetime NOT NULL,
+        PRIMARY KEY (`student_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+");
 
 // Clear stale NGN exam sessions when returning to dashboard
 if (isset($_SESSION['current_ngn_examTaken'])) {

@@ -29,4 +29,11 @@ Thumbs.db
 *.sql
 .env.production
 
+# Security: never commit these to git
+setup_check.php
+config_backup.php
+config_new.php
+test_db.php
+tmp_*.txt
+
 # Note: .htaccess IS included for production deployment
