@@ -48,7 +48,7 @@ mysqli_query($con, "
 
 // Verify login
 if (!isset($_SESSION['user_id'])) {
-  header("Location: ../../../login.php");
+  header('Location: ' . BASE_URL . 'index.php');
   exit;
 }
 

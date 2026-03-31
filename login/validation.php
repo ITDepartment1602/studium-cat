@@ -5,10 +5,7 @@
  * Handles user authentication with secure architecture.
  */
 
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
+// config.php handles session, environment settings, and database initialization
 require_once __DIR__ . '/../config.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -18,42 +15,42 @@ require 'PHPMailer/src/Exception.php';
 require 'PHPMailer/src/PHPMailer.php';
 require 'PHPMailer/src/SMTP.php';
 
-// Get sanitized inputs
+// Get sanitized inputs via global config helper
 $email = post('email');
 $password = post('password');
 
 if (!$email || !$password) {
-    redirect('../', 'Please enter email and password', 'error');
+    redirect(BASE_URL . 'index.php', 'Please enter email and password', 'error');
 }
 
-// Authenticate user
+// Authenticate user (supports both hashed and legacy plain-text passwords)
 $user = authenticateUser($email, $password);
 
 if (!$user) {
-    redirect('../', 'Email or Password is incorrect', 'error');
+    redirect(BASE_URL . 'index.php', 'Email or Password is incorrect', 'error');
 }
 
 date_default_timezone_set('Asia/Manila');
 $currentDate = date('Y-m-d H:i:s');
 
-// Check if already logged in on another device
+// Check if already logged in on another device (within a 2-minute window)
 if ($user['loginstatus'] !== 'Offline' && !is_null($user['lastlogin'])) {
     $lastLogin = new DateTime($user['lastlogin']);
     $currentDateTime = new DateTime($currentDate);
     $interval = $lastLogin->diff($currentDateTime);
 
     if ($interval->i < 2 && $interval->h == 0) {
-        redirect('../', "You can't log in right now because you're already logged in on another device or browser. If you closed the browser without logging out, please wait 2 minutes before trying again.", 'error');
+        redirect(BASE_URL . 'index.php', "You can't log in right now because you're already logged in on another device or browser. If you closed the browser without logging out, please wait 2 minutes before trying again.", 'error');
     }
 }
 
-// Update login time and status
+// Update login time and status using modern db() helper
 db()->execute(
     "UPDATE login SET lastlogin = ?, loginstatus = 'Active now' WHERE id = ?",
     [$currentDate, $user['id']]
 );
 
-// Admin login with OTP
+// Admin login logic
 if ($user['status'] == 'admin') {
     $code = rand(100000, 999999);
     $hour = date('G');
@@ -89,35 +86,37 @@ if ($user['status'] == 'admin') {
 
     } catch (Exception $e) {
         error_log("Email send failed: " . $mail->ErrorInfo);
-        redirect('../', 'Unable to send verification code. Please try again.', 'error');
+        redirect(BASE_URL . 'index.php', 'Unable to send verification code. Please try again.', 'error');
     }
 
-// Disabled account
-} else if ($user['type'] == 1) {
-    redirect('../', 'Your account is disabled. Please contact support.', 'error');
+// Account lifecycle checks
+} else if (isset($user['type']) && $user['type'] == 1) {
+    redirect(BASE_URL . 'index.php', 'Your account is disabled. Please contact support.', 'error');
 
-// Expired account
 } else if (!is_null($user['dateexpired']) && $currentDate > $user['dateexpired']) {
     $dateExpired = date('F j, Y', strtotime($user['dateexpired']));
-    redirect('../', "Your account has expired as of <b>$dateExpired</b>. Please contact support.", 'error');
+    redirect(BASE_URL . 'index.php', "Your account has expired as of <b>$dateExpired</b>. Please contact support.", 'error');
 
-// Normal user login
+// Normal user login success redirection
 } else if ($user['status'] == 'user') {
-    // If dateexpired is NULL → redirect to activation modal
+    // If dateexpired is NULL → user needs system activation
     if (is_null($user['dateexpired'])) {
         $_SESSION['pending_user_id']   = $user['id'];
         $_SESSION['pending_fullname']  = $user['fullname'];
         $_SESSION['pending_subMonth']  = $user['subMonth'];
-        header('location: ../student/dashboard/activate.php');
+        header('Location: ../student/dashboard/activate.php');
         exit;
     }
 
-    // Login successful
+    // Set authenticated session
     loginUser($user);
-    header('location:../student/dashboard/index.php?bundle_name=' . $user['bundle_name']);
+    
+    // Support legacy bundle_name redirection
+    $bundleNameParam = isset($user['bundle_name']) ? ('?bundle_name=' . urlencode($user['bundle_name'])) : '';
+    header('Location: ../student/dashboard/index.php' . $bundleNameParam);
     exit;
 }
 
-// Fallback
-redirect('../', 'Login failed', 'error');
+// Global fallback if something went wrong
+redirect(BASE_URL . 'index.php', 'Authentication failed', 'error');
 ?>

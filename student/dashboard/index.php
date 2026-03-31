@@ -12,9 +12,9 @@ if (!$isProduction) {
     ini_set('display_errors', 0);
 }
 
-// Redirect if not logged in
+// Redirect if not logged in — uses BASE_URL so works on localhost AND production
 if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../login/');
+    header('Location: ' . BASE_URL . 'index.php');
     exit;
 }
 $user_id = $_SESSION['user_id'];
