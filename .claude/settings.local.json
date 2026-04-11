@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(grep -rn \"mysqli_query.*\\\\\\\\\\\\$\\\\|mysqli_query.*\\\\\\\\\\\\\"\\\\.\\\\$\" /c/xampp/htdocs/studium-cat --include=\"*.php\")",
+      "Bash(grep -n \"session_start\\\\|CREATE TABLE\" /c/xampp/htdocs/studium-cat/student/dashboard/ngn/*.php)"
+    ]
+  }
+}

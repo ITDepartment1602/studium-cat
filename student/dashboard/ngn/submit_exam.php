@@ -1,6 +1,8 @@
 <?php
-session_start();
-include '../../../config.php';
+/**
+ * NGN Exam Submission - Transfer temporary results to permanent storage
+ */
+require_once '../../../config.php';
 
 header('Content-Type: application/json');
 
@@ -21,50 +23,54 @@ if (!$body || !isset($body['examTaken'])) {
 
 $examTaken = intval($body['examTaken']);
 
-mysqli_begin_transaction($con);
+// Tables are created by config.php — no duplicate CREATE TABLE here
+
+// Check if there's data to transfer
+$tempData = db()->fetchOne(
+    "SELECT COUNT(*) as cnt FROM temporary_exam_result WHERE student_id = ? AND examTaken = ?",
+    [$student_id, $examTaken]
+);
+
+if (!$tempData || $tempData['cnt'] == 0) {
+    echo json_encode(['ok' => true, 'message' => 'No data to transfer']);
+    exit;
+}
+
+$conn = db()->getConnection();
+$conn->begin_transaction();
 
 try {
     // Transfer data from temporary_exam_result to exam_results
-    $transfer_stmt = mysqli_prepare($con, "
-        INSERT INTO exam_results (student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, rationale, question_number, time_taken, totalTime, timestamp)
-        SELECT student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, rationale, question_number, time_taken, totalTime, timestamp
-        FROM temporary_exam_result
-        WHERE student_id = ? AND examTaken = ?
-    ");
-    
-    if (!$transfer_stmt) throw new Exception("Prepare transfer failed: " . mysqli_error($con));
-    
-    mysqli_stmt_bind_param($transfer_stmt, 'ii', $student_id, $examTaken);
-    mysqli_stmt_execute($transfer_stmt);
-    mysqli_stmt_close($transfer_stmt);
+    $ok = db()->execute(
+        "INSERT INTO exam_results (student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, omitted, changes_count, rationale, question_number, time_taken, totalTime, timestamp)
+         SELECT student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, omitted, changes_count, rationale, question_number, time_taken, totalTime, timestamp
+         FROM temporary_exam_result
+         WHERE student_id = ? AND examTaken = ?",
+        [$student_id, $examTaken]
+    );
+    if (!$ok) throw new Exception("Transfer failed");
 
     // Delete from temporary_exam_result
-    $del_stmt = mysqli_prepare($con, "DELETE FROM temporary_exam_result WHERE student_id = ? AND examTaken = ?");
-    mysqli_stmt_bind_param($del_stmt, 'ii', $student_id, $examTaken);
-    mysqli_stmt_execute($del_stmt);
-    mysqli_stmt_close($del_stmt);
+    db()->execute(
+        "DELETE FROM temporary_exam_result WHERE student_id = ? AND examTaken = ?",
+        [$student_id, $examTaken]
+    );
 
     // Delete from temporary_exam_state
-    $del_state = mysqli_prepare($con, "DELETE FROM temporary_exam_state WHERE student_id = ? AND examTaken = ?");
-    mysqli_stmt_bind_param($del_state, 'ii', $student_id, $examTaken);
-    mysqli_stmt_execute($del_state);
-    mysqli_stmt_close($del_state);
+    db()->execute(
+        "DELETE FROM temporary_exam_state WHERE student_id = ? AND examTaken = ?",
+        [$student_id, $examTaken]
+    );
 
-    // Commit Transaction
-    mysqli_commit($con);
-    
+    $conn->commit();
+
     // Unset Session Data for this attempt
-    if (isset($_SESSION['current_ngn_examTaken'])) {
-        unset($_SESSION['current_ngn_examTaken']);
-    }
-    if (isset($_SESSION['ngn_exam_set'])) {
-        unset($_SESSION['ngn_exam_set']);
-    }
+    unset($_SESSION['current_ngn_examTaken']);
+    unset($_SESSION['ngn_exam_set']);
 
-    echo json_encode(['ok' => true]);
+    echo json_encode(['ok' => true, 'transferred' => $tempData['cnt']]);
 } catch (Exception $e) {
-    mysqli_rollback($con);
+    $conn->rollback();
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['error' => 'Transfer failed']);
 }
-?>

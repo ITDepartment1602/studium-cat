@@ -91,6 +91,7 @@ if (IS_PRODUCTION) {
 // ── 5. CORE SYSTEM LOAD ──────────────────────────────────────
 // Load modern Database class
 require_once __DIR__ . '/core/Database.php';
+require_once __DIR__ . '/core/ScoringEngine.php';
 
 // Initialize the master connection for legacy code support ($con)
 try {
@@ -120,6 +121,9 @@ if (isset($con)) {
             `question_set`     text         NOT NULL,
             `current_question` int(11)      NOT NULL DEFAULT 0,
             `timer`            int(11)      NOT NULL DEFAULT 0,
+            `theta_ability`    float        NOT NULL DEFAULT 0.0,
+            `standard_error`   float        NOT NULL DEFAULT 1.0,
+            `question_count`   int(11)      NOT NULL DEFAULT 0,
             `updated_at`       datetime     NOT NULL,
             PRIMARY KEY (`student_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
@@ -137,8 +141,10 @@ if (isset($con)) {
             `correct_answer`  text,
             `isCorrect`       tinyint(1)    DEFAULT 0,
             `score`           float         DEFAULT 0,
+            `earned_points`   float         DEFAULT 0,
             `max_points`      int(11)       DEFAULT 1,
-            `earned_points`   int(11)       DEFAULT 0,
+            `omitted`         tinyint(1)    DEFAULT 0,
+            `changes_count`   int(11)       DEFAULT 0,
             `rationale`       text,
             `topic`           varchar(255)  DEFAULT NULL,
             `system`          varchar(255)  DEFAULT NULL,
@@ -148,6 +154,39 @@ if (isset($con)) {
             `totalTime`       int(11)       DEFAULT 0,
             `initial_answer`  text          DEFAULT NULL,
             `changes`         json          DEFAULT NULL,
+            `question_number` int(11)       DEFAULT NULL,
+            `timestamp`       datetime      DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `student_exam` (`student_id`, `examTaken`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
+    // Permanent exam results table
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `exam_results` (
+            `id`              int(11)       NOT NULL AUTO_INCREMENT,
+            `student_id`      int(11)       NOT NULL,
+            `examTaken`       int(11)       NOT NULL,
+            `question_uid`    varchar(100)  NOT NULL,
+            `question_type`   varchar(50)   DEFAULT NULL,
+            `question_id`     int(11)       DEFAULT NULL,
+            `user_answer`     text,
+            `correct_answer`  text,
+            `initial_answer`  text          DEFAULT NULL,
+            `changes`         json          DEFAULT NULL,
+            `isCorrect`       tinyint(1)    DEFAULT 0,
+            `score`           float         DEFAULT 0,
+            `earned_points`   float         DEFAULT 0,
+            `max_points`      int(11)       DEFAULT 1,
+            `omitted`         tinyint(1)    DEFAULT 0,
+            `changes_count`   int(11)       DEFAULT 0,
+            `rationale`       text,
+            `topic`           varchar(255)  DEFAULT NULL,
+            `system`          varchar(255)  DEFAULT NULL,
+            `cnc`             varchar(255)  DEFAULT NULL,
+            `dlevel`          varchar(100)  DEFAULT NULL,
+            `time_taken`      int(11)       DEFAULT 0,
+            `totalTime`       int(11)       DEFAULT 0,
             `question_number` int(11)       DEFAULT NULL,
             `timestamp`       datetime      DEFAULT current_timestamp(),
             PRIMARY KEY (`id`),
