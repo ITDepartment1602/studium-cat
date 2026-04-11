@@ -150,6 +150,8 @@ if (isset($con)) {
             `system`          varchar(255)  DEFAULT NULL,
             `cnc`             varchar(255)  DEFAULT NULL,
             `dlevel`          varchar(100)  DEFAULT NULL,
+            `narcan`          varchar(255)  DEFAULT NULL,
+            `concept`         varchar(255)  DEFAULT NULL,
             `time_taken`      int(11)       DEFAULT 0,
             `totalTime`       int(11)       DEFAULT 0,
             `initial_answer`  text          DEFAULT NULL,
@@ -185,6 +187,8 @@ if (isset($con)) {
             `system`          varchar(255)  DEFAULT NULL,
             `cnc`             varchar(255)  DEFAULT NULL,
             `dlevel`          varchar(100)  DEFAULT NULL,
+            `narcan`          varchar(255)  DEFAULT NULL,
+            `concept`         varchar(255)  DEFAULT NULL,
             `time_taken`      int(11)       DEFAULT 0,
             `totalTime`       int(11)       DEFAULT 0,
             `question_number` int(11)       DEFAULT NULL,
@@ -193,6 +197,39 @@ if (isset($con)) {
             KEY `student_exam` (`student_id`, `examTaken`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
+
+    // ── SCHEMA ALIGNMENT — adds columns to existing tables on live DB ──
+    // Helper: add column only if it does not exist (MySQL + MariaDB compatible)
+    function _addColIfMissing($con, $table, $col, $definition) {
+        $safe_table = mysqli_real_escape_string($con, $table);
+        $safe_col   = mysqli_real_escape_string($con, $col);
+        $r = mysqli_query($con, "SHOW COLUMNS FROM `{$safe_table}` LIKE '{$safe_col}'");
+        if ($r && mysqli_num_rows($r) === 0) {
+            mysqli_query($con, "ALTER TABLE `{$safe_table}` ADD COLUMN `{$safe_col}` {$definition}");
+        }
+    }
+
+    $questionTables = ['traditional', 'sata', 'mpr', 'mmr', 'btq', 'dragndrop', 'dropdown', 'highlight', '`column`'];
+    $resultTables   = ['temporary_exam_result', 'exam_results'];
+
+    // 6.1 — difficulty_logit enables CAT adaptive selection in fetch_question.php
+    foreach ($questionTables as $t) {
+        _addColIfMissing($con, trim($t, '`'), 'difficulty_logit', 'DECIMAL(5,2) DEFAULT 0.0');
+    }
+
+    // 6.2 — topic/system/cnc/dlevel missing from btq and mmr
+    foreach (['btq', 'mmr'] as $t) {
+        _addColIfMissing($con, $t, 'topic',  'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'system', 'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'cnc',    'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'dlevel', 'VARCHAR(100) DEFAULT NULL');
+    }
+
+    // 6.3 — narcan and concept per NGN Question Bank spec (PDF)
+    foreach (array_merge(['traditional', 'sata', 'mpr', 'mmr', 'btq', 'dragndrop', 'dropdown', 'highlight', 'column'], $resultTables) as $t) {
+        _addColIfMissing($con, $t, 'narcan',  'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'concept', 'VARCHAR(255) DEFAULT NULL');
+    }
 }
 
 // ── 7. HELPER FUNCTIONS ───────────────────────────────────────

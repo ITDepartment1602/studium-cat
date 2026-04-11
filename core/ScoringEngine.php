@@ -41,12 +41,20 @@ class ScoringEngine {
                 return self::scoreBowtie($user, $correct);
                 
             case 'sata':
+                return self::scoreSATA($user, $correct);    // Strict: all-or-nothing per NCLEX
+
+            case 'mpr':
             case 'msr':
-                return self::scoreSATA($user, $correct);
-                
+                return self::scoreMPR($user, $correct);     // Partial credit
+
+            case 'highlight':
+                return self::scoreHighlight($user, $correct); // Per-word partial
+
+            case 'dragndrop':
+                return self::scoreDragDrop($user, $correct);  // Positional partial
+
             case 'traditional':
             case 'mc':
-            case 'highlight':
             default:
                 return self::scoreTraditional($user, $correct);
         }
@@ -208,7 +216,96 @@ class ScoringEngine {
     }
     
     /**
-     * Traditional/Highlight/MC Scoring
+     * Highlight Scoring — partial credit per correctly selected word
+     * earned = correct_selected / total_correct_words
+     */
+    private static function scoreHighlight($user, $correct): array {
+        $user    = self::normalizeToArray($user);
+        $correct = self::normalizeToArray($correct);
+
+        $totalCorrect = count($correct);
+        if ($totalCorrect === 0) {
+            return ['earned' => 0, 'max' => 1, 'isCorrect' => false];
+        }
+
+        $correctSelected = 0;
+        foreach ($correct as $word) {
+            if (in_array($word, $user, true)) {
+                $correctSelected++;
+            }
+        }
+
+        $earned = $correctSelected / $totalCorrect;
+
+        return [
+            'earned'    => round($earned, 2),
+            'max'       => 1,
+            'isCorrect' => $earned >= 1.0,
+        ];
+    }
+
+    /**
+     * MPR (Multiple Priority Response) Scoring — partial credit
+     * earned = correct_selected / total_correct_options
+     * Unlike SATA, selecting wrong answers does NOT zero the score.
+     */
+    private static function scoreMPR($user, $correct): array {
+        $user    = self::normalizeToArray($user);
+        $correct = self::normalizeToArray($correct);
+
+        $totalCorrect = count($correct);
+        if ($totalCorrect === 0) {
+            return ['earned' => 0, 'max' => 1, 'isCorrect' => false];
+        }
+
+        $correctSelected = 0;
+        foreach ($correct as $c) {
+            if (in_array($c, $user, true)) {
+                $correctSelected++;
+            }
+        }
+
+        $earned = $correctSelected / $totalCorrect;
+
+        return [
+            'earned'    => round($earned, 2),
+            'max'       => 1,
+            'isCorrect' => $earned >= 1.0,
+        ];
+    }
+
+    /**
+     * Drag-and-Drop Scoring — positional partial credit
+     * earned = correct_positions / total_positions
+     * Compares by array index (position).
+     */
+    private static function scoreDragDrop($user, $correct): array {
+        $user    = self::normalizeToArray($user);
+        $correct = self::normalizeToArray($correct);
+
+        $totalPositions = count($correct);
+        if ($totalPositions === 0) {
+            return ['earned' => 0, 'max' => 1, 'isCorrect' => false];
+        }
+
+        $correctPositions = 0;
+        foreach ($correct as $index => $value) {
+            if (isset($user[$index]) && strval($user[$index]) === strval($value)) {
+                $correctPositions++;
+            }
+        }
+
+        $earned = $correctPositions / $totalPositions;
+
+        return [
+            'earned'    => round($earned, 2),
+            'max'       => 1,
+            'isCorrect' => $earned >= 1.0,
+        ];
+    }
+
+    /**
+     * Traditional/MC Scoring
      * Binary correct/incorrect
      */
     private static function scoreTraditional($user, $correct): array {

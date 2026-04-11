@@ -373,7 +373,7 @@ if (count($results) > 0):
                             </td>
                             <td class="p-4 text-center">
                                 <button class="btn-view inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                                        onclick='viewQuestion(<?php echo json_encode([
+                                        data-payload='<?php echo htmlspecialchars(json_encode([
                                             "type" => $row["question_type"],
                                             "id" => $actualId,
                                             "answer" => $uAnsRaw,
@@ -384,7 +384,7 @@ if (count($results) > 0):
                                             "earned_points" => $row["earned_points"] ?? 0,
                                             "max_points" => $row["max_points"] ?? 0,
                                             "rationale" => $displayRationale
-                                        ]); ?>)'>
+                                        ]), ENT_QUOTES, 'UTF-8'); ?>'>
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 </button>
                             </td>
@@ -453,6 +453,17 @@ endif; ?>
         };
     }
     function closeModal() { document.getElementById('viewModal').style.display = 'none'; document.getElementById('reviewFrame').src = ''; }
+
+    // Delegated listener for .btn-view buttons (replaces inline onclick)
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-view');
+        if (!btn || !btn.dataset.payload) return;
+        try {
+            viewQuestion(JSON.parse(btn.dataset.payload));
+        } catch (err) {
+            console.error('Failed to parse question payload', err);
+        }
+    });
 
     new Chart(document.getElementById('scoreChart'), {
         type: 'doughnut',

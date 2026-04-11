@@ -44,6 +44,18 @@ Reference roadmap: [NGN-UPGRADE-ROADMAP.md](NGN-UPGRADE-ROADMAP.md)
 | 16 | P3 | index.php + save_history.php | Duplicate `CREATE TABLE` blocks (already in config.php) | 10–54 |
 | 17 | P3 | history_details.php | JSON in `onclick` attribute — needs `data-*` refactor | 352–363 |
 | 18 | P3 | state_manager.php | Uses `mysqli_*` functions; not using `db()` singleton | 29–53 |
+| 19 | **P0** | result.php | SQL injection via raw `$student_id` and `$id` interpolation | 35–37, 42, 383 |
+| 20 | P2 | save_history.php | `bind_param` type mismatch (22 chars / 24 params) + raw mysqli | 86–134 |
+| 21 | P2 | index.php | 6 raw `mysqli_query()` calls need `db()` migration | Multiple |
+| 22 | P2 | submit_exam.php | Duplicate `CREATE TABLE` + raw `mysqli_prepare` | 27–58, 76–104 |
+| 23 | P2 | result.php | Full raw mysqli migration needed | Multiple |
+| 24 | **P1** | core/ScoringEngine.php | `highlight` scored as binary (should be per-word partial) | 49–51 |
+| 25 | **P1** | core/ScoringEngine.php | `mpr`/`msr` aliased to SATA strict scoring (should be partial) | 43–45 |
+| 26 | **P1** | core/ScoringEngine.php | `dragndrop` scored as binary (should be positional partial) | 49–51 |
+| 27 | P2 | All question tables | Missing `difficulty_logit` column disables CAT adaptive selection | — |
+| 28 | P2 | btq, mmr tables | Missing `topic`/`system`/`cnc`/`dlevel` metadata columns | — |
+| 29 | P3 | All tables | Missing `narcan` and `concept` columns per NGN PDF spec | — |
+| 30 | P2 | save_history.php | Duplicate `CREATE TABLE` block (lines 27–54) | 27–54 |
 
 ---
 
@@ -573,6 +585,7 @@ must be corrected before moving to the next fix.
 | **OUTPUT-002** | No JSON in HTML attributes. Use `data-*` with `htmlspecialchars(json_encode(...))` and parse in JS. |
 | **JS-001** | No `eval()`. Use `JSON.parse()` for data. Use a regex-whitelisted `Function()` for arithmetic only. |
 | **INCLUDE-001** | Every PHP file begins with `require_once '<path>/config.php'`. Never call `session_start()` manually. |
+| **INCLUDE-002** | Use `require_once`, never `include`. `session_start()` is handled exclusively by `config.php`. |
 | **SCORE-001** | All scoring goes through `ScoringEngine::score()`. `includes/scoring.php` is deprecated — do not add logic there. |
 | **CSRF-001** | All state-mutating POST endpoints must validate `X-CSRF-Token` via `validateCsrfToken()` from `core/Security.php`. |
 
@@ -621,3 +634,18 @@ Run each check after completing the corresponding fix group.
 - [ ] Inspect DOM of `history_details.php` for a question row. Expected: `<button data-payload='...'>`,
   no `onclick='viewQuestion(...)'`. Clicking the button still opens the modal correctly.
 - [ ] Trigger a state save mid-exam. Expected: no `mysqli_*` deprecation warnings in PHP error log.
+
+### Scoring Engine Checks (Phase 5)
+- [ ] `ScoringEngine::score('highlight', ['word1','word2'], ['word1','word2','word3'])` → `earned = 0.67`, not `0` or `1`.
+- [ ] `ScoringEngine::score('mpr', ['a','c'], ['a','b','c','d'])` → `earned = 0.5`, not `0`.
+- [ ] `ScoringEngine::score('dragndrop', ['x','y','z'], ['x','y','w'])` → `earned = 0.67` (2/3 correct positions).
+- [ ] `ScoringEngine::score('sata', ['a','b'], ['a','b','c'])` → `earned = 0` (strict: missed `c`).
+- [ ] `ScoringEngine::score('msr', ['a','b'], ['a','b','c'])` → `earned = 0.67` (partial: MSR/MPR not strict).
+
+### Schema Checks (Phase 6)
+- [ ] `SHOW COLUMNS FROM btq LIKE 'difficulty_logit'` → returns row.
+- [ ] `SHOW COLUMNS FROM mmr LIKE 'topic'` → returns row.
+- [ ] `SHOW COLUMNS FROM traditional LIKE 'narcan'` → returns row.
+- [ ] `SHOW COLUMNS FROM exam_results LIKE 'concept'` → returns row.
+- [ ] Submit an answer for a question with `difficulty_logit = 2.0`. Confirm `cat.theta_ability` updated correctly.
+- [ ] Submit answer where question has `narcan` value. Confirm `exam_results.narcan` is populated after `submit_exam.php`.

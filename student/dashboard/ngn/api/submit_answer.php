@@ -99,6 +99,8 @@ $topic = $input['topic'] ?? 'N/A';
 $system = $input['system'] ?? 'N/A';
 $cnc = $input['cnc'] ?? 'N/A';
 $dlevel = $input['dlevel'] ?? 'N/A';
+$narcan = $input['narcan'] ?? null;
+$concept = $input['concept'] ?? null;
 $questionDifficulty = 0.0; // default if column absent or metadata not fetched
 
 // If metadata not provided, try to fetch from appropriate table
@@ -117,13 +119,13 @@ if (!isset($input['rationale']) && $question_id > 0) {
         'dragndrop' => 'dragndrop',
         'column' => 'column'
     ];
-    
+
     if (!isset($tableMap[$question_type])) {
         // Unknown type — skip metadata fetch, use defaults
         $qData = null;
     } else {
         $table = $tableMap[$question_type];
-        $qData = db()->fetchOne("SELECT rationale, topic, system, cnc, dlevel, difficulty_logit FROM {$table} WHERE id = ? LIMIT 1", [$question_id]);
+        $qData = db()->fetchOne("SELECT rationale, topic, system, cnc, dlevel, difficulty_logit, narcan, concept FROM {$table} WHERE id = ? LIMIT 1", [$question_id]);
     }
     if ($qData) {
         $rationale = $qData['rationale'] ?? $rationale;
@@ -131,6 +133,8 @@ if (!isset($input['rationale']) && $question_id > 0) {
         $system = $qData['system'] ?? $system;
         $cnc = $qData['cnc'] ?? $cnc;
         $dlevel = $qData['dlevel'] ?? $dlevel;
+        $narcan = $qData['narcan'] ?? $narcan;
+        $concept = $qData['concept'] ?? $concept;
         $questionDifficulty = isset($qData['difficulty_logit']) ? floatval($qData['difficulty_logit']) : 0.0;
     }
 }
@@ -194,8 +198,9 @@ try {
              (student_id, examTaken, question_uid, question_type, question_id,
               user_answer, correct_answer, initial_answer, changes, isCorrect, score,
               earned_points, max_points, omitted, changes_count,
-              rationale, topic, system, cnc, dlevel, time_taken, totalTime, question_number)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              rationale, topic, system, cnc, dlevel, narcan, concept,
+              time_taken, totalTime, question_number)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 $student_id,
                 $examTaken,
@@ -217,6 +222,8 @@ try {
                 $system,
                 $cnc,
                 $dlevel,
+                $narcan,
+                $concept,
                 $time_taken,
                 $time_taken,
                 $question_number

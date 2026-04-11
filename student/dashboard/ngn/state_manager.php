@@ -1,6 +1,6 @@
 <?php
-session_start();
-include '../../../config.php';
+require_once '../../../config.php';
+// session_start() handled by config.php
 
 header('Content-Type: application/json');
 
@@ -19,37 +19,28 @@ if (!$body || !isset($body['examTaken']) || !isset($body['question_set']) || !is
     exit;
 }
 
-$examTaken = intval($body['examTaken']);
-$question_set = json_encode($body['question_set']);
+$examTaken        = intval($body['examTaken']);
+$question_set     = json_encode($body['question_set']);
 $current_question = isset($body['current_question']) ? intval($body['current_question']) : 0;
-$timer = intval($body['timer']);
-$updated_at = date('Y-m-d H:i:s');
+$timer            = intval($body['timer']);
+$updated_at       = date('Y-m-d H:i:s');
 
-// We use INSERT ... ON DUPLICATE KEY UPDATE to create or update the state
-$stmt = mysqli_prepare($con, "
-    INSERT INTO temporary_exam_state (student_id, examTaken, question_set, current_question, timer, updated_at) 
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE 
-    question_set = VALUES(question_set), 
-    current_question = VALUES(current_question), 
-    timer = VALUES(timer), 
-    updated_at = VALUES(updated_at)
-");
+$ok = db()->execute(
+    "INSERT INTO temporary_exam_state
+        (student_id, examTaken, question_set, current_question, timer, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+        question_set     = VALUES(question_set),
+        current_question = VALUES(current_question),
+        timer            = VALUES(timer),
+        updated_at       = VALUES(updated_at)",
+    [$student_id, $examTaken, $question_set, $current_question, $timer, $updated_at]
+);
 
-if (!$stmt) {
-    http_response_code(500);
-    echo json_encode(['error' => mysqli_error($con)]);
-    exit;
-}
-
-mysqli_stmt_bind_param($stmt, 'iisiis', $student_id, $examTaken, $question_set, $current_question, $timer, $updated_at);
-$res = mysqli_stmt_execute($stmt);
-mysqli_stmt_close($stmt);
-
-if ($res) {
+if ($ok) {
     echo json_encode(['ok' => true]);
 } else {
     http_response_code(500);
-    echo json_encode(['error' => 'db_insert_failed', 'mysql' => mysqli_error($con)]);
+    echo json_encode(['error' => 'db_insert_failed']);
 }
 ?>
