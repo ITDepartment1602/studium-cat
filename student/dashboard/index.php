@@ -1,10 +1,36 @@
 <?php
-
+// Config handles DB connection + session start
 include '../../config.php';
-session_start([
-  'cookie_lifetime' => 0, // Session lasts until the browser is closed
-]);
+
+// Only show errors locally; hide on production
+$isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
+if (!$isProduction) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+} else {
+    error_reporting(0);
+    ini_set('display_errors', 0);
+}
+
+// Redirect if not logged in — uses BASE_URL so works on localhost AND production
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . BASE_URL . 'index.php');
+    exit;
+}
 $user_id = $_SESSION['user_id'];
+
+// Auto-create temporary_exam_state table if it doesn't exist (needed on fresh production DB)
+mysqli_query($con, "
+    CREATE TABLE IF NOT EXISTS `temporary_exam_state` (
+        `student_id` int(11) NOT NULL,
+        `examTaken` int(11) NOT NULL,
+        `question_set` text NOT NULL,
+        `current_question` int(11) NOT NULL DEFAULT 0,
+        `timer` int(11) NOT NULL DEFAULT 0,
+        `updated_at` datetime NOT NULL,
+        PRIMARY KEY (`student_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+");
 
 // Clear stale NGN exam sessions when returning to dashboard
 if (isset($_SESSION['current_ngn_examTaken'])) {
@@ -15,11 +41,12 @@ if (isset($_SESSION['ngn_exam_set'])) {
 }
 
 // Set timezone to Asia/Manila in MySQL
-mysqli_query($con, "SET time_zone = '+08:00'"); // Adjust to your timezone if necessary
+$quizCon = getQuizConnection();
+mysqli_query($quizCon, "SET time_zone = '+08:00'"); // Adjust to your timezone if necessary
 
-$totalQ = mysqli_fetch_assoc(mysqli_query($con, "SELECT COUNT(*) as total FROM question"))['total'];
+$totalQ = mysqli_fetch_assoc(mysqli_query($quizCon, "SELECT COUNT(*) as total FROM question"))['total'];
 
-$usedQ = mysqli_fetch_assoc(mysqli_query($con, "
+$usedQ = mysqli_fetch_assoc(mysqli_query($quizCon, "
     SELECT COUNT(DISTINCT questionId) as used 
     FROM review 
     WHERE studentId = '$user_id'
@@ -27,13 +54,13 @@ $usedQ = mysqli_fetch_assoc(mysqli_query($con, "
 
 $unusedQ = $totalQ - $usedQ;
 
-$correct = mysqli_fetch_assoc(mysqli_query($con, "
+$correct = mysqli_fetch_assoc(mysqli_query($quizCon, "
     SELECT COUNT(*) as correct 
     FROM review 
     WHERE studentId = '$user_id' AND ans = correctAns
 "))['correct'];
 
-$wrong = mysqli_fetch_assoc(mysqli_query($con, "
+$wrong = mysqli_fetch_assoc(mysqli_query($quizCon, "
     SELECT COUNT(*) as wrong 
     FROM review 
     WHERE studentId = '$user_id' AND ans != correctAns
@@ -576,7 +603,7 @@ if (isset($user_id)) {
             <div class="d-flex flex-column flex-md-row flex-wrap justify-content-start gap-3">
               <?php
               // Check for active paused NGN exam
-              $ngnStateCheck = mysqli_query($con, "SELECT * FROM temporary_exam_state WHERE student_id = '$user_id'");
+              $ngnStateCheck = mysqli_query($quizCon, "SELECT * FROM temporary_exam_state WHERE student_id = '$user_id'");
               if (mysqli_num_rows($ngnStateCheck) > 0) {
                   $stRow = mysqli_fetch_assoc($ngnStateCheck);
                   $savedTimeStr = date('M d, Y h:i A', strtotime($stRow['updated_at']));
@@ -908,8 +935,8 @@ options.forEach(option => {
           $concepts = array_keys($conceptIcons);
 
           foreach ($concepts as $concept) {
-            $query = "SELECT * FROM history WHERE email = '$user_id' AND eid = '$concept' AND kilanlan = 'NARC Intermediate and Advance QBanks'";
-            $data = mysqli_query($con, $query);
+            $query = "SELECT * FROM `history` WHERE email = '$user_id' AND eid = '$concept' AND kilanlan = 'NARC Intermediate and Advance QBanks'";
+            $data = mysqli_query($quizCon, $query);
 
             $totalScore = 0; $count = 0;
             while ($rows = mysqli_fetch_array($data)) {
@@ -955,10 +982,10 @@ options.forEach(option => {
 <script>
   // Passing Donut Chart
   <?php
-  $select = mysqli_query($con, "SELECT sum(score) FROM `history` WHERE email = '$user_id' ") or die('query failed');
+  $select = mysqli_query($quizCon, "SELECT sum(score) FROM `history` WHERE email = '$user_id' ") or die('query failed');
   $passing = 0;
   while ($rows = mysqli_fetch_array($select)) {
-    $total = mysqli_num_rows(mysqli_query($con, "SELECT * FROM `history` WHERE email = '$user_id' "));
+    $total = mysqli_num_rows(mysqli_query($quizCon, "SELECT * FROM `history` WHERE email = '$user_id' "));
     $passing = ($total == 0) ? 0 : ($rows['sum(score)'] / $total);
   }
   $passingRounded = round($passing);
@@ -991,7 +1018,7 @@ options.forEach(option => {
   <?php
   foreach ($concepts as $concept) {
     $query = "SELECT * FROM `history` WHERE email = '$user_id' AND eid = '$concept' AND kilanlan = 'NARC Intermediate and Advance QBanks'";
-    $data = mysqli_query($con, $query);
+    $data = mysqli_query($quizCon, $query);
     $totalScore = 0; $count = 0;
     while ($rows = mysqli_fetch_array($data)) {
       $totalScore += $rows['score'];

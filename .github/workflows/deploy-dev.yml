@@ -1,0 +1,44 @@
+name: Deploy Dev Branch to dev.studium.cat
+
+on:
+  push:
+    branches: [ dev ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deploy to Hostinger
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        protocol: ftp
+        port: 21
+        timeout: 180000
+        server-dir: dev/
+        local-dir: ./
+        state-name: .ftp-deploy-sync-state.json
+        exclude: |
+          **/.git
+          **/.git/**
+          **/.github
+          **/.github/**
+          **/.gitignore
+          **/.env
+          **/.env.local
+          **/README.md
+          **/*.sql
+          **/node_modules
+          **/node_modules/**
+          **/vendor
+          **/vendor/**
+    
+    - name: Deployment complete
+      run: echo "✅ Deployed to https://dev.studium.cat/"

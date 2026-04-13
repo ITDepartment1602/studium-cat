@@ -1,13 +1,13 @@
 <?php
-session_start();
-include '../../../config.php';
+require_once '../../../config.php';
+// session_start handled by config.php
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../../../login.php");
     exit;
 }
 
-$student_id = $_SESSION['user_id'];
+$student_id = intval($_SESSION['user_id']);
 $examTaken = isset($_GET['examTaken']) ? intval($_GET['examTaken']) : null;
 $currentPage = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $resultsPerPage = 3;
@@ -16,14 +16,14 @@ $resultsPerPage = 3;
 if (isset($_GET['finish']) && $_GET['finish'] == '1') {
     unset($_SESSION['current_ngn_examTaken']);
     unset($_SESSION['ngn_exam_set']); // Clear question set too
-    
+
     // Redirect to dashboard immediately on intentional exit
     if (isset($_GET['exit']) && $_GET['exit'] == '1') {
         header("Location: ../index.php");
         exit;
     }
 
-    // If they came via the Exit button but didn't actually answer any questions, 
+    // If they came via the Exit button but didn't actually answer any questions,
     // just redirect them home instead of showing a blank results page
     if (!$examTaken) {
        header("Location: ../index.php");
@@ -31,31 +31,37 @@ if (isset($_GET['finish']) && $_GET['finish'] == '1') {
     }
 }
 
-// Build shared where condition
-$whereClause = " WHERE student_id='$student_id' ";
+// Build parameterized where condition
+$whereSQL = "WHERE student_id = ?";
+$whereParams = [$student_id];
 if ($examTaken) {
-    $whereClause .= " AND examTaken='$examTaken' ";
+    $whereSQL .= " AND examTaken = ?";
+    $whereParams[] = $examTaken;
 }
 
 // Count total grouped attempts for pagination
-$countSql = "SELECT COUNT(*) as total_attempts FROM (SELECT examTaken FROM exam_results" . $whereClause . "GROUP BY examTaken) as grouped_attempts";
-$countResult = mysqli_query($con, $countSql);
-$countRow = mysqli_fetch_assoc($countResult);
+$countRow = db()->fetchOne(
+    "SELECT COUNT(*) as total_attempts FROM (SELECT examTaken FROM exam_results {$whereSQL} GROUP BY examTaken) as grouped_attempts",
+    $whereParams
+);
 $totalAttempts = intval($countRow['total_attempts'] ?? 0);
 $totalPages = max(1, (int) ceil($totalAttempts / $resultsPerPage));
 $currentPage = min($currentPage, $totalPages);
 $offset = ($currentPage - 1) * $resultsPerPage;
 
 // Get latest attempt for summary banner (always latest overall under same filter)
-$latestSql = "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time
-              FROM exam_results" . $whereClause . "GROUP BY examTaken ORDER BY exam_time DESC LIMIT 1";
-$latestResult = mysqli_query($con, $latestSql);
-$latest = mysqli_fetch_assoc($latestResult);
+$latest = db()->fetchOne(
+    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time
+     FROM exam_results {$whereSQL} GROUP BY examTaken ORDER BY exam_time DESC LIMIT 1",
+    $whereParams
+);
 
 // Fetch attempts for current page
-$sql = "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time 
-        FROM exam_results" . $whereClause . "GROUP BY examTaken ORDER BY exam_time DESC LIMIT $resultsPerPage OFFSET $offset";
-$attempts = mysqli_query($con, $sql);
+$attemptsRows = db()->fetchAll(
+    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time
+     FROM exam_results {$whereSQL} GROUP BY examTaken ORDER BY exam_time DESC LIMIT ? OFFSET ?",
+    array_merge($whereParams, [$resultsPerPage, $offset])
+);
 
 function getCategory($percent)
 {
@@ -374,13 +380,16 @@ function getCategory($percent)
     <?php endif; ?>
     
     <div class="attempts-grid">
-        <?php while ($row = mysqli_fetch_assoc($attempts)):
-            $id = $row['examTaken'];
+        <?php foreach ($attemptsRows as $row):
+            $id = intval($row['examTaken']);
             // score is sum of fractions 0.00-1.00
             $percent = ($row['total_questions'] > 0) ? round(($row['total_score'] / $row['total_questions']) * 100) : 0;
             $cat = getCategory($percent);
 
-            $t_res = mysqli_query($con, "SELECT topic, COUNT(*) as q, SUM(score) as s FROM exam_results WHERE student_id='$student_id' AND examTaken='$id' GROUP BY topic");
+            $topicRows = db()->fetchAll(
+                "SELECT topic, COUNT(*) as q, SUM(score) as s FROM exam_results WHERE student_id = ? AND examTaken = ? GROUP BY topic",
+                [$student_id, $id]
+            );
         ?>
         <div class="card">
             <div class="score-display">
@@ -403,7 +412,7 @@ function getCategory($percent)
                         </span>
                     </div>
                     <div class="topic-list">
-                        <?php while ($t = mysqli_fetch_assoc($t_res)):
+                        <?php foreach ($topicRows as $t):
                             // t['s'] is sum of float scores
                             $tp = ($t['q'] > 0) ? round(($t['s'] / $t['q']) * 100) : 0;
                         ?>
@@ -411,7 +420,7 @@ function getCategory($percent)
                                 <?php echo htmlspecialchars($t['topic'] ?: 'General'); ?>
                                 <span><?php echo $tp; ?>%</span>
                             </div>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     </div>
                 </div>
 
@@ -460,7 +469,7 @@ function getCategory($percent)
             }
         });
         </script>
-        <?php endwhile; ?>
+        <?php endforeach; ?>
     </div>
 
     <?php if ($totalAttempts > 0 && !$examTaken): ?>

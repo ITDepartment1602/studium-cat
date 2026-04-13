@@ -1,21 +1,22 @@
 <?php
-session_start();
-include '../../../config.php';
+// Config handles DB + session
+require_once '../../../config.php';
+
+// Hide errors from users in production
+$isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
+if ($isProduction) { error_reporting(0); ini_set('display_errors', 0); }
+
+// Tables are created by config.php — no duplicate CREATE TABLE here
 
 // Verify login
 if (!isset($_SESSION['user_id'])) {
-  header("Location: ../../../login.php");
+  header('Location: ' . BASE_URL . 'index.php');
   exit;
 }
 
 // Get fullname
-$user_id = $_SESSION['user_id'];
-$stmt = mysqli_prepare($con, "SELECT fullname, examTaken FROM login WHERE id=? LIMIT 1");
-mysqli_stmt_bind_param($stmt, 'i', $user_id);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
-$user = mysqli_fetch_assoc($result);
-mysqli_stmt_close($stmt);
+$user_id = intval($_SESSION['user_id']);
+$user = db()->fetchOne("SELECT fullname, examTaken FROM login WHERE id = ? LIMIT 1", [$user_id]);
 $fullname = $user ? $user['fullname'] : 'Student';
 
 // Prevent caching to ensure session variables are always fresh
@@ -26,8 +27,7 @@ header("Pragma: no-cache");
 $isNewAttempt = false;
 
 // Check if user is resuming from a saved state via temporary_exam_state
-$stateCheck = mysqli_query($con, "SELECT * FROM temporary_exam_state WHERE student_id = '$user_id'");
-$savedState = mysqli_fetch_assoc($stateCheck);
+$savedState = db()->fetchOne("SELECT * FROM temporary_exam_state WHERE student_id = ?", [$user_id]);
 
 $savedTimer = 0;
 $startQuestionIndex = 0;
@@ -45,8 +45,8 @@ if ($savedState) {
   $isNewAttempt = false;
 
   // Restore previous answers from temporary table
-  $ansQ = mysqli_query($con, "SELECT * FROM temporary_exam_result WHERE student_id='$user_id' AND examTaken='$examTaken'");
-  while ($arow = mysqli_fetch_assoc($ansQ)) {
+  $ansRows = db()->fetchAll("SELECT * FROM temporary_exam_result WHERE student_id = ? AND examTaken = ?", [$user_id, $examTaken]);
+  foreach ($ansRows as $arow) {
     $uid = $arow['question_uid'];
     
     $ansDecoded = json_decode($arow['user_answer'], true);
@@ -83,13 +83,12 @@ if ($savedState) {
   
   // examTaken handling: Increment ONLY ONCE per session to support refresh/persistence
   if (!isset($_SESSION['current_ngn_examTaken'])) {
-    $select = mysqli_query($con, "SELECT examTaken FROM `login` WHERE id = '$user_id'");
-    $userRow = mysqli_fetch_assoc($select);
+    $userRow = db()->fetchOne("SELECT examTaken FROM login WHERE id = ? LIMIT 1", [$user_id]);
     $currentExamTaken = isset($userRow['examTaken']) ? intval($userRow['examTaken']) : 0;
 
     // Increment for new attempt
     $_SESSION['current_ngn_examTaken'] = $currentExamTaken + 1;
-    mysqli_query($con, "UPDATE login SET examTaken = examTaken + 1 WHERE id='$user_id'");
+    db()->execute("UPDATE login SET examTaken = examTaken + 1 WHERE id = ?", [$user_id]);
 
     // Force reset start state for brand new sessions
     $_SESSION['ngn_exam_set'] = null;
@@ -98,10 +97,9 @@ if ($savedState) {
   
   // Fetch new questions if none generated yet
   $questionIds = [];
-  function table_exists($con, $table) {
-    $table = mysqli_real_escape_string($con, $table);
-    $res = mysqli_query($con, "SHOW TABLES LIKE '$table'");
-    return $res && mysqli_num_rows($res) > 0;
+  function table_exists_idx($table) {
+    $result = db()->fetchOne("SHOW TABLES LIKE ?", [$table]);
+    return $result !== null;
   }
 
   $questionTypes = [
@@ -119,10 +117,10 @@ if ($savedState) {
   foreach ($questionTypes as [$candidateTables, $type, $limit]) {
     if (!isset($_SESSION['ngn_exam_set'])) {
       foreach ($candidateTables as $table) {
-        if (!table_exists($con, $table)) continue;
-        $q = mysqli_query($con, "SELECT id, '$type' AS type FROM `$table` ORDER BY RAND() LIMIT $limit");
-        if ($q) {
-          while ($r = mysqli_fetch_assoc($q)) $questionIds[] = $r;
+        if (!table_exists_idx($table)) continue;
+        $rows = db()->fetchAll("SELECT id FROM `{$table}` ORDER BY RAND() LIMIT ?", [$limit]);
+        foreach ($rows as $r) {
+          $questionIds[] = ['id' => $r['id'], 'type' => $type];
         }
         break; // use first existing table for this type
       }
@@ -1075,9 +1073,19 @@ $dbAnswersJs = json_encode($dbAnswers);
   <script>
     function calcInput(val) {
       const d = document.getElementById('calcDisplay');
-      if (val === 'C') d.value = '';
-      else if (val === '=') { try { d.value = eval(d.value); } catch (e) { d.value = 'Total Error'; } }
-      else d.value += val;
+      if (val === 'C') {
+        d.value = '';
+      } else if (val === '=') {
+        try {
+          const expr = d.value;
+          if (!/^[0-9+\-*/.() ]+$/.test(expr)) { d.value = 'Error'; return; }
+          d.value = Function('"use strict"; return (' + expr + ')')();
+        } catch (e) {
+          d.value = 'Error';
+        }
+      } else {
+        d.value += val;
+      }
     }
     function logFeedback(type) {
       Swal.fire({ icon: 'success', title: 'Success', text: 'Your feedback on "' + type + '" has been logged.' });
@@ -1525,13 +1533,17 @@ $dbAnswersJs = json_encode($dbAnswers);
           body: JSON.stringify(userAnswers[uid])
         });
         const result = await response.json();
-        if (!result.ok) throw new Error(result.error || 'Server Error');
+        if (!result.ok) {
+          console.error('Server save failed:', result);
+          throw new Error(result.error || result.mysql || 'Server Error');
+        }
+        console.log('Answer saved to server:', result);
       } catch (err) {
-        console.warn('Failed to save history:', err);
+        console.error('Failed to save history:', err);
         Swal.fire({
-          icon: 'error', title: 'Sync Error',
-          text: 'Recorded locally but failed to save to server.',
-          toast: true, position: 'top-end', timer: 3000, showConfirmButton: false
+          icon: 'warning', title: 'Sync Warning',
+          text: 'Answer saved locally but server sync failed: ' + err.message,
+          toast: true, position: 'top-end', timer: 5000, showConfirmButton: false
         });
       }
     });
@@ -1552,13 +1564,19 @@ $dbAnswersJs = json_encode($dbAnswers);
             body: JSON.stringify({ examTaken: examTaken })
           });
           
-          await response.json();
+          const result = await response.json();
+          console.log('Exam submission result:', result);
+          
+          if (!result.ok) {
+            throw new Error(result.error || 'Failed to submit exam');
+          }
           
           localStorage.removeItem(`ngn_ans_${authUserId}_${examTaken}`);
           localStorage.removeItem(examSessionId);
           window.location.href = 'result.php?examTaken=' + examTaken + '&finish=1';
         } catch (err) {
-          Swal.fire('Error', 'Failed to submit exam data to server.', 'error');
+          console.error('Submit exam error:', err);
+          Swal.fire('Error', 'Failed to submit exam: ' + err.message, 'error');
           isExiting = false;
         }
       }

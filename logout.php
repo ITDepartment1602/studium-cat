@@ -1,6 +1,6 @@
 <?php
-include 'config.php'; // Include your database configuration
-session_start(); // Start the session
+include 'config.php'; // handles session_start safely
+// Note: DO NOT call session_start() again — config.php already does it
 
 $user_id = $_SESSION['user_id'] ?? null; // Get user_id from session
 
@@ -14,6 +14,6 @@ if ($user_id) {
 session_unset(); // Clear all session variables
 session_destroy(); // Destroy the session
 
-header('Location: index.php'); // Redirect to the home page or login page
+header('Location: ' . BASE_URL . 'index.php'); // Redirect to login page
 exit();
 ?>

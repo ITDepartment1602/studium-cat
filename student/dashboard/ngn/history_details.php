@@ -1,33 +1,49 @@
 <?php
-session_start();
-include '../../../config.php';
+require_once '../../../config.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../../../login.php");
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
-$examTaken = isset($_GET['examTaken']) ? mysqli_real_escape_string($con, $_GET['examTaken']) : die("No exam selected!");
+$user_id = intval($_SESSION['user_id']);
+$examTaken = isset($_GET['examTaken']) ? intval($_GET['examTaken']) : 0;
+if (!$examTaken) { die("No exam selected."); }
 
-// 1. Fetch Student Info
-$user_query = mysqli_query($con, "SELECT studentnumber, fullname FROM login WHERE id = '$user_id'");
-$user_data = mysqli_fetch_assoc($user_query);
+// 1. Fetch Student Info (ownership: only own profile)
+$user_data = db()->fetchOne(
+    "SELECT studentnumber, fullname FROM login WHERE id = ? LIMIT 1",
+    [$user_id]
+);
 $display_student_no = $user_data['studentnumber'] ?? 'N/A';
 $display_fullname = $user_data['fullname'] ?? 'Student';
 
-// 2. Fetch Results and Calculate Stats
-$stats_query = mysqli_query($con, "SELECT isCorrect, score, topic FROM exam_results WHERE student_id='$user_id' AND examTaken='$examTaken'");
-$stats = ['total' => 0, 'correct' => 0, 'wrong' => 0, 'total_score' => 0, 'topics' => []];
+// 2. Fetch Results and Calculate Stats (ownership enforced via student_id = ?)
+$statsRows = db()->fetchAll(
+    "SELECT isCorrect, score, topic, omitted, changes_count
+     FROM exam_results
+     WHERE student_id = ? AND examTaken = ?",
+    [$user_id, $examTaken]
+);
+$stats = ['total' => 0, 'correct' => 0, 'partial' => 0, 'wrong' => 0, 'total_score' => 0, 'topics' => [], 'omitted' => 0, 'changes_total' => 0];
 
-while ($s_row = mysqli_fetch_assoc($stats_query)) {
+foreach ($statsRows as $s_row) {
     $stats['total']++;
     $score = floatval($s_row['score']);
     $stats['total_score'] += $score;
-    
-    // NGN standard: fully correct if score is 1.00
-    if ($score >= 1.00) $stats['correct']++;
-    else $stats['wrong']++;
+
+    // Three-way categorization: correct / partial / wrong
+    if (!empty($s_row['omitted'])) {
+        $stats['omitted']++;
+    } elseif ($score >= 1.00) {
+        $stats['correct']++;
+    } elseif ($score > 0.00) {
+        $stats['partial']++;
+    } else {
+        $stats['wrong']++;
+    }
+
+    $stats['changes_total'] += intval($s_row['changes_count'] ?? 0);
 
     $topic = $s_row['topic'] ?: 'General';
     if (!isset($stats['topics'][$topic])) {
@@ -39,8 +55,13 @@ while ($s_row = mysqli_fetch_assoc($stats_query)) {
 
 $overall_percent = ($stats['total'] > 0) ? round(($stats['total_score'] / $stats['total']) * 100) : 0;
 
-// 3. Fetch the Main Results List
-$results_query = mysqli_query($con, "SELECT * FROM exam_results WHERE student_id='$user_id' AND examTaken='$examTaken' ORDER BY question_number ASC");
+// 3. Fetch the Main Results List (ownership enforced via student_id = ?)
+$results = db()->fetchAll(
+    "SELECT * FROM exam_results
+     WHERE student_id = ? AND examTaken = ?
+     ORDER BY question_number ASC",
+    [$user_id, $examTaken]
+);
 
 function getTypeColor($type) {
     $colors = [
@@ -57,13 +78,12 @@ function getTypeColor($type) {
     return $colors[$type] ?? '#94a3b8';
 }
 
-function table_exists($con, $table) {
-    $safe = mysqli_real_escape_string($con, $table);
-    $res = mysqli_query($con, "SHOW TABLES LIKE '$safe'");
-    return $res && mysqli_num_rows($res) > 0;
+function table_exists_db($table) {
+    $result = db()->fetchOne("SHOW TABLES LIKE ?", [$table]);
+    return $result !== null;
 }
 
-function resolveQuestionTable($con, $questionType) {
+function resolveQuestionTable($questionType) {
     $type = strtolower(trim((string) $questionType));
     $candidatesByType = [
         'bowtie' => ['btq'],
@@ -80,7 +100,7 @@ function resolveQuestionTable($con, $questionType) {
 
     $candidates = $candidatesByType[$type] ?? [$type];
     foreach ($candidates as $table) {
-        if (table_exists($con, $table)) return $table;
+        if (table_exists_db($table)) return $table;
     }
     return null;
 }
@@ -153,24 +173,42 @@ function resolveQuestionTable($con, $questionType) {
             <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between">
                 <div>
                     <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Execution Breakdown</p>
-                    <div class="flex items-center gap-6 mb-8">
+                    <div class="flex items-center gap-4 mb-6">
                         <div>
-                            <span class="block text-4xl font-extrabold text-green-500 leading-none"><?php echo $stats['correct']; ?></span>
+                            <span class="block text-3xl font-extrabold text-green-500 leading-none"><?php echo $stats['correct']; ?></span>
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Perfect</span>
                         </div>
-                        <div class="w-px h-10 bg-slate-100"></div>
+                        <div class="w-px h-8 bg-slate-100"></div>
                         <div>
-                            <span class="block text-4xl font-extrabold text-amber-500 leading-none"><?php echo $stats['total'] - $stats['correct']; ?></span>
+                            <span class="block text-3xl font-extrabold text-amber-500 leading-none"><?php echo $stats['partial']; ?></span>
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Partial</span>
                         </div>
+                        <div class="w-px h-8 bg-slate-100"></div>
+                        <div>
+                            <span class="block text-3xl font-extrabold text-red-500 leading-none"><?php echo $stats['wrong']; ?></span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Wrong</span>
+                        </div>
+                        <div class="w-px h-8 bg-slate-100"></div>
+                        <div>
+                            <span class="block text-3xl font-extrabold text-slate-400 leading-none"><?php echo $stats['omitted']; ?></span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Omitted</span>
+                        </div>
                     </div>
+                    <?php if ($stats['changes_total'] > 0): ?>
+                    <div class="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                        <span class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Total Answer Changes</span>
+                        <span class="block text-2xl font-extrabold text-amber-600 leading-none mt-1"><?php echo $stats['changes_total']; ?></span>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 <div>
                   <div class="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
                       <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['correct']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-green-400 to-green-500"></div>
-                      <div style="width: <?php echo ($stats['total'] > 0 ? (($stats['total']-$stats['correct'])/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-amber-400 to-amber-500 border-l border-white/20"></div>
+                      <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['partial']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-amber-400 to-amber-500 border-l border-white/20"></div>
+                      <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['wrong']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-red-400 to-red-500 border-l border-white/20"></div>
+                      <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['omitted']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-slate-300 to-slate-400 border-l border-white/20"></div>
                   </div>
-                  <p class="text-[10px] font-bold text-slate-400 mt-3 text-center uppercase tracking-tighter">Consistency Distribution</p>
+                  <p class="text-[10px] font-bold text-slate-400 mt-3 text-center uppercase tracking-tighter">Performance Distribution</p>
                 </div>
             </div>
 
@@ -213,8 +251,8 @@ function resolveQuestionTable($con, $questionType) {
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-[13px]">
                         <?php
-if (mysqli_num_rows($results_query) > 0):
-    while ($row = mysqli_fetch_assoc($results_query)):
+if (count($results) > 0):
+    foreach ($results as $row):
         $score = floatval($row['score']);
         $isPerfect = $score >= 1.00;
         $scorePercent = round($score * 100);
@@ -243,7 +281,7 @@ if (mysqli_num_rows($results_query) > 0):
         $cAnsDisplay = $formatAns($cAnsRaw);
 
         // Fetch question content dynamically
-        $qTypeTable = resolveQuestionTable($con, $row['question_type']);
+        $qTypeTable = resolveQuestionTable($row['question_type']);
         $rawUid = $row['question_uid'];
         if (strpos($rawUid, '-') !== false) {
             $parts = explode('-', $rawUid);
@@ -257,10 +295,12 @@ if (mysqli_num_rows($results_query) > 0):
         $displayCNC = isset($row['cnc']) ? $row['cnc'] : "N/A";
 
         if (!empty($qTypeTable) && !empty($actualId)) {
-            $safeTable = mysqli_real_escape_string($con, $qTypeTable);
-            $safeId = mysqli_real_escape_string($con, $actualId);
-            $q_lookup = mysqli_query($con, "SELECT * FROM `$safeTable` WHERE id = '$safeId' LIMIT 1");
-            if ($q_lookup && $q_data = mysqli_fetch_assoc($q_lookup)) {
+            // $qTypeTable is whitelist-validated by resolveQuestionTable(). Only bind the user-controlled id.
+            $q_data = db()->fetchOne(
+                "SELECT * FROM `{$qTypeTable}` WHERE id = ? LIMIT 1",
+                [intval($actualId)]
+            );
+            if ($q_data) {
                 $displayQuestion = $q_data['question'] ?? ($q_data['passage'] ?? $displayQuestion);
                 if (empty(trim((string) $displayRationale)) || $displayRationale === "No rationale provided." || $displayRationale === "No rationale available.") {
                     $displayRationale = $q_data['rationale'] ?? $displayRationale;
@@ -278,6 +318,12 @@ if (mysqli_num_rows($results_query) > 0):
                                     <span class="type-pill" style="color: <?php echo $typeColor; ?>; background: <?php echo $typeColor; ?>10; border-color: <?php echo $typeColor; ?>20;">
                                         <?php echo htmlspecialchars($row['question_type']); ?>
                                     </span>
+                                    <?php if (!empty($row['omitted'])): ?>
+                                        <span class="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">OMITTED</span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($row['changes_count']) && $row['changes_count'] > 0): ?>
+                                        <span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded"><?php echo $row['changes_count']; ?> CHANGE<?php echo $row['changes_count'] > 1 ? 'S' : ''; ?></span>
+                                    <?php endif; ?>
                                     <div class="flex items-center gap-2">
                                         <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                                             <div class="h-full <?php echo $score >= 0.75 ? 'bg-green-500' : ($score >= 0.5 ? 'bg-amber-500' : 'bg-red-500'); ?>" 
@@ -322,12 +368,12 @@ if (mysqli_num_rows($results_query) > 0):
                             </td>
                             <td class="p-4">
                                 <div class="text-slate-500 text-[12px] leading-relaxed italic" title="<?php echo htmlspecialchars($displayRationale); ?>">
-                                    <?php echo nl2br($displayRationale); ?>
+                                    <?php echo nl2br(htmlspecialchars($displayRationale, ENT_QUOTES, 'UTF-8')); ?>
                                 </div>
                             </td>
                             <td class="p-4 text-center">
                                 <button class="btn-view inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                                        onclick='viewQuestion(<?php echo json_encode([
+                                        data-payload='<?php echo htmlspecialchars(json_encode([
                                             "type" => $row["question_type"],
                                             "id" => $actualId,
                                             "answer" => $uAnsRaw,
@@ -338,13 +384,13 @@ if (mysqli_num_rows($results_query) > 0):
                                             "earned_points" => $row["earned_points"] ?? 0,
                                             "max_points" => $row["max_points"] ?? 0,
                                             "rationale" => $displayRationale
-                                        ]); ?>)'>
+                                        ]), ENT_QUOTES, 'UTF-8'); ?>'>
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 </button>
                             </td>
                         </tr>
                         <?php
-    endwhile;
+    endforeach;
 else:
 ?>
                         <tr>
@@ -407,6 +453,17 @@ endif; ?>
         };
     }
     function closeModal() { document.getElementById('viewModal').style.display = 'none'; document.getElementById('reviewFrame').src = ''; }
+
+    // Delegated listener for .btn-view buttons (replaces inline onclick)
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-view');
+        if (!btn || !btn.dataset.payload) return;
+        try {
+            viewQuestion(JSON.parse(btn.dataset.payload));
+        } catch (err) {
+            console.error('Failed to parse question payload', err);
+        }
+    });
 
     new Chart(document.getElementById('scoreChart'), {
         type: 'doughnut',
