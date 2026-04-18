@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../../../../config.php';
+// session_start() is handled by config.php
 if (!isset($_SESSION['highlight_exam'])) die("No exam data found.");
 
 $exam = $_SESSION['highlight_exam'];

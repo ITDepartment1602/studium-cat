@@ -39,7 +39,12 @@ class Database {
         if (!defined('DB_HOST')) {
             throw new Exception("Database constants not defined. Make sure config.php is included.");
         }
-        
+
+        // PHP 8.1+ changed the default mysqli error mode to MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT,
+        // which throws exceptions instead of returning false. Restore the pre-8.1 behaviour so that
+        // our existing error checks (if (!$stmt), if (!$result), etc.) work correctly everywhere.
+        mysqli_report(MYSQLI_REPORT_OFF);
+
         $this->connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
         
         if ($this->connection->connect_error) {
@@ -183,10 +188,11 @@ class Database {
     private function getParamTypes(array $params): string {
         $types = '';
         foreach ($params as $param) {
-            if (is_int($param)) $types .= 'i';
+            if ($param === null) $types .= 's';       // NULL → bind as string NULL
+            elseif (is_int($param)) $types .= 'i';
             elseif (is_float($param)) $types .= 'd';
             elseif (is_string($param)) $types .= 's';
-            else $types .= 'b';
+            else $types .= 's';                        // fallback to string (not blob)
         }
         return $types;
     }

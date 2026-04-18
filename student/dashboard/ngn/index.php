@@ -98,7 +98,10 @@ if ($savedState) {
   // Fetch new questions if none generated yet
   $questionIds = [];
   function table_exists_idx($table) {
-    $result = db()->fetchOne("SHOW TABLES LIKE ?", [$table]);
+    $result = db()->fetchOne(
+      "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+      [$table]
+    );
     return $result !== null;
   }
 
@@ -1461,6 +1464,9 @@ $dbAnswersJs = json_encode($dbAnswers);
       }
     });
 
+    // Track the in-flight save so submit_exam can wait for it
+    let pendingSave = Promise.resolve();
+
     // ===== LISTEN FOR ANSWERED =====
     window.addEventListener('message', async (event) => {
       if (!event.data || typeof event.data !== 'object') return;
@@ -1525,27 +1531,25 @@ $dbAnswersJs = json_encode($dbAnswers);
       updateNavDots();
       updateProgress();
 
-      // Save to server
-      try {
-        const response = await fetch('save_history.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(userAnswers[uid])
-        });
-        const result = await response.json();
+      // Save to server — track the promise so submit_exam can wait for it
+      pendingSave = fetch('save_history.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userAnswers[uid])
+      }).then(r => r.json()).then(result => {
         if (!result.ok) {
           console.error('Server save failed:', result);
           throw new Error(result.error || result.mysql || 'Server Error');
         }
         console.log('Answer saved to server:', result);
-      } catch (err) {
+      }).catch(err => {
         console.error('Failed to save history:', err);
         Swal.fire({
           icon: 'warning', title: 'Sync Warning',
           text: 'Answer saved locally but server sync failed: ' + err.message,
           toast: true, position: 'top-end', timer: 5000, showConfirmButton: false
         });
-      }
+      });
     });
 
     // ===== NAVIGATION =====
@@ -1556,8 +1560,11 @@ $dbAnswersJs = json_encode($dbAnswers);
       } else {
         // Submit the exam!
         isExiting = true;
-        
+
         try {
+          // Wait for the last answer's server save to complete before submitting
+          await pendingSave;
+
           const response = await fetch('submit_exam.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
