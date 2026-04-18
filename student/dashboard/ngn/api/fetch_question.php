@@ -71,12 +71,8 @@ $table = $tableMap[$questionType];
 
 // Check if table has difficulty_logit column
 $hasDifficulty = false;
-try {
-    $checkCol = db()->query("SHOW COLUMNS FROM {$table} LIKE 'difficulty_logit'");
-    $hasDifficulty = $checkCol && $checkCol->num_rows > 0;
-} catch (Exception $e) {
-    $hasDifficulty = false;
-}
+$checkCol = db()->query("SHOW COLUMNS FROM `{$table}` LIKE 'difficulty_logit'");
+$hasDifficulty = $checkCol && $checkCol->num_rows > 0;
 
 // Get already answered questions
 $answered = db()->fetchAll(
@@ -99,15 +95,15 @@ if (!empty($answeredIds)) {
 
 // Adaptive selection
 if ($hasDifficulty) {
-    $sql = "SELECT *, ABS(COALESCE(difficulty_logit, 0) - ?) as diff_distance 
-            FROM {$table} 
-            {$whereClause} 
-            ORDER BY diff_distance ASC, RAND() 
+    $sql = "SELECT *, ABS(COALESCE(difficulty_logit, 0) - ?) as diff_distance
+            FROM `{$table}`
+            {$whereClause}
+            ORDER BY diff_distance ASC, RAND()
             LIMIT 1";
     array_unshift($params, $theta);
     $question = db()->fetchOne($sql, $params);
 } else {
-    $sql = "SELECT * FROM {$table} {$whereClause} ORDER BY RAND() LIMIT 1";
+    $sql = "SELECT * FROM `{$table}` {$whereClause} ORDER BY RAND() LIMIT 1";
     $question = db()->fetchOne($sql, $params);
 }
 

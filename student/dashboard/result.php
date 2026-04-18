@@ -2,7 +2,7 @@
 
 include '../../config.php';
 session_start();
-$user_id = $_SESSION['user_id'];
+$user_id = $_SESSION['user_id'] ?? (isset($_GET['id']) && ctype_digit($_GET['id']) ? intval($_GET['id']) : null);
 
 $email = isset($_GET['email']) ? mysqli_real_escape_string($con, $_GET['email']) : '';
 $eid = isset($_GET['eid']) ? mysqli_real_escape_string($con, $_GET['eid']) : '';
@@ -20,9 +20,13 @@ if (mysqli_num_rows($select) > 0) {
   $fetch = mysqli_fetch_assoc($select);
 }
 
-$examTakenQuery = mysqli_query($con, "SELECT examTaken FROM `login` WHERE id = '$user_id'") or die('query failed');
-$examTaken = mysqli_fetch_assoc($examTakenQuery)['examTaken'] ?? 0;
-$examTakenMinus = $examTaken - 1;
+if (isset($_GET['examTakenResult']) && ctype_digit($_GET['examTakenResult'])) {
+    $examTakenMinus = intval($_GET['examTakenResult']);
+} else {
+    $examTakenQuery = mysqli_query($con, "SELECT examTaken FROM `login` WHERE id = '$user_id'") or die('query failed');
+    $examTaken = mysqli_fetch_assoc($examTakenQuery)['examTaken'] ?? 0;
+    $examTakenMinus = $examTaken - 1;
+}
 
 // Count the number of correct answers
 $correctAnswersQuery = mysqli_query($con, "SELECT COUNT(*) as correctCount FROM `review` WHERE studentId = '$user_id' AND isCorrect = 1 AND examTaken = '$examTakenMinus'") or die('query failed');
@@ -323,9 +327,13 @@ mysqli_query($con, $insertHistoryQuery) or die('query failed');
            <tbody>
           <?php
           // Update the query to include 'timeTaken' instead of 'time'
-          $examTakenQuery = mysqli_query($con, "SELECT examTaken FROM `login` WHERE id = '$user_id'") or die('query failed');
-          $examTaken = mysqli_fetch_assoc($examTakenQuery)['examTaken'] ?? 0;
-          $examTakenMinus = $examTaken - 1;
+          if (isset($_GET['examTakenResult']) && ctype_digit($_GET['examTakenResult'])) {
+              $examTakenMinus = intval($_GET['examTakenResult']);
+          } else {
+              $examTakenQuery = mysqli_query($con, "SELECT examTaken FROM `login` WHERE id = '$user_id'") or die('query failed');
+              $examTaken = mysqli_fetch_assoc($examTakenQuery)['examTaken'] ?? 0;
+              $examTakenMinus = $examTaken - 1;
+          }
 
           $reviewQuery = mysqli_query($con, "SELECT isCorrect, questionNumber, questionId, topics1, system, cnc, timeTaken, ans, correctAns FROM `review` WHERE studentId = '$user_id' AND examTaken = '$examTakenMinus' ") or die('query failed');
           while ($row = mysqli_fetch_assoc($reviewQuery)) {

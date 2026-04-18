@@ -51,14 +51,18 @@ $offset = ($currentPage - 1) * $resultsPerPage;
 
 // Get latest attempt for summary banner (always latest overall under same filter)
 $latest = db()->fetchOne(
-    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time
+    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score,
+            SUM(earned_points) as total_earned, SUM(max_points) as total_max,
+            MAX(timestamp) as exam_time
      FROM exam_results {$whereSQL} GROUP BY examTaken ORDER BY exam_time DESC LIMIT 1",
     $whereParams
 );
 
 // Fetch attempts for current page
 $attemptsRows = db()->fetchAll(
-    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time
+    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score,
+            SUM(earned_points) as total_earned, SUM(max_points) as total_max,
+            MAX(timestamp) as exam_time
      FROM exam_results {$whereSQL} GROUP BY examTaken ORDER BY exam_time DESC LIMIT ? OFFSET ?",
     array_merge($whereParams, [$resultsPerPage, $offset])
 );
@@ -354,9 +358,11 @@ function getCategory($percent)
         </a>
     </div>
 
-    <?php 
-    if ($latest): 
-        $latestPercent = round(($latest['total_score'] / $latest['total_questions']) * 100);
+    <?php
+    if ($latest):
+        $latestPercent = ($latest['total_max'] > 0)
+            ? min(100, round(($latest['total_earned'] / $latest['total_max']) * 100))
+            : 0;
     ?>
     <div class="summary-banner">
         <div class="summary-main">
@@ -372,22 +378,36 @@ function getCategory($percent)
                 <span class="meta-value" style="color: white; font-size: 24px;"><?php echo $latest['total_questions']; ?></span>
             </div>
             <div class="meta-item">
-                <span class="meta-label" style="color: rgba(255,255,255,0.6)">Avg. Per Question</span>
-                <span class="meta-value" style="color: white; font-size: 24px;"><?php echo round($latest['total_score'], 1); ?> pts</span>
+                <span class="meta-label" style="color: rgba(255,255,255,0.6)">Points Earned</span>
+                <span class="meta-value" style="color: white; font-size: 24px;"><?php echo round($latest['total_earned'], 1); ?> / <?php echo round($latest['total_max'], 1); ?></span>
             </div>
         </div>
     </div>
     <?php endif; ?>
     
+    <?php if (empty($attemptsRows)): ?>
+    <div style="text-align: center; padding: 80px 20px; color: var(--text-muted);">
+        <i class="fas fa-clipboard-list" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
+        <h3 style="font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px;">No Results Found</h3>
+        <p style="font-size: 15px;">No exam data was recorded for this attempt. This can happen if answers were not saved before submission.</p>
+        <a href="index.php" class="btn-details" style="display: inline-flex; margin-top: 24px; align-items: center; gap: 8px;">
+            <i class="fas fa-plus"></i> Try a New Exam
+        </a>
+    </div>
+    <?php endif; ?>
+
     <div class="attempts-grid">
         <?php foreach ($attemptsRows as $row):
             $id = intval($row['examTaken']);
-            // score is sum of fractions 0.00-1.00
-            $percent = ($row['total_questions'] > 0) ? round(($row['total_score'] / $row['total_questions']) * 100) : 0;
+            $percent = ($row['total_max'] > 0)
+                ? min(100, round(($row['total_earned'] / $row['total_max']) * 100))
+                : 0;
             $cat = getCategory($percent);
 
             $topicRows = db()->fetchAll(
-                "SELECT topic, COUNT(*) as q, SUM(score) as s FROM exam_results WHERE student_id = ? AND examTaken = ? GROUP BY topic",
+                "SELECT topic, COUNT(*) as q, SUM(score) as s,
+                        SUM(earned_points) as ep, SUM(max_points) as mp
+                 FROM exam_results WHERE student_id = ? AND examTaken = ? GROUP BY topic",
                 [$student_id, $id]
             );
         ?>
@@ -413,8 +433,9 @@ function getCategory($percent)
                     </div>
                     <div class="topic-list">
                         <?php foreach ($topicRows as $t):
-                            // t['s'] is sum of float scores
-                            $tp = ($t['q'] > 0) ? round(($t['s'] / $t['q']) * 100) : 0;
+                            $tp = ($t['mp'] > 0)
+                                ? min(100, round(($t['ep'] / $t['mp']) * 100))
+                                : 0;
                         ?>
                             <div class="topic-pill">
                                 <?php echo htmlspecialchars($t['topic'] ?: 'General'); ?>
@@ -435,7 +456,7 @@ function getCategory($percent)
                     </div>
                     <div class="meta-item">
                         <span class="meta-label">Raw Points</span>
-                        <span class="meta-value"><?php echo round($row['total_score'], 2); ?></span>
+                        <span class="meta-value"><?php echo round($row['total_earned'], 1); ?> / <?php echo round($row['total_max'], 1); ?></span>
                     </div>
                 </div>
             </div>

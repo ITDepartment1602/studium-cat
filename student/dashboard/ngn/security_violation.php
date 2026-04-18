@@ -1,6 +1,6 @@
 <?php
-session_start();
-include '../../../config.php';
+require_once '../../../config.php';
+// session_start() is handled by config.php
 
 // Unset the current exam session if a violation occurred
 unset($_SESSION['current_ngn_examTaken']);

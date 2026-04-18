@@ -125,7 +125,7 @@ if (!isset($input['rationale']) && $question_id > 0) {
         $qData = null;
     } else {
         $table = $tableMap[$question_type];
-        $qData = db()->fetchOne("SELECT rationale, topic, system, cnc, dlevel, difficulty_logit, narcan, concept FROM {$table} WHERE id = ? LIMIT 1", [$question_id]);
+        $qData = db()->fetchOne("SELECT rationale, topic, system, cnc, dlevel, difficulty_logit, narcan, concept FROM `{$table}` WHERE id = ? LIMIT 1", [$question_id]);
     }
     if ($qData) {
         $rationale = $qData['rationale'] ?? $rationale;

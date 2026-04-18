@@ -22,6 +22,10 @@ if (defined('STUDIUM_CONFIG_LOADED')) {
 }
 define('STUDIUM_CONFIG_LOADED', true);
 
+// Buffer any PHP warnings/notices during setup so they don't corrupt JSON API
+// responses (PHP 8.1+ emits deprecation notices that break fetch().json()).
+ob_start();
+
 // ── 1. ENVIRONMENT DETECTION ──────────────────────────────────
 $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
 define('IS_PRODUCTION', !in_array($host, ['localhost', '127.0.0.1', '::1', '']));
@@ -203,6 +207,10 @@ if (isset($con)) {
     function _addColIfMissing($con, $table, $col, $definition) {
         $safe_table = mysqli_real_escape_string($con, $table);
         $safe_col   = mysqli_real_escape_string($con, $col);
+        // Guard: skip silently if the table doesn't exist yet (prevents
+        // mysqli_sql_exception in PHP 8.1+ where errors throw by default)
+        $tbl = mysqli_query($con, "SHOW TABLES LIKE '{$safe_table}'");
+        if (!$tbl || mysqli_num_rows($tbl) === 0) return;
         $r = mysqli_query($con, "SHOW COLUMNS FROM `{$safe_table}` LIKE '{$safe_col}'");
         if ($r && mysqli_num_rows($r) === 0) {
             mysqli_query($con, "ALTER TABLE `{$safe_table}` ADD COLUMN `{$safe_col}` {$definition}");
@@ -229,6 +237,45 @@ if (isset($con)) {
     foreach (array_merge(['traditional', 'sata', 'mpr', 'mmr', 'btq', 'dragndrop', 'dropdown', 'highlight', 'column'], $resultTables) as $t) {
         _addColIfMissing($con, $t, 'narcan',  'VARCHAR(255) DEFAULT NULL');
         _addColIfMissing($con, $t, 'concept', 'VARCHAR(255) DEFAULT NULL');
+    }
+
+    // 6.4 — result table columns that may be missing on older DB instances
+    foreach ($resultTables as $t) {
+        _addColIfMissing($con, $t, 'initial_answer',  'TEXT DEFAULT NULL');
+        _addColIfMissing($con, $t, 'changes',         'JSON DEFAULT NULL');
+        _addColIfMissing($con, $t, 'question_number', 'INT(11) DEFAULT NULL');
+    }
+
+    // 6.5 — testimonial table (may be absent from DB exports)
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `testimonial` (
+            `id`        int(11)      NOT NULL AUTO_INCREMENT,
+            `message`   text         NOT NULL,
+            `name`      varchar(255) DEFAULT NULL,
+            `position`  varchar(255) DEFAULT NULL,
+            `image`     varchar(500) DEFAULT NULL,
+            `stars`     int(11)      DEFAULT 5,
+            `created_at` datetime    DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
+    // 6.6 — table name aliases: Hostinger DB uses different names than codebase expects.
+    //        Create views so both old and new names work without code changes.
+    $tableAliases = [
+        'traditional' => 'mcq',          // code uses 'traditional', DB has 'mcq'
+        'sata'        => 'sata',          // may or may not exist
+        'dropdown'    => 'dropdown_questions', // code uses 'dropdown', DB has 'dropdown_questions'
+        'column'      => 'ngncolumn',     // code uses 'column', DB has 'ngncolumn'
+    ];
+    foreach ($tableAliases as $alias => $actual) {
+        // Only create the alias view if the actual table exists but the alias doesn't
+        $actualExists = mysqli_query($con, "SHOW TABLES LIKE '{$actual}'");
+        $aliasExists  = mysqli_query($con, "SHOW TABLES LIKE '{$alias}'");
+        if ($actualExists && mysqli_num_rows($actualExists) > 0 &&
+            $aliasExists  && mysqli_num_rows($aliasExists) === 0) {
+            mysqli_query($con, "CREATE OR REPLACE VIEW `{$alias}` AS SELECT * FROM `{$actual}`");
+        }
     }
 }
 
@@ -297,5 +344,13 @@ if (!function_exists('debug')) {
             if ($die) exit;
         }
     }
+}
+
+// ── END OF SETUP — flush the output buffer ───────────────────
+// Discard any PHP notices/warnings that leaked during init so they can't
+// corrupt JSON API responses.  Log them for debugging.
+$_cfgBuf = ob_get_clean();
+if ($_cfgBuf !== '' && $_cfgBuf !== false) {
+    error_log('[config.php] PHP output during init: ' . substr(strip_tags($_cfgBuf), 0, 500));
 }
 ?>

@@ -4,7 +4,10 @@
       "Bash(wc:*)",
       "Bash(find:*)",
       "Bash(grep -rn \"mysqli_query.*\\\\\\\\\\\\$\\\\|mysqli_query.*\\\\\\\\\\\\\"\\\\.\\\\$\" /c/xampp/htdocs/studium-cat --include=\"*.php\")",
-      "Bash(grep -n \"session_start\\\\|CREATE TABLE\" /c/xampp/htdocs/studium-cat/student/dashboard/ngn/*.php)"
+      "Bash(grep -n \"session_start\\\\|CREATE TABLE\" /c/xampp/htdocs/studium-cat/student/dashboard/ngn/*.php)",
+      "Bash(grep -n \"FROM \\\\`column\\\\`\\\\|FROM column\\\\|SELECT.*FROM column\" \"/c/xampp/htdocs/studium-cat/student/dashboard/ngn/index\\(BAKAL\\).php\")",
+      "Bash(grep -n \"FROM \\\\`column\\\\`\" \"/c/xampp/htdocs/studium-cat/student/dashboard/ngn/index.php\")",
+      "Bash(\"C:/xampp/mysql/bin/mysql.exe\" -u root -e \"SHOW TABLES\" u436962267_studium)"
     ]
   }
 }

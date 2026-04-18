@@ -79,7 +79,10 @@ function getTypeColor($type) {
 }
 
 function table_exists_db($table) {
-    $result = db()->fetchOne("SHOW TABLES LIKE ?", [$table]);
+    $result = db()->fetchOne(
+        "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+        [$table]
+    );
     return $result !== null;
 }
 

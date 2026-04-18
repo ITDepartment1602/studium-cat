@@ -11,9 +11,11 @@ $selectedTopics = isset($_GET['topics2']) ? explode(',', $_GET['topics2']) : [];
 $systems = [];
 foreach ($selectedTopics as $topic) {
     $decodedTopic = urldecode($topic);
-    list($id, $systemName) = explode('|', $decodedTopic);
-    $systems[] = mysqli_real_escape_string($con, $systemName);
+    $parts = explode('|', $decodedTopic, 2);
+    $systemName = count($parts) > 1 ? $parts[1] : $parts[0];
+    if ($systemName !== '') $systems[] = mysqli_real_escape_string($con, $systemName);
 }
+
 
 
 
