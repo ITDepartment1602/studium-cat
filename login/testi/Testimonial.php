@@ -184,7 +184,7 @@
 				$sql = "select * from testimonial ORDER BY id DESC";
 				$result = mysqli_query($con, $sql);
 
-				while ($row = mysqli_fetch_array($result)) {
+				while ($result && $row = mysqli_fetch_array($result)) {
 
 					?>
 					<div class="testItem">

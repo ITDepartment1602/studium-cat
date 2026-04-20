@@ -1,7 +1,8 @@
 <?php
-// save_history.php — Saves exam results with partial-credit scoring support
-session_start();
-include '../../../config.php';
+/**
+ * NGN Save History - Saves exam answer to temporary table
+ */
+require_once '../../../config.php';
 
 header('Content-Type: application/json');
 
@@ -19,7 +20,9 @@ if (!$body) {
     exit;
 }
 
-// Sanitize inputs using prepared statement
+// Tables are created by config.php — no duplicate CREATE TABLE here
+
+// Sanitize inputs
 $examTaken      = isset($body['examTaken'])      ? intval($body['examTaken']) : 0;
 $question_uid   = isset($body['question_uid'])   ? $body['question_uid'] : '';
 $question_type  = isset($body['question_type'])  ? $body['question_type'] : '';
@@ -30,70 +33,52 @@ $cnc            = isset($body['cnc'])            ? $body['cnc'] : '';
 $dlevel         = isset($body['dlevel'])         ? $body['dlevel'] : '';
 $user_answer    = isset($body['answer'])         ? json_encode($body['answer']) : '[]';
 $correct_answer = isset($body['correct_answer']) ? json_encode($body['correct_answer']) : '[]';
-$initial_answer = isset($body['initial_answer']) ? json_encode($body['initial_answer']) : null;  // New field
-$changes        = isset($body['changes'])        ? json_encode($body['changes']) : null;        // New field
+$initial_answer = isset($body['initial_answer']) ? json_encode($body['initial_answer']) : null;
+$changes        = isset($body['changes'])        ? json_encode($body['changes']) : null;
 $isCorrect      = isset($body['isCorrect'])      ? intval($body['isCorrect']) : 0;
 
-// Score now supports decimal (0.00–1.00) for partial credit
+// Score supports decimal (0.00-1.00) for partial credit
 $score          = isset($body['score'])          ? floatval($body['score']) : ($isCorrect ? 1.00 : 0.00);
 $max_points     = isset($body['max_points'])     ? intval($body['max_points']) : 1;
-$earned_points  = isset($body['earned_points'])  ? intval($body['earned_points']) : ($isCorrect ? 1 : 0);
+$earned_points  = isset($body['earned_points'])  ? floatval($body['earned_points']) : ($isCorrect ? 1 : 0);
 $rationale      = isset($body['rationale'])      ? $body['rationale'] : '';
+$omitted        = isset($body['omitted'])        ? intval($body['omitted']) : 0;
+$changes_count  = isset($body['changes_count'])  ? intval($body['changes_count']) : 0;
 
 $question_number = isset($body['question_number']) ? intval($body['question_number']) : 0;
 $time_taken      = isset($body['time_taken'])      ? intval($body['time_taken']) : 0;
 $totalTime       = isset($body['totalTime'])       ? intval($body['totalTime']) : 0;
 $created_at      = date('Y-m-d H:i:s');
 
-// Delete existing record for the same question in this attempt to support re-submissions/editing
-$del_stmt = mysqli_prepare($con, "DELETE FROM temporary_exam_result WHERE student_id=? AND examTaken=? AND question_uid=?");
-mysqli_stmt_bind_param($del_stmt, 'iis', $student_id, $examTaken, $question_uid);
-mysqli_stmt_execute($del_stmt);
-mysqli_stmt_close($del_stmt);
+// Delete existing record for the same question in this attempt to support re-submissions
+db()->execute(
+    "DELETE FROM temporary_exam_result WHERE student_id = ? AND examTaken = ? AND question_uid = ?",
+    [$student_id, $examTaken, $question_uid]
+);
 
-// Use prepared statement for security
-$stmt = mysqli_prepare($con,
+// Insert using db() singleton with prepared statement
+$ok = db()->execute(
     "INSERT INTO temporary_exam_result
-    (student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, rationale, question_number, time_taken, totalTime, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    (student_id, examTaken, question_uid, question_type, question_id,
+     topic, system, cnc, dlevel,
+     user_answer, correct_answer, initial_answer, changes,
+     isCorrect, score, earned_points, max_points,
+     omitted, changes_count, rationale,
+     question_number, time_taken, totalTime, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [
+        $student_id, $examTaken, $question_uid, $question_type, $question_id,
+        $topic, $system, $cnc, $dlevel,
+        $user_answer, $correct_answer, $initial_answer, $changes,
+        $isCorrect, $score, $earned_points, $max_points,
+        $omitted, $changes_count, $rationale,
+        $question_number, $time_taken, $totalTime, $created_at
+    ]
 );
 
-if (!$stmt) {
-    http_response_code(500);
-    echo json_encode(['error' => 'prepare_failed', 'mysql' => mysqli_error($con)]);
-    exit;
-}
-
-mysqli_stmt_bind_param($stmt, 'iisssssssssssdiisiiis',
-    $student_id,
-    $examTaken,
-    $question_uid,
-    $question_type,
-    $topic,
-    $system,
-    $cnc,
-    $dlevel,
-    $user_answer,
-    $correct_answer,
-    $initial_answer,
-    $changes,
-    $isCorrect,
-    $score,
-    $earned_points,
-    $max_points,
-    $rationale,
-    $question_number,
-    $time_taken,
-    $totalTime,
-    $created_at
-);
-
-$res = mysqli_stmt_execute($stmt);
-mysqli_stmt_close($stmt);
-
-if ($res) {
-    echo json_encode(['ok' => true]);
+if ($ok) {
+    echo json_encode(['ok' => true, 'saved' => 1]);
 } else {
     http_response_code(500);
-    echo json_encode(['error' => 'db_insert_failed', 'mysql' => mysqli_error($con)]);
+    echo json_encode(['error' => 'db_insert_failed']);
 }

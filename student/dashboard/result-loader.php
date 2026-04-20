@@ -44,6 +44,7 @@ $result = $stmt->get_result();
 $count = $result->fetch_assoc()['count'] ?? 0;
 
 
+$examTakenForResult = $examTaken; // capture BEFORE increment so result.php gets the exact exam's value
 $examTaken++;
 $stmt = $con->prepare("UPDATE login SET examTaken = ? WHERE id = ?");
 if (!$stmt) {
@@ -126,10 +127,11 @@ $con->close();
             const kilanlan = "<?php echo addslashes($kilanlan); ?>";
             const id = "<?php echo addslashes($id); ?>";
             const kilanlanhistory = "<?php echo addslashes($kilanlanhistory); ?>";
+            const examTakenForResult = <?php echo intval($examTakenForResult); ?>;
 
 
 
-            window.location.href = `result.php?topics1=${topics1}&topics2=${topics2}&kilanlan=${kilanlan}&id=${id}&kilanlanhistory=${kilanlanhistory}`;
+            window.location.href = `result.php?topics1=${topics1}&topics2=${topics2}&kilanlan=${kilanlan}&id=${id}&kilanlanhistory=${kilanlanhistory}&examTakenResult=${examTakenForResult}`;
         }
 
         // Automatically call startQuiz after a delay

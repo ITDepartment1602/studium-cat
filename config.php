@@ -22,6 +22,10 @@ if (defined('STUDIUM_CONFIG_LOADED')) {
 }
 define('STUDIUM_CONFIG_LOADED', true);
 
+// Buffer any PHP warnings/notices during setup so they don't corrupt JSON API
+// responses (PHP 8.1+ emits deprecation notices that break fetch().json()).
+ob_start();
+
 // ── 1. ENVIRONMENT DETECTION ──────────────────────────────────
 $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
 define('IS_PRODUCTION', !in_array($host, ['localhost', '127.0.0.1', '::1', '']));
@@ -91,6 +95,7 @@ if (IS_PRODUCTION) {
 // ── 5. CORE SYSTEM LOAD ──────────────────────────────────────
 // Load modern Database class
 require_once __DIR__ . '/core/Database.php';
+require_once __DIR__ . '/core/ScoringEngine.php';
 
 // Initialize the master connection for legacy code support ($con)
 try {
@@ -120,6 +125,9 @@ if (isset($con)) {
             `question_set`     text         NOT NULL,
             `current_question` int(11)      NOT NULL DEFAULT 0,
             `timer`            int(11)      NOT NULL DEFAULT 0,
+            `theta_ability`    float        NOT NULL DEFAULT 0.0,
+            `standard_error`   float        NOT NULL DEFAULT 1.0,
+            `question_count`   int(11)      NOT NULL DEFAULT 0,
             `updated_at`       datetime     NOT NULL,
             PRIMARY KEY (`student_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
@@ -137,13 +145,17 @@ if (isset($con)) {
             `correct_answer`  text,
             `isCorrect`       tinyint(1)    DEFAULT 0,
             `score`           float         DEFAULT 0,
+            `earned_points`   float         DEFAULT 0,
             `max_points`      int(11)       DEFAULT 1,
-            `earned_points`   int(11)       DEFAULT 0,
+            `omitted`         tinyint(1)    DEFAULT 0,
+            `changes_count`   int(11)       DEFAULT 0,
             `rationale`       text,
             `topic`           varchar(255)  DEFAULT NULL,
             `system`          varchar(255)  DEFAULT NULL,
             `cnc`             varchar(255)  DEFAULT NULL,
             `dlevel`          varchar(100)  DEFAULT NULL,
+            `narcan`          varchar(255)  DEFAULT NULL,
+            `concept`         varchar(255)  DEFAULT NULL,
             `time_taken`      int(11)       DEFAULT 0,
             `totalTime`       int(11)       DEFAULT 0,
             `initial_answer`  text          DEFAULT NULL,
@@ -154,6 +166,117 @@ if (isset($con)) {
             KEY `student_exam` (`student_id`, `examTaken`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
+
+    // Permanent exam results table
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `exam_results` (
+            `id`              int(11)       NOT NULL AUTO_INCREMENT,
+            `student_id`      int(11)       NOT NULL,
+            `examTaken`       int(11)       NOT NULL,
+            `question_uid`    varchar(100)  NOT NULL,
+            `question_type`   varchar(50)   DEFAULT NULL,
+            `question_id`     int(11)       DEFAULT NULL,
+            `user_answer`     text,
+            `correct_answer`  text,
+            `initial_answer`  text          DEFAULT NULL,
+            `changes`         json          DEFAULT NULL,
+            `isCorrect`       tinyint(1)    DEFAULT 0,
+            `score`           float         DEFAULT 0,
+            `earned_points`   float         DEFAULT 0,
+            `max_points`      int(11)       DEFAULT 1,
+            `omitted`         tinyint(1)    DEFAULT 0,
+            `changes_count`   int(11)       DEFAULT 0,
+            `rationale`       text,
+            `topic`           varchar(255)  DEFAULT NULL,
+            `system`          varchar(255)  DEFAULT NULL,
+            `cnc`             varchar(255)  DEFAULT NULL,
+            `dlevel`          varchar(100)  DEFAULT NULL,
+            `narcan`          varchar(255)  DEFAULT NULL,
+            `concept`         varchar(255)  DEFAULT NULL,
+            `time_taken`      int(11)       DEFAULT 0,
+            `totalTime`       int(11)       DEFAULT 0,
+            `question_number` int(11)       DEFAULT NULL,
+            `timestamp`       datetime      DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `student_exam` (`student_id`, `examTaken`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
+    // ── SCHEMA ALIGNMENT — adds columns to existing tables on live DB ──
+    // Helper: add column only if it does not exist (MySQL + MariaDB compatible)
+    function _addColIfMissing($con, $table, $col, $definition) {
+        $safe_table = mysqli_real_escape_string($con, $table);
+        $safe_col   = mysqli_real_escape_string($con, $col);
+        // Guard: skip silently if the table doesn't exist yet (prevents
+        // mysqli_sql_exception in PHP 8.1+ where errors throw by default)
+        $tbl = mysqli_query($con, "SHOW TABLES LIKE '{$safe_table}'");
+        if (!$tbl || mysqli_num_rows($tbl) === 0) return;
+        $r = mysqli_query($con, "SHOW COLUMNS FROM `{$safe_table}` LIKE '{$safe_col}'");
+        if ($r && mysqli_num_rows($r) === 0) {
+            mysqli_query($con, "ALTER TABLE `{$safe_table}` ADD COLUMN `{$safe_col}` {$definition}");
+        }
+    }
+
+    $questionTables = ['traditional', 'sata', 'mpr', 'mmr', 'btq', 'dragndrop', 'dropdown', 'highlight', '`column`'];
+    $resultTables   = ['temporary_exam_result', 'exam_results'];
+
+    // 6.1 — difficulty_logit enables CAT adaptive selection in fetch_question.php
+    foreach ($questionTables as $t) {
+        _addColIfMissing($con, trim($t, '`'), 'difficulty_logit', 'DECIMAL(5,2) DEFAULT 0.0');
+    }
+
+    // 6.2 — topic/system/cnc/dlevel missing from btq and mmr
+    foreach (['btq', 'mmr'] as $t) {
+        _addColIfMissing($con, $t, 'topic',  'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'system', 'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'cnc',    'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'dlevel', 'VARCHAR(100) DEFAULT NULL');
+    }
+
+    // 6.3 — narcan and concept per NGN Question Bank spec (PDF)
+    foreach (array_merge(['traditional', 'sata', 'mpr', 'mmr', 'btq', 'dragndrop', 'dropdown', 'highlight', 'column'], $resultTables) as $t) {
+        _addColIfMissing($con, $t, 'narcan',  'VARCHAR(255) DEFAULT NULL');
+        _addColIfMissing($con, $t, 'concept', 'VARCHAR(255) DEFAULT NULL');
+    }
+
+    // 6.4 — result table columns that may be missing on older DB instances
+    foreach ($resultTables as $t) {
+        _addColIfMissing($con, $t, 'initial_answer',  'TEXT DEFAULT NULL');
+        _addColIfMissing($con, $t, 'changes',         'JSON DEFAULT NULL');
+        _addColIfMissing($con, $t, 'question_number', 'INT(11) DEFAULT NULL');
+    }
+
+    // 6.5 — testimonial table (may be absent from DB exports)
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `testimonial` (
+            `id`        int(11)      NOT NULL AUTO_INCREMENT,
+            `message`   text         NOT NULL,
+            `name`      varchar(255) DEFAULT NULL,
+            `position`  varchar(255) DEFAULT NULL,
+            `image`     varchar(500) DEFAULT NULL,
+            `stars`     int(11)      DEFAULT 5,
+            `created_at` datetime    DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
+    // 6.6 — table name aliases: Hostinger DB uses different names than codebase expects.
+    //        Create views so both old and new names work without code changes.
+    $tableAliases = [
+        'traditional' => 'mcq',          // code uses 'traditional', DB has 'mcq'
+        'sata'        => 'sata',          // may or may not exist
+        'dropdown'    => 'dropdown_questions', // code uses 'dropdown', DB has 'dropdown_questions'
+        'column'      => 'ngncolumn',     // code uses 'column', DB has 'ngncolumn'
+    ];
+    foreach ($tableAliases as $alias => $actual) {
+        // Only create the alias view if the actual table exists but the alias doesn't
+        $actualExists = mysqli_query($con, "SHOW TABLES LIKE '{$actual}'");
+        $aliasExists  = mysqli_query($con, "SHOW TABLES LIKE '{$alias}'");
+        if ($actualExists && mysqli_num_rows($actualExists) > 0 &&
+            $aliasExists  && mysqli_num_rows($aliasExists) === 0) {
+            mysqli_query($con, "CREATE OR REPLACE VIEW `{$alias}` AS SELECT * FROM `{$actual}`");
+        }
+    }
 }
 
 // ── 7. HELPER FUNCTIONS ───────────────────────────────────────
@@ -221,5 +344,13 @@ if (!function_exists('debug')) {
             if ($die) exit;
         }
     }
+}
+
+// ── END OF SETUP — flush the output buffer ───────────────────
+// Discard any PHP notices/warnings that leaked during init so they can't
+// corrupt JSON API responses.  Log them for debugging.
+$_cfgBuf = ob_get_clean();
+if ($_cfgBuf !== '' && $_cfgBuf !== false) {
+    error_log('[config.php] PHP output during init: ' . substr(strip_tags($_cfgBuf), 0, 500));
 }
 ?>

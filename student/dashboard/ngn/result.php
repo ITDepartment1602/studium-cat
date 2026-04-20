@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$student_id = $_SESSION['user_id'];
+$student_id = intval($_SESSION['user_id']);
 $examTaken = isset($_GET['examTaken']) ? intval($_GET['examTaken']) : null;
 $currentPage = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $resultsPerPage = 3;
@@ -16,14 +16,14 @@ $resultsPerPage = 3;
 if (isset($_GET['finish']) && $_GET['finish'] == '1') {
     unset($_SESSION['current_ngn_examTaken']);
     unset($_SESSION['ngn_exam_set']); // Clear question set too
-    
+
     // Redirect to dashboard immediately on intentional exit
     if (isset($_GET['exit']) && $_GET['exit'] == '1') {
         header("Location: ../index.php");
         exit;
     }
 
-    // If they came via the Exit button but didn't actually answer any questions, 
+    // If they came via the Exit button but didn't actually answer any questions,
     // just redirect them home instead of showing a blank results page
     if (!$examTaken) {
        header("Location: ../index.php");
@@ -31,31 +31,41 @@ if (isset($_GET['finish']) && $_GET['finish'] == '1') {
     }
 }
 
-// Build shared where condition
-$whereClause = " WHERE student_id='$student_id' ";
+// Build parameterized where condition
+$whereSQL = "WHERE student_id = ?";
+$whereParams = [$student_id];
 if ($examTaken) {
-    $whereClause .= " AND examTaken='$examTaken' ";
+    $whereSQL .= " AND examTaken = ?";
+    $whereParams[] = $examTaken;
 }
 
 // Count total grouped attempts for pagination
-$countSql = "SELECT COUNT(*) as total_attempts FROM (SELECT examTaken FROM exam_results" . $whereClause . "GROUP BY examTaken) as grouped_attempts";
-$countResult = mysqli_query($con, $countSql);
-$countRow = mysqli_fetch_assoc($countResult);
+$countRow = db()->fetchOne(
+    "SELECT COUNT(*) as total_attempts FROM (SELECT examTaken FROM exam_results {$whereSQL} GROUP BY examTaken) as grouped_attempts",
+    $whereParams
+);
 $totalAttempts = intval($countRow['total_attempts'] ?? 0);
 $totalPages = max(1, (int) ceil($totalAttempts / $resultsPerPage));
 $currentPage = min($currentPage, $totalPages);
 $offset = ($currentPage - 1) * $resultsPerPage;
 
 // Get latest attempt for summary banner (always latest overall under same filter)
-$latestSql = "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time
-              FROM exam_results" . $whereClause . "GROUP BY examTaken ORDER BY exam_time DESC LIMIT 1";
-$latestResult = mysqli_query($con, $latestSql);
-$latest = mysqli_fetch_assoc($latestResult);
+$latest = db()->fetchOne(
+    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score,
+            SUM(earned_points) as total_earned, SUM(max_points) as total_max,
+            MAX(timestamp) as exam_time
+     FROM exam_results {$whereSQL} GROUP BY examTaken ORDER BY exam_time DESC LIMIT 1",
+    $whereParams
+);
 
 // Fetch attempts for current page
-$sql = "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score, MAX(timestamp) as exam_time 
-        FROM exam_results" . $whereClause . "GROUP BY examTaken ORDER BY exam_time DESC LIMIT $resultsPerPage OFFSET $offset";
-$attempts = mysqli_query($con, $sql);
+$attemptsRows = db()->fetchAll(
+    "SELECT examTaken, COUNT(*) as total_questions, SUM(score) as total_score,
+            SUM(earned_points) as total_earned, SUM(max_points) as total_max,
+            MAX(timestamp) as exam_time
+     FROM exam_results {$whereSQL} GROUP BY examTaken ORDER BY exam_time DESC LIMIT ? OFFSET ?",
+    array_merge($whereParams, [$resultsPerPage, $offset])
+);
 
 function getCategory($percent)
 {
@@ -348,9 +358,11 @@ function getCategory($percent)
         </a>
     </div>
 
-    <?php 
-    if ($latest): 
-        $latestPercent = round(($latest['total_score'] / $latest['total_questions']) * 100);
+    <?php
+    if ($latest):
+        $latestPercent = ($latest['total_max'] > 0)
+            ? min(100, round(($latest['total_earned'] / $latest['total_max']) * 100))
+            : 0;
     ?>
     <div class="summary-banner">
         <div class="summary-main">
@@ -366,21 +378,38 @@ function getCategory($percent)
                 <span class="meta-value" style="color: white; font-size: 24px;"><?php echo $latest['total_questions']; ?></span>
             </div>
             <div class="meta-item">
-                <span class="meta-label" style="color: rgba(255,255,255,0.6)">Avg. Per Question</span>
-                <span class="meta-value" style="color: white; font-size: 24px;"><?php echo round($latest['total_score'], 1); ?> pts</span>
+                <span class="meta-label" style="color: rgba(255,255,255,0.6)">Points Earned</span>
+                <span class="meta-value" style="color: white; font-size: 24px;"><?php echo round($latest['total_earned'], 1); ?> / <?php echo round($latest['total_max'], 1); ?></span>
             </div>
         </div>
     </div>
     <?php endif; ?>
     
+    <?php if (empty($attemptsRows)): ?>
+    <div style="text-align: center; padding: 80px 20px; color: var(--text-muted);">
+        <i class="fas fa-clipboard-list" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
+        <h3 style="font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px;">No Results Found</h3>
+        <p style="font-size: 15px;">No exam data was recorded for this attempt. This can happen if answers were not saved before submission.</p>
+        <a href="index.php" class="btn-details" style="display: inline-flex; margin-top: 24px; align-items: center; gap: 8px;">
+            <i class="fas fa-plus"></i> Try a New Exam
+        </a>
+    </div>
+    <?php endif; ?>
+
     <div class="attempts-grid">
-        <?php while ($row = mysqli_fetch_assoc($attempts)):
-            $id = $row['examTaken'];
-            // score is sum of fractions 0.00-1.00
-            $percent = ($row['total_questions'] > 0) ? round(($row['total_score'] / $row['total_questions']) * 100) : 0;
+        <?php foreach ($attemptsRows as $row):
+            $id = intval($row['examTaken']);
+            $percent = ($row['total_max'] > 0)
+                ? min(100, round(($row['total_earned'] / $row['total_max']) * 100))
+                : 0;
             $cat = getCategory($percent);
 
-            $t_res = mysqli_query($con, "SELECT topic, COUNT(*) as q, SUM(score) as s FROM exam_results WHERE student_id='$student_id' AND examTaken='$id' GROUP BY topic");
+            $topicRows = db()->fetchAll(
+                "SELECT topic, COUNT(*) as q, SUM(score) as s,
+                        SUM(earned_points) as ep, SUM(max_points) as mp
+                 FROM exam_results WHERE student_id = ? AND examTaken = ? GROUP BY topic",
+                [$student_id, $id]
+            );
         ?>
         <div class="card">
             <div class="score-display">
@@ -403,15 +432,16 @@ function getCategory($percent)
                         </span>
                     </div>
                     <div class="topic-list">
-                        <?php while ($t = mysqli_fetch_assoc($t_res)):
-                            // t['s'] is sum of float scores
-                            $tp = ($t['q'] > 0) ? round(($t['s'] / $t['q']) * 100) : 0;
+                        <?php foreach ($topicRows as $t):
+                            $tp = ($t['mp'] > 0)
+                                ? min(100, round(($t['ep'] / $t['mp']) * 100))
+                                : 0;
                         ?>
                             <div class="topic-pill">
                                 <?php echo htmlspecialchars($t['topic'] ?: 'General'); ?>
                                 <span><?php echo $tp; ?>%</span>
                             </div>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     </div>
                 </div>
 
@@ -426,7 +456,7 @@ function getCategory($percent)
                     </div>
                     <div class="meta-item">
                         <span class="meta-label">Raw Points</span>
-                        <span class="meta-value"><?php echo round($row['total_score'], 2); ?></span>
+                        <span class="meta-value"><?php echo round($row['total_earned'], 1); ?> / <?php echo round($row['total_max'], 1); ?></span>
                     </div>
                 </div>
             </div>
@@ -460,7 +490,7 @@ function getCategory($percent)
             }
         });
         </script>
-        <?php endwhile; ?>
+        <?php endforeach; ?>
     </div>
 
     <?php if ($totalAttempts > 0 && !$examTaken): ?>

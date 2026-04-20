@@ -401,7 +401,7 @@ if (mysqli_num_rows($select) > 0) {
 
                                         foreach ($topics as $topic) {
                                             echo "<label class='flex-grow-1'>
-                                                <input type='checkbox' class='topicCheckbox' value='{$topic}' data-count='0' disabled> 
+                                                <input type='checkbox' class='topicCheckbox' value='0|{$topic}' data-count='0' disabled> 
                                                 " . ucfirst($topic) . " 
                                               </label>";
 
