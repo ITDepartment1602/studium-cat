@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/xampp/**)",
+      "Bash(./mysql/bin/mysql -u root -e \"SHOW COLUMNS FROM studium_cat.traditional; SHOW COLUMNS FROM studium_cat.sata; SHOW COLUMNS FROM studium_cat.mpr; SHOW COLUMNS FROM studium_cat.mmr; SHOW COLUMNS FROM studium_cat.btq; SHOW COLUMNS FROM studium_cat.highlight; SHOW COLUMNS FROM studium_cat.dragndrop; SHOW COLUMNS FROM studium_cat.dropdown;\")"
+    ]
+  }
+}
