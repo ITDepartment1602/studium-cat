@@ -113,7 +113,6 @@ if ($savedState) {
     [['dragndrop'], 'dragndrop', 2],
     [['dropdown', 'dropdown_questions'], 'dropdown', 2],
     [['sata'], 'sata', 2],
-    [['column'], 'column', 2],
     [['traditional'], 'traditional', 2],
   ];
 

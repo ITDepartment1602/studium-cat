@@ -44,8 +44,12 @@ $score = ($correctAnswersCount / 150) * 100;
 date_default_timezone_set('Asia/Manila');
 $date = date('Y-m-d H:i:s');
 
-$insertHistoryQuery = "INSERT INTO `history` ( email, eid, kilanlan, score, level, sahi, wrong, date) VALUES ( '$user_id', '$topics1', 'NARC Intermediate and Advance QBanks', '$score', '150', '$correctAnswersCount', '$wrongAnswersCount', NOW())";
-mysqli_query($con, $insertHistoryQuery) or die('query failed');
+$historyKey = 'history_inserted_' . $user_id . '_' . $examTakenMinus;
+if (empty($_SESSION[$historyKey])) {
+    $insertHistoryQuery = "INSERT INTO `history` (email, eid, kilanlan, score, level, sahi, wrong, date) VALUES ('$user_id', '$topics1', 'NARC Intermediate and Advance QBanks', '$score', '150', '$correctAnswersCount', '$wrongAnswersCount', NOW())";
+    mysqli_query($con, $insertHistoryQuery) or die('query failed');
+    $_SESSION[$historyKey] = true;
+}
 
 ?>
 <!DOCTYPE html>
