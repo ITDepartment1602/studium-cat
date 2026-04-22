@@ -604,7 +604,8 @@ if (isset($user_id)) {
               <?php
               // Check for active paused NGN exam
               $ngnStateCheck = mysqli_query($quizCon, "SELECT * FROM temporary_exam_state WHERE student_id = '$user_id'");
-              if (mysqli_num_rows($ngnStateCheck) > 0) {
+              $hasPausedNGN = mysqli_num_rows($ngnStateCheck) > 0;
+              if ($hasPausedNGN) {
                   $stRow = mysqli_fetch_assoc($ngnStateCheck);
                   $savedTimeStr = date('M d, Y h:i A', strtotime($stRow['updated_at']));
               ?>
@@ -628,35 +629,53 @@ if (isset($user_id)) {
                 </div>
               <?php
               }
-              error_reporting(E_ALL ^ E_WARNING); // suppress warning if missing
-              $bundle_name = @$_GET['bundle_name'];
-              $q = "select * from topics LEFT JOIN bundlelist on topics.title=bundlelist.bundlelist_name where bundle_name='$bundle_name'";
+              $userBundle = $fetch['bundle_name'];
+              $isPackege2 = ($userBundle == 'Packege 2');
+              $q = "SELECT * FROM bundlelist ORDER BY id ASC";
               $query = mysqli_query($con, $q);
               while ($row = mysqli_fetch_array($query)) {
+                $isNGN = ($row['name'] == "NARC NGN QBanks (Soon)");
               ?>
                 <div class="d-flex align-items-center p-3 rounded-4 hover-shadow w-100"
                      style="min-width:250px; max-width:100%; height: 100%; background:#F9FDFF;">
-                  <img src="../../admin/manage topics/<?php echo $row['image']; ?>"
-                       class="me-3 rounded-3"
-                       style="height:100px; object-fit:contain;">
                   <div class="flex-grow-1">
-                    <h6 class="fw-bold mb-1"><?php echo $row['name'] ?></h6>
-                    <p class="text-muted small mb-2"><?php echo $row['description'] ?></p>
-                    <?php if ($row['name'] == "NARC NGN QBanks (Soon)") { ?>
-                      <span class="badge bg-warning text-dark">Coming Soon</span>
-                    <?php } else { ?>
-                      <a href="topic.php?kilanlan=<?php echo $row['title'] ?>"
+                    <h6 class="fw-bold mb-1"><?php echo htmlspecialchars($row['name']) ?></h6>
+                    <?php if ($isNGN): ?>
+                      <?php if ($isPackege2): ?>
+                        <?php if ($hasPausedNGN): ?>
+                          <a href="ngn/index.php"
+                             class="btn btn-sm text-white px-3"
+                             style="background: linear-gradient(135deg,#004AAD,#02968A);">
+                            <i class="fas fa-play me-1"></i>Resume
+                          </a>
+                        <?php else: ?>
+                          <button type="button"
+                             class="btn btn-sm text-white px-3"
+                             style="background: linear-gradient(135deg,#004AAD,#02968A);"
+                             onclick="openNGNModal()">
+                            <i class="fas fa-brain me-1"></i>Open
+                          </button>
+                        <?php endif; ?>
+                      <?php else: ?>
+                        <a href="subscription.php"
+                           class="btn btn-sm btn-secondary px-3 disabled" tabindex="-1"
+                           style="opacity:0.65; cursor:not-allowed;">
+                          <i class="fas fa-lock me-1"></i>Subscribe Now
+                        </a>
+                      <?php endif; ?>
+                    <?php else: ?>
+                      <a href="topic.php?kilanlan=<?php echo urlencode($row['bundlelist_name']) ?>"
                          class="btn btn-sm text-white px-3"
-                         style="background: linear-gradient(135deg,#004AAD,#02968A);">
-                        Open
+                         style="background: linear-gradient(135deg,#02968A,#004AAD);">
+                        <i class="fas fa-book me-1"></i>Open
                       </a>
-                    <?php } ?>
+                    <?php endif; ?>
                   </div>
                 </div>
               <?php } ?>
-            </div>
-          </div>
-        </div>
+              </div>
+              </div>
+             </div>
       </div>
       
       
@@ -1507,6 +1526,456 @@ function discardExam(examTaken) {
 </script>
 
 
+
+<!-- ===== NGN MODAL STYLES ===== -->
+<style>
+#ngnModal .modal-content {
+  border-radius: 20px;
+  overflow: hidden;
+  border: none;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+}
+#ngnModal .ngn-modal-header {
+  background: linear-gradient(135deg, #004AAD 0%, #02968A 100%);
+  padding: 22px 28px 18px;
+  position: relative;
+}
+#ngnModal .ngn-modal-header h5 {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.15rem;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+#ngnModal .ngn-modal-header .step-badge {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+#ngnModal .modal-body {
+  padding: 22px 24px 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+#ngnModal .modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+/* Alert instruction box */
+.ngn-alert {
+  background: #fff5f5;
+  border-left: 4px solid #e53e3e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ngn-alert i { color: #e53e3e; margin-top: 2px; flex-shrink: 0; }
+.ngn-alert p { margin: 0; color: #c53030; font-size: 0.82rem; line-height: 1.5; }
+/* Select-all bar */
+.ngn-selectall-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8f9ff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.ngn-selectall-bar:hover { background: #eef2ff; }
+.ngn-selectall-bar label { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: #1B4965; margin: 0; }
+/* Concept / Topic item cards */
+.ngn-item-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 576px) {
+  .ngn-item-grid { grid-template-columns: 1fr; }
+}
+.ngn-item-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 2px solid #e9edf5;
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+.ngn-item-card:hover {
+  border-color: #004AAD;
+  background: #f0f5ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,74,173,0.1);
+}
+.ngn-item-card.selected {
+  border-color: #02968A;
+  background: #f0fdf9;
+  box-shadow: 0 2px 10px rgba(2,150,138,0.15);
+}
+.ngn-item-card .ngn-cb {
+  width: 18px; height: 18px;
+  accent-color: #02968A;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.ngn-item-card .ngn-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2d3748;
+  flex-grow: 1;
+  line-height: 1.3;
+}
+.ngn-item-card .ngn-count {
+  background: linear-gradient(135deg, #004AAD, #02968A);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* Topic list — auto multi-column grid, max 5 rows per column */
+.ngn-topic-list {
+  display: grid;
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+.ngn-topic-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 2px solid #e9edf5;
+  border-radius: 12px;
+  padding: 10px 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  min-width: 0;
+}
+.ngn-topic-card:hover { border-color: #004AAD; background: #f0f5ff; }
+.ngn-topic-card.selected { border-color: #02968A; background: #f0fdf9; box-shadow: 0 2px 8px rgba(2,150,138,0.13); }
+.ngn-topic-card .ngn-cb { width: 17px; height: 17px; accent-color: #02968A; flex-shrink: 0; pointer-events: none; }
+.ngn-topic-card .ngn-label { font-size: 0.82rem; color: #2d3748; font-weight: 500; flex-grow: 1; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ngn-topic-card .ngn-count { background: linear-gradient(135deg,#004AAD,#02968A); color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:20px; flex-shrink:0; white-space:nowrap; }
+/* Step indicator dots */
+.ngn-steps { display:flex; align-items:center; gap:6px; margin-left:auto; margin-right:12px; }
+.ngn-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.35); transition:background 0.2s; }
+.ngn-dot.active { background:#fff; width:22px; border-radius:4px; }
+/* Buttons */
+.ngn-btn-next {
+  background: linear-gradient(135deg,#004AAD,#02968A);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 22px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.ngn-btn-next:disabled { opacity: 0.45; cursor: not-allowed; }
+.ngn-btn-next:not(:disabled):hover { opacity: 0.9; transform: translateY(-1px); }
+.ngn-btn-back {
+  background: transparent;
+  border: 2px solid #cbd5e0;
+  border-radius: 10px;
+  padding: 8px 18px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #4a5568;
+  transition: all 0.15s;
+}
+.ngn-btn-back:hover { background:#f7fafc; border-color:#94a3b8; }
+.ngn-btn-cancel { background:transparent; border:none; color:#94a3b8; font-size:0.88rem; padding:8px 12px; }
+.ngn-btn-cancel:hover { color:#64748b; }
+/* Loading spinner */
+.ngn-loading { text-align:center; padding:36px 0; color:#94a3b8; font-size:0.9rem; }
+.ngn-loading i { font-size:1.5rem; margin-bottom:8px; display:block; }
+</style>
+
+<!-- ===== NGN CONCEPT/TOPIC SELECTION MODAL ===== -->
+<div class="modal fade" id="ngnModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable" style="margin-top:60px;">
+    <div class="modal-content">
+
+      <!-- STEP 1: Concepts -->
+      <div id="ngnStep1">
+        <div class="ngn-modal-header">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="step-badge">Step 1 of 2</span>
+          </div>
+          <div class="d-flex align-items-center justify-content-between">
+            <h5><i class="fas fa-brain me-2"></i>Choose Subjects</h5>
+            <div class="d-flex align-items-center gap-2">
+              <div class="ngn-steps">
+                <div class="ngn-dot active"></div>
+                <div class="ngn-dot"></div>
+              </div>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-body">
+          <!-- Alert Instruction -->
+          <div class="ngn-alert">
+            <i class="fas fa-exclamation-circle"></i>
+            <p><strong>Important:</strong> You must select at least one subject to proceed. Your exam will only include questions from the subjects and topics you choose. Choose wisely — you cannot change this once the exam starts.</p>
+          </div>
+
+          <!-- Select All -->
+          <div class="ngn-selectall-bar" onclick="toggleAllConcepts()">
+            <label for="selectAllConcepts"><i class="fas fa-check-double me-2" style="color:#004AAD;"></i>Select All Subjects</label>
+            <input class="ngn-cb" type="checkbox" id="selectAllConcepts" onclick="event.stopPropagation(); toggleAllConcepts()">
+          </div>
+
+          <!-- Loading -->
+          <div id="conceptLoadingMsg" class="ngn-loading">
+            <i class="fas fa-spinner fa-spin"></i>Loading subjects...
+          </div>
+
+          <!-- Concept Grid -->
+          <div id="conceptGrid" class="ngn-item-grid d-none"></div>
+        </div>
+
+        <div class="modal-footer justify-content-between">
+          <button class="ngn-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button class="ngn-btn-next" id="nextToTopicBtn" disabled>
+            Next <i class="fas fa-arrow-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Topics -->
+      <div id="ngnStep2" class="d-none">
+        <div class="ngn-modal-header">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="step-badge">Step 2 of 2</span>
+          </div>
+          <div class="d-flex align-items-center justify-content-between">
+            <h5><i class="fas fa-list-check me-2"></i>Choose Topics</h5>
+            <div class="d-flex align-items-center gap-2">
+              <div class="ngn-steps">
+                <div class="ngn-dot"></div>
+                <div class="ngn-dot active"></div>
+              </div>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-body">
+          <!-- Alert Instruction -->
+          <div class="ngn-alert">
+            <i class="fas fa-exclamation-circle"></i>
+            <p><strong>Important:</strong> Only topics belonging to your selected subjects are shown below. You must select at least one topic. Questions will be randomly drawn from your chosen topics only.</p>
+          </div>
+
+          <!-- Select All -->
+          <div class="ngn-selectall-bar" onclick="toggleAllTopics()">
+            <label for="selectAllTopics"><i class="fas fa-check-double me-2" style="color:#004AAD;"></i>Select All Topics</label>
+            <input class="ngn-cb" type="checkbox" id="selectAllTopics" onclick="event.stopPropagation(); toggleAllTopics()">
+          </div>
+
+          <!-- Loading -->
+          <div id="topicLoadingMsg" class="ngn-loading d-none">
+            <i class="fas fa-spinner fa-spin"></i>Loading topics...
+          </div>
+
+          <!-- Topic List -->
+          <div id="topicList" class="ngn-topic-list"></div>
+        </div>
+
+        <div class="modal-footer justify-content-between">
+          <button class="ngn-btn-back" id="backToConceptBtn"><i class="fas fa-arrow-left me-1"></i>Back</button>
+          <form id="ngnStartForm" method="POST" action="ngn/start_filtered_exam.php" class="d-inline">
+            <input type="hidden" name="concepts" id="hiddenConcepts">
+            <input type="hidden" name="topics" id="hiddenTopics">
+            <button type="submit" class="ngn-btn-next" id="startExamBtn" disabled>
+              <i class="fas fa-play me-1"></i>Start Exam
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openNGNModal() {
+  document.getElementById('ngnStep1').classList.remove('d-none');
+  document.getElementById('ngnStep2').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('ngnModal')).show();
+  loadConcepts();
+}
+
+// ---- STEP 1: Concepts ----
+function loadConcepts() {
+  const grid = document.getElementById('conceptGrid');
+  const loading = document.getElementById('conceptLoadingMsg');
+  grid.classList.add('d-none');
+  grid.innerHTML = '';
+  loading.classList.remove('d-none');
+
+  fetch('get_ngn_concepts.php')
+    .then(r => r.json())
+    .then(data => {
+      loading.classList.add('d-none');
+      grid.classList.remove('d-none');
+      data.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'ngn-item-card';
+        card.innerHTML = `
+          <input class="ngn-cb concept-cb" type="checkbox" value="${escHtml(item.concept)}">
+          <span class="ngn-label">${escHtml(item.concept)}</span>
+          <span class="ngn-count">${item.count} Qs</span>
+        `;
+        card.addEventListener('click', function() {
+          const cb = this.querySelector('.concept-cb');
+          cb.checked = !cb.checked;
+          syncCardSelected(this, cb.checked);
+          updateNextBtn();
+        });
+        grid.appendChild(card);
+      });
+      updateNextBtn();
+    })
+    .catch(() => { loading.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Failed to load. Reload and try again.</span>'; });
+}
+
+function syncCardSelected(card, checked) {
+  card.classList.toggle('selected', checked);
+}
+
+function toggleAllConcepts() {
+  const allCb = document.getElementById('selectAllConcepts');
+  const cbs = document.querySelectorAll('.concept-cb');
+  const anyUnchecked = Array.from(cbs).some(c => !c.checked);
+  const newState = anyUnchecked;
+  allCb.checked = newState;
+  cbs.forEach(cb => {
+    cb.checked = newState;
+    syncCardSelected(cb.closest('.ngn-item-card'), newState);
+  });
+  updateNextBtn();
+}
+
+function updateNextBtn() {
+  const checked = document.querySelectorAll('.concept-cb:checked').length;
+  const total   = document.querySelectorAll('.concept-cb').length;
+  document.getElementById('nextToTopicBtn').disabled = checked === 0;
+  const sa = document.getElementById('selectAllConcepts');
+  sa.checked = total > 0 && checked === total;
+  sa.indeterminate = checked > 0 && checked < total;
+}
+
+// ---- STEP 2: Topics ----
+document.getElementById('nextToTopicBtn').addEventListener('click', function() {
+  const selectedConcepts = Array.from(document.querySelectorAll('.concept-cb:checked')).map(c => c.value);
+  document.getElementById('ngnStep1').classList.add('d-none');
+  document.getElementById('ngnStep2').classList.remove('d-none');
+
+  const list = document.getElementById('topicList');
+  const loading = document.getElementById('topicLoadingMsg');
+  list.innerHTML = '';
+  loading.classList.remove('d-none');
+
+  fetch('get_ngn_topics.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ concepts: selectedConcepts })
+  })
+    .then(r => r.json())
+    .then(data => {
+      loading.classList.add('d-none');
+      if (!data.length) {
+        list.style.display = 'block';
+        list.innerHTML = '<p class="text-center text-muted py-3">No topics found for the selected subjects.</p>';
+        return;
+      }
+
+      // Set grid columns: 1 col per 5 items, min 1, max 4
+      const numCols = Math.min(Math.max(Math.ceil(data.length / 5), 1), 4);
+      list.style.gridTemplateColumns = `repeat(${numCols}, 1fr)`;
+      list.style.gridTemplateRows = `repeat(${Math.ceil(data.length / numCols)}, auto)`;
+
+      data.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'ngn-topic-card';
+        card.innerHTML = `
+          <input class="ngn-cb topic-cb" type="checkbox" value="${escHtml(item.topic)}" data-concept="${escHtml(item.concept)}">
+          <span class="ngn-label">${escHtml(item.topic)}</span>
+          <span class="ngn-count">${item.count} Qs</span>
+        `;
+        card.addEventListener('click', function() {
+          const cb = this.querySelector('.topic-cb');
+          cb.checked = !cb.checked;
+          this.classList.toggle('selected', cb.checked);
+          updateStartBtn();
+        });
+        list.appendChild(card);
+      });
+      updateStartBtn();
+    })
+    .catch(() => { loading.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Failed to load topics.</span>'; });
+});
+
+function toggleAllTopics() {
+  const allCb = document.getElementById('selectAllTopics');
+  const cbs = document.querySelectorAll('.topic-cb');
+  const anyUnchecked = Array.from(cbs).some(c => !c.checked);
+  const newState = anyUnchecked;
+  allCb.checked = newState;
+  cbs.forEach(cb => {
+    cb.checked = newState;
+    cb.closest('.ngn-topic-card').classList.toggle('selected', newState);
+  });
+  updateStartBtn();
+}
+
+function updateStartBtn() {
+  const checked = document.querySelectorAll('.topic-cb:checked').length;
+  const total   = document.querySelectorAll('.topic-cb').length;
+  document.getElementById('startExamBtn').disabled = checked === 0;
+  const sa = document.getElementById('selectAllTopics');
+  sa.checked = total > 0 && checked === total;
+  sa.indeterminate = checked > 0 && checked < total;
+}
+
+document.getElementById('backToConceptBtn').addEventListener('click', function() {
+  document.getElementById('ngnStep2').classList.add('d-none');
+  document.getElementById('ngnStep1').classList.remove('d-none');
+});
+
+document.getElementById('ngnStartForm').addEventListener('submit', function() {
+  document.getElementById('hiddenConcepts').value = JSON.stringify(Array.from(document.querySelectorAll('.concept-cb:checked')).map(c => c.value));
+  document.getElementById('hiddenTopics').value   = JSON.stringify(Array.from(document.querySelectorAll('.topic-cb:checked')).map(c => c.value));
+});
+</script>
 
 </body>
 
