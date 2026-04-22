@@ -116,11 +116,36 @@ if ($savedState) {
     [['traditional'], 'traditional', 2],
   ];
 
+  // Apply concept/topic filter if set from the modal
+  $conceptFilter = isset($_SESSION['ngn_concept_filter']) && is_array($_SESSION['ngn_concept_filter']) ? $_SESSION['ngn_concept_filter'] : [];
+  $topicFilter   = isset($_SESSION['ngn_topic_filter'])   && is_array($_SESSION['ngn_topic_filter'])   ? $_SESSION['ngn_topic_filter']   : [];
+  // Clear filters from session now that we've captured them
+  unset($_SESSION['ngn_concept_filter'], $_SESSION['ngn_topic_filter']);
+
   foreach ($questionTypes as [$candidateTables, $type, $limit]) {
     if (!isset($_SESSION['ngn_exam_set'])) {
       foreach ($candidateTables as $table) {
         if (!table_exists_idx($table)) continue;
-        $rows = db()->fetchAll("SELECT id FROM `{$table}` ORDER BY RAND() LIMIT ?", [$limit]);
+
+        // Build dynamic WHERE for concept/topic filter
+        $whereParts = [];
+        $params = [];
+
+        if (!empty($conceptFilter)) {
+          $ph = implode(',', array_fill(0, count($conceptFilter), '?'));
+          $whereParts[] = "concept IN ($ph)";
+          $params = array_merge($params, $conceptFilter);
+        }
+        if (!empty($topicFilter)) {
+          $ph = implode(',', array_fill(0, count($topicFilter), '?'));
+          $whereParts[] = "topic IN ($ph)";
+          $params = array_merge($params, $topicFilter);
+        }
+
+        $whereClause = !empty($whereParts) ? 'WHERE ' . implode(' AND ', $whereParts) : '';
+        $params[] = $limit;
+
+        $rows = db()->fetchAll("SELECT id FROM `{$table}` $whereClause ORDER BY RAND() LIMIT ?", $params);
         foreach ($rows as $r) {
           $questionIds[] = ['id' => $r['id'], 'type' => $type];
         }
