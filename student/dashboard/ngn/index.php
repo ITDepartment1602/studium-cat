@@ -1401,7 +1401,6 @@ $dbAnswersJs = json_encode($dbAnswers);
       'sata': { label: 'SATA', icon: 'fa-check-double', color: '#14b8a6' },
       'dragndrop': { label: 'Drag & Drop', icon: 'fa-hand', color: '#ec4899' },
       'dropdown': { label: 'Drop-Down', icon: 'fa-caret-down', color: '#6366f1' },
-      'column': { label: 'Column Match', icon: 'fa-columns', color: '#f97316' },
       'traditional': { label: 'Multiple Choice', icon: 'fa-circle-dot', color: '#64748b' },
     };
 
@@ -1446,6 +1445,10 @@ $dbAnswersJs = json_encode($dbAnswers);
     }
 
     // ===== IFRAME LOAD - PREFILL & SECURITY =====
+    // pendingPrefill is sent when the iframe signals 'ready', avoiding the race
+    // condition where postMessage arrives before the iframe's listener is set up.
+    let pendingPrefill = null;
+
     document.getElementById('questionFrame').addEventListener('load', () => {
       const iframeWindow = document.getElementById('questionFrame').contentWindow;
       const innerDoc = document.getElementById('questionFrame').contentDocument || iframeWindow.document;
@@ -1464,7 +1467,7 @@ $dbAnswersJs = json_encode($dbAnswers);
       const prevResult = userAnswers[uid] || null;
 
       if (prevResult) {
-        iframeWindow.postMessage({
+        pendingPrefill = {
           type: 'prefill',
           answer: prevResult.answer ?? [],
           correct_answer: prevResult.correct_answer ?? [],
@@ -1479,11 +1482,11 @@ $dbAnswersJs = json_encode($dbAnswers);
           dlevel: prevResult.dlevel ?? '',
           question_id: prevResult.question_id ?? q.id,
           showRationale: true,
-          isReview: true  // Flag for review/read-only mode
-        }, '*');
+          isReview: true
+        };
         document.getElementById('nextBtn').disabled = false;
       } else {
-        iframeWindow.postMessage({ type: 'prefill', answer: [], showRationale: false, isReview: false }, '*');
+        pendingPrefill = { type: 'prefill', answer: [], showRationale: false, isReview: false };
         document.getElementById('nextBtn').disabled = true;
       }
     });
@@ -1494,6 +1497,19 @@ $dbAnswersJs = json_encode($dbAnswers);
     // ===== LISTEN FOR ANSWERED =====
     window.addEventListener('message', async (event) => {
       if (!event.data || typeof event.data !== 'object') return;
+
+      // Iframe signals it is ready to receive prefill data
+      if (event.data.type === 'ready') {
+        if (pendingPrefill) {
+          const iframe = document.getElementById('questionFrame');
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage(pendingPrefill, '*');
+          }
+          pendingPrefill = null;
+        }
+        return;
+      }
+
       if (event.data.type !== 'answered') return;
 
       const q = questionIds[currentQuestion];

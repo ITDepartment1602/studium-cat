@@ -1,6 +1,6 @@
 <?php
 require_once '../../../../config.php';
-// session_start handled by config.php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id > 0) {
@@ -13,13 +13,24 @@ if (!$data) {
     die('<div style="font-family: Arial; padding: 20px;">No MMR question found.</div>');
 }
 
-$columns = json_decode($data['columns'], true) ?? [];
-$rows    = json_decode($data['rows'], true) ?? [];
-$nurses_notes = json_decode($data['nurses_notes'], true) ?? [];
-$vital_signs  = json_decode($data['vital_signs'], true) ?? [];
-$diagnostics   = json_decode($data['diagnostics'], true) ?? [];
-$correct       = json_decode($data['correct'], true) ?? [];
-$rationale     = $data['rationale'] ?? '';
+$columns   = json_decode($data['columns'] ?: '[]', true) ?: [];
+$rows      = json_decode($data['rows']    ?: '[]', true) ?: [];
+$correct   = json_decode($data['correct'] ?: '{}', true) ?: [];
+$rationale = $data['rationale'] ?? '';
+
+// Tabs: spec §1.2 — JSON array of {title, content[]} objects from the `tabs` DB field.
+// Fall back to the legacy individual columns if `tabs` field is absent/empty.
+$tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
+if (empty($tabs_data)) {
+    // Legacy fallback: build tabs from old separate columns
+    $nn = json_decode(($data['nurses_notes'] ?? '') ?: '[]', true) ?: [];
+    $vs = json_decode(($data['vital_signs']  ?? '') ?: '[]', true) ?: [];
+    $dx = json_decode(($data['diagnostics']  ?? '') ?: '[]', true) ?: [];
+    if (!empty($nn))  $tabs_data[] = ['title' => 'Nurse Notes',  'content' => $nn];
+    if (!empty($vs))  $tabs_data[] = ['title' => 'Vital Signs',  'content' => $vs];
+    if (!empty($dx))  $tabs_data[] = ['title' => 'Diagnostics',  'content' => $dx];
+}
+$hasTabs = !empty($tabs_data);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -282,35 +293,31 @@ body {
 
 <div class="app-container">
     <div class="main-content">
-        <!-- Clinical Panel -->
+        <!-- Clinical Panel — shown only when the question has tabs data -->
+        <?php if ($hasTabs): ?>
         <div class="left-panel">
             <div class="panel-header">Client Records</div>
             <div class="tabs-nav">
-                <div class="tab-btn active" data-tab="notes">Nurse Notes</div>
-                <div class="tab-btn" data-tab="vitals">Vital Signs</div>
-                <div class="tab-btn" data-tab="diagnostics">Diagnostics</div>
+                <?php foreach ($tabs_data as $i => $tab): ?>
+                <div class="tab-btn <?= $i === 0 ? 'active' : '' ?>" data-tab="tab-<?= $i ?>"><?= htmlspecialchars($tab['title']) ?></div>
+                <?php endforeach; ?>
             </div>
             <div class="tab-content-area">
-                <div id="notes" class="tab-pane">
+                <?php foreach ($tabs_data as $i => $tab): ?>
+                <div id="tab-<?= $i ?>" class="tab-pane" <?= $i > 0 ? 'style="display:none;"' : '' ?>>
                     <ul class="clinical-list">
-                        <?php foreach($nurses_notes as $n) echo "<li>" . htmlspecialchars($n) . "</li>"; ?>
+                        <?php foreach ((array)($tab['content'] ?? []) as $item): ?>
+                            <li><?= htmlspecialchars($item) ?></li>
+                        <?php endforeach; ?>
                     </ul>
                 </div>
-                <div id="vitals" class="tab-pane" style="display:none;">
-                    <ul class="clinical-list">
-                        <?php foreach($vital_signs as $v) echo "<li>" . htmlspecialchars($v) . "</li>"; ?>
-                    </ul>
-                </div>
-                <div id="diagnostics" class="tab-pane" style="display:none;">
-                    <ul class="clinical-list">
-                        <?php foreach($diagnostics as $d) echo "<li>" . htmlspecialchars($d) . "</li>"; ?>
-                    </ul>
-                </div>
+                <?php endforeach; ?>
             </div>
         </div>
+        <?php endif; ?>
 
-        <!-- Question Panel -->
-        <div class="right-panel">
+        <!-- Question Panel — expands to full width when no tabs -->
+        <div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
             <div class="previous-badge" id="prevBadge">
                 <i class="fas fa-lock"></i> This matrix has been submitted and is now read-only.
             </div>
@@ -470,6 +477,9 @@ $(document).ready(function(){
             }
         }
     });
+
+    // Signal parent that this iframe is ready to receive prefill data
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 
     $('#submitBtn').click(function(){
         if(isReviewMode) return; // Prevent resubmission in review mode

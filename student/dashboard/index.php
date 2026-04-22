@@ -44,27 +44,31 @@ if (isset($_SESSION['ngn_exam_set'])) {
 $quizCon = getQuizConnection();
 mysqli_query($quizCon, "SET time_zone = '+08:00'"); // Adjust to your timezone if necessary
 
-$totalQ = mysqli_fetch_assoc(mysqli_query($quizCon, "SELECT COUNT(*) as total FROM question"))['total'];
+$r = mysqli_query($quizCon, "SELECT COUNT(*) as total FROM question");
+$totalQ = ($r && $row = mysqli_fetch_assoc($r)) ? (int)$row['total'] : 0;
 
-$usedQ = mysqli_fetch_assoc(mysqli_query($quizCon, "
-    SELECT COUNT(DISTINCT questionId) as used 
-    FROM review 
+$r = mysqli_query($quizCon, "
+    SELECT COUNT(DISTINCT questionId) as used
+    FROM review
     WHERE studentId = '$user_id'
-"))['used'];
+");
+$usedQ = ($r && $row = mysqli_fetch_assoc($r)) ? (int)$row['used'] : 0;
 
 $unusedQ = $totalQ - $usedQ;
 
-$correct = mysqli_fetch_assoc(mysqli_query($quizCon, "
-    SELECT COUNT(*) as correct 
-    FROM review 
+$r = mysqli_query($quizCon, "
+    SELECT COUNT(*) as correct
+    FROM review
     WHERE studentId = '$user_id' AND ans = correctAns
-"))['correct'];
+");
+$correct = ($r && $row = mysqli_fetch_assoc($r)) ? (int)$row['correct'] : 0;
 
-$wrong = mysqli_fetch_assoc(mysqli_query($quizCon, "
-    SELECT COUNT(*) as wrong 
-    FROM review 
+$r = mysqli_query($quizCon, "
+    SELECT COUNT(*) as wrong
+    FROM review
     WHERE studentId = '$user_id' AND ans != correctAns
-"))['wrong'];
+");
+$wrong = ($r && $row = mysqli_fetch_assoc($r)) ? (int)$row['wrong'] : 0;
 
 // Percentages
 $usedPercent = ($totalQ > 0) ? round(($usedQ / $totalQ) * 100) : 0;

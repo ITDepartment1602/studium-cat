@@ -1,6 +1,6 @@
 <?php
 require_once '../../../../config.php';
-// session_start handled by config.php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $question_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if($question_id > 0){
@@ -23,6 +23,10 @@ $required = 1;
 if (preg_match('/Select\s+(\d+)/i', $question, $match)) {
     $required = (int)$match[1];
 }
+
+// Dynamic clinical reference tabs from `tabs` DB field (spec §1.2)
+$tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
+$hasTabs = !empty($tabs_data);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -49,9 +53,24 @@ if (preg_match('/Select\s+(\d+)/i', $question, $match)) {
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Inter', sans-serif;
-  background: transparent; /* Parent handles background */
+  background: transparent;
   color: var(--text);
-  padding: 20px;
+}
+
+/* Two-panel layout */
+.two-panel { display: flex; min-height: 100vh; overflow: hidden; }
+.left-panel { width: 40%; min-width: 260px; background: #fff; border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.panel-title { padding: 14px 20px; background: #f1f5f9; font-weight: 800; font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+.tabs-row { display: flex; padding: 8px 12px 0; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
+.tab-btn { padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; color: var(--text-muted); white-space: nowrap; }
+.tab-btn.active { background: #f8fafc; color: var(--accent); border: 1px solid var(--border); border-bottom-color: #f8fafc; margin-bottom: -1px; }
+.tab-content-area { flex: 1; overflow-y: auto; padding: 16px; }
+.clinical-record { background: #fdfdfd; border: 1px solid #f1f5f9; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+.right-panel { flex: 1; overflow-y: auto; padding: 20px; min-width: 0; }
+@media (max-width: 900px) {
+  .two-panel { flex-direction: column; height: auto; overflow: visible; }
+  .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 35vh; overflow-y: auto; }
+  .right-panel { width: 100% !important; overflow: visible; }
 }
 
 .card {
@@ -270,6 +289,27 @@ body {
 </style>
 </head>
 <body>
+<div class="two-panel">
+<?php if ($hasTabs): ?>
+<div class="left-panel">
+  <div class="panel-title">Clinical Reference</div>
+  <div class="tabs-row">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div class="tab-btn <?= $i === 0 ? 'active' : '' ?>" data-tab="mtab-<?= $i ?>"><?= htmlspecialchars($tab['title']) ?></div>
+    <?php endforeach; ?>
+  </div>
+  <div class="tab-content-area">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div id="mtab-<?= $i ?>" class="tab-pane" <?= $i > 0 ? 'style="display:none;"' : '' ?>>
+      <?php foreach ((array)($tab['content'] ?? []) as $item): ?>
+      <div class="clinical-record"><?= htmlspecialchars($item) ?></div>
+      <?php endforeach; ?>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+<div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
 
 <div class="card">
     <div class="previous-badge" id="prevBadge">
@@ -303,8 +343,19 @@ body {
         <div class="rationale-text" id="rationaleText"></div>
     </div>
 </div>
+</div><!-- /.right-panel -->
+</div><!-- /.two-panel -->
 
 <script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+    document.getElementById(this.dataset.tab).style.display = '';
+  });
+});
+
 $(document).ready(function(){
     let correct = <?= json_encode($correct) ?>;
     let required = <?= $required ?>;
@@ -480,6 +531,9 @@ $(document).ready(function(){
             question_type:'mpr'
         },'*');
     });
+
+    // Signal parent that this iframe is ready to receive prefill data
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 });
 </script>
 </body>

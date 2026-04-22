@@ -1,7 +1,8 @@
 <?php
 // bowtie/index.php
 require_once '../../../../config.php';
-// session_start handled by config.php
+// Suppress deprecated notices from json_decode(null) on older data rows
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id > 0) {
@@ -12,13 +13,24 @@ if ($id > 0) {
 $data = mysqli_fetch_assoc($q);
 if (!$data) die('Question not found.');
 
-$actions    = json_decode($data['actionToTake'], true) ?? [];
-$conditions = json_decode($data['potentialConditions'], true) ?? [];
-$parameters = json_decode($data['parameterToMonitor'], true) ?? [];
-$nursesNotes = json_decode($data['nursesNotes'], true) ?? [];
-$vitalSigns  = json_decode($data['vitalSigns'], true) ?? [];
-$diagnostics = json_decode($data['diagnostics'], true) ?? [];
+// Use ?: '[]' so json_decode always receives a non-null string
+$actions    = json_decode($data['actionToTake']        ?: '[]', true) ?: [];
+$conditions = json_decode($data['potentialConditions'] ?: '[]', true) ?: [];
+$parameters = json_decode($data['parameterToMonitor']  ?: '[]', true) ?: [];
 $rationale = $data['rationale'] ?? '';
+
+// Tabs: spec §1.2 — JSON array of {title, content[]} objects from the `tabs` DB field.
+$tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
+if (empty($tabs_data)) {
+    // Legacy fallback: build tabs from old separate columns
+    $nn = json_decode(($data['nursesNotes'] ?? '') ?: '[]', true) ?: [];
+    $vs = json_decode(($data['vitalSigns']  ?? '') ?: '[]', true) ?: [];
+    $dx = json_decode(($data['diagnostics'] ?? '') ?: '[]', true) ?: [];
+    if (!empty($nn))  $tabs_data[] = ['title' => "Nurses' Notes", 'content' => $nn];
+    if (!empty($vs))  $tabs_data[] = ['title' => 'Vital Signs',   'content' => $vs];
+    if (!empty($dx))  $tabs_data[] = ['title' => 'Diagnostics',   'content' => $dx];
+}
+$hasTabs = !empty($tabs_data);
 
 $correctActions = []; $correctConditions = []; $correctParameters = [];
 foreach ($actions as $a) if (!empty($a['correct'])) $correctActions[] = $a['text'];
@@ -347,29 +359,29 @@ body {
 
 <div class="app-container">
     <div class="main-container">
-        <!-- Exhibit -->
+        <!-- Exhibit — hidden when no tabs data -->
+        <?php if ($hasTabs): ?>
         <div class="left-panel">
             <div class="panel-title">Clinical History</div>
             <div class="tabs-row">
-                <div class="tab-btn active" data-tab="nnotes">Nurses' Notes</div>
-                <div class="tab-btn" data-tab="vsigns">Vital Signs</div>
-                <div class="tab-btn" data-tab="diags">Diagnostics</div>
+                <?php foreach ($tabs_data as $i => $tab): ?>
+                <div class="tab-btn <?= $i === 0 ? 'active' : '' ?>" data-tab="btab-<?= $i ?>"><?= htmlspecialchars($tab['title']) ?></div>
+                <?php endforeach; ?>
             </div>
             <div class="tab-content-area">
-                <div id="nnotes" class="tab-pane">
-                    <?php foreach($nursesNotes as $n) echo "<div class='clinical-record'>".htmlspecialchars($n)."</div>"; ?>
+                <?php foreach ($tabs_data as $i => $tab): ?>
+                <div id="btab-<?= $i ?>" class="tab-pane" <?= $i > 0 ? 'style="display:none;"' : '' ?>>
+                    <?php foreach ((array)($tab['content'] ?? []) as $item): ?>
+                        <div class="clinical-record"><?= htmlspecialchars($item) ?></div>
+                    <?php endforeach; ?>
                 </div>
-                <div id="vsigns" class="tab-pane" style="display:none;">
-                    <?php foreach($vitalSigns as $v) echo "<div class='clinical-record'>".htmlspecialchars($v)."</div>"; ?>
-                </div>
-                <div id="diags" class="tab-pane" style="display:none;">
-                    <?php foreach($diagnostics as $d) echo "<div class='clinical-record'>".htmlspecialchars($d)."</div>"; ?>
-                </div>
+                <?php endforeach; ?>
             </div>
         </div>
+        <?php endif; ?>
 
         <!-- Question Area -->
-        <div class="right-panel">
+        <div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
             <div class="previous-badge" id="prevBadge">
                 <i class="fas fa-lock"></i> This Bow-Tie has been submitted and is now read-only.
             </div>
@@ -581,9 +593,12 @@ $(document).ready(function(){
         }
     });
 
+    // Signal parent that this iframe is ready to receive prefill data
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
+
     $('#submitBtn').click(function(){
         if(isReviewMode) return; // Prevent resubmission in review mode
-        
+
         let incomplete = false;
         $('.dropzone').each(function(){ if($(this).find('.choice-token').length === 0) incomplete = true; });
         if(incomplete) {

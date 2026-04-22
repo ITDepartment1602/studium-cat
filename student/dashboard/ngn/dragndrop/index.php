@@ -1,7 +1,7 @@
 <?php
 // dragndrop/index.php
 require_once '../../../../config.php';
-// session_start handled by config.php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id === 0) die("No question ID provided!");
@@ -19,6 +19,10 @@ $system = $data['system'] ?? 'N/A';
 $cnc = $data['cnc'] ?? 'N/A';
 $dlevel = $data['dlevel'] ?? 'N/A';
 $correct = json_decode($data['correct'], true);
+
+// Dynamic clinical reference tabs from `tabs` DB field (spec §1.2)
+$tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
+$hasTabs = !empty($tabs_data);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -47,11 +51,24 @@ body {
   font-family: 'Inter', sans-serif;
   color: var(--text);
   background: white;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  overflow-y: auto;
-  padding: clamp(8px, 3vh, 32px) 12px;
+  overflow: hidden;
+}
+
+/* Two-panel layout */
+.two-panel { display: flex; height: 100%; overflow: hidden; }
+.left-panel { width: 40%; min-width: 260px; background: #fff; border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.panel-title { padding: 14px 20px; background: #f1f5f9; font-weight: 800; font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+.tabs-row { display: flex; padding: 8px 12px 0; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
+.tab-btn { padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; color: #64748b; white-space: nowrap; }
+.tab-btn.active { background: #f8fafc; color: var(--accent); border: 1px solid var(--border); border-bottom-color: #f8fafc; margin-bottom: -1px; }
+.tab-content-area { flex: 1; overflow-y: auto; padding: 16px; }
+.clinical-record { background: #fdfdfd; border: 1px solid #f1f5f9; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+.right-panel { flex: 1; overflow-y: auto; padding: clamp(8px, 3vh, 32px) 12px; min-width: 0; display: flex; justify-content: center; align-items: flex-start; }
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .two-panel { flex-direction: column; height: auto; overflow: visible; }
+  .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 35vh; overflow-y: auto; }
+  .right-panel { width: 100% !important; overflow: visible; display: block; }
 }
 
 .card {
@@ -178,10 +195,67 @@ body {
     margin-bottom: 20px;
     border-left: 4px solid #cbd5e1;
 }
+
+.ordered-slots {
+  margin-bottom: 24px;
+}
+.slots-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.slot-num {
+  width: 28px;
+  height: 28px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.slot-row .blank {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
+<div class="two-panel">
+<?php if ($hasTabs): ?>
+<div class="left-panel">
+  <div class="panel-title">Clinical Reference</div>
+  <div class="tabs-row">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div class="tab-btn <?= $i === 0 ? 'active' : '' ?>" data-tab="dtab-<?= $i ?>"><?= htmlspecialchars($tab['title']) ?></div>
+    <?php endforeach; ?>
+  </div>
+  <div class="tab-content-area">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div id="dtab-<?= $i ?>" class="tab-pane" <?= $i > 0 ? 'style="display:none;"' : '' ?>>
+      <?php foreach ((array)($tab['content'] ?? []) as $item): ?>
+      <div class="clinical-record"><?= htmlspecialchars($item) ?></div>
+      <?php endforeach; ?>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+<div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
 
 <div class="card">
     <div class="previous-badge" id="prevBadge">
@@ -192,12 +266,32 @@ body {
     
     <div class="question-container" id="questionBox">
         <?php
-        echo preg_replace_callback('/_{3,}/', function() {
-            static $i = 0;
-            return '<div class="blank" data-idx="'.($i++).'">Drop Here</div>';
-        }, htmlspecialchars($question));
+        // Check if question has inline blank placeholders (___).
+        // If not, we render the question as plain text and generate numbered
+        // drop-zones below it equal to the number of correct answer positions.
+        $hasPlaceholders = preg_match('/_{3,}/', $question);
+        if ($hasPlaceholders) {
+            echo preg_replace_callback('/_{3,}/', function() {
+                static $i = 0;
+                return '<div class="blank" data-idx="'.($i++).'">Drop Here</div>';
+            }, htmlspecialchars($question));
+        } else {
+            echo nl2br(htmlspecialchars($question));
+        }
         ?>
     </div>
+
+    <?php if (!$hasPlaceholders): ?>
+    <div class="ordered-slots" id="orderedSlots">
+        <div class="slots-label">Arrange in correct order:</div>
+        <?php for ($i = 0; $i < count($correct); $i++): ?>
+            <div class="slot-row">
+                <div class="slot-num"><?= $i + 1 ?></div>
+                <div class="blank" data-idx="<?= $i ?>">Drop Here</div>
+            </div>
+        <?php endfor; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="choices-bank" id="choicesBank">
         <?php foreach ($items as $item): ?>
@@ -215,8 +309,19 @@ body {
         <div id="rationaleText" style="font-size:14px; line-height:1.6;"></div>
     </div>
 </div>
+</div><!-- /.right-panel -->
+</div><!-- /.two-panel -->
 
 <script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+    document.getElementById(this.dataset.tab).style.display = '';
+  });
+});
+
 $(document).ready(function(){
     const correct = <?= json_encode($correct) ?>;
     const rationale = <?= json_encode($rationale) ?>;
@@ -450,6 +555,9 @@ $(document).ready(function(){
         isDragging = false;
         if (autoScrollInterval) clearInterval(autoScrollInterval);
     });
+
+    // Signal parent that this iframe is ready to receive prefill data
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 });
 </script>
 </body>
