@@ -606,9 +606,16 @@ if (isset($user_id)) {
             </h6>
             <div class="d-flex flex-column flex-md-row flex-wrap justify-content-start gap-3">
               <?php
-              // Check for active paused NGN exam
-              $ngnStateCheck = mysqli_query($quizCon, "SELECT * FROM temporary_exam_state WHERE student_id = '$user_id'");
+              // Check for paused NGN exam (exclude exam-mode rows)
+              $ngnStateCheck = mysqli_query($quizCon, "SELECT * FROM temporary_exam_state WHERE student_id = '" . intval($user_id) . "' AND (exam_mode IS NULL OR exam_mode = 'ngn')");
               $hasPausedNGN = mysqli_num_rows($ngnStateCheck) > 0;
+              // Check for paused Exam Mode state
+              $examModeCheck = mysqli_query($quizCon, "SELECT * FROM temporary_exam_state WHERE student_id = '" . intval($user_id) . "' AND exam_mode = 'exam'");
+              $hasPausedExamMode = mysqli_num_rows($examModeCheck) > 0;
+              if ($hasPausedExamMode) {
+                  $emRow = mysqli_fetch_assoc($examModeCheck);
+                  $emSavedTimeStr = date('M d, Y h:i A', strtotime($emRow['updated_at']));
+              }
               if ($hasPausedNGN) {
                   $stRow = mysqli_fetch_assoc($ngnStateCheck);
                   $savedTimeStr = date('M d, Y h:i A', strtotime($stRow['updated_at']));
@@ -677,6 +684,55 @@ if (isset($user_id)) {
                   </div>
                 </div>
               <?php } ?>
+
+              <!-- ── EXAM MODE CARD ── -->
+              <?php if ($hasPausedExamMode): ?>
+                <div class="d-flex align-items-center p-3 rounded-4 hover-shadow w-100"
+                     style="min-width:250px; max-width:100%; background:#0a1628; border:2px solid #3b82f6;">
+                  <div class="me-3 rounded-3" style="width:100px; height:100px; background:rgba(59,130,246,.12); display:flex; align-items:center; justify-content:center; border:1px solid rgba(59,130,246,.2);">
+                    <i class="fas fa-pause-circle" style="font-size:40px; color:#3b82f6;"></i>
+                  </div>
+                  <div class="flex-grow-1">
+                    <h6 class="fw-bold mb-1" style="color:#fff;">Paused CAT Exam</h6>
+                    <p class="small mb-2" style="color:rgba(255,255,255,.55);">You have a paused adaptive exam. Resume to continue.<br>
+                      <span style="font-size:10px; font-weight:700; color:rgba(255,255,255,.4);">Saved: <?php echo htmlspecialchars($emSavedTimeStr, ENT_QUOTES, 'UTF-8'); ?></span></p>
+                    <div class="d-flex gap-2">
+                      <a href="exam/index.php" class="btn btn-sm px-3" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff;">
+                        <i class="fas fa-play me-1"></i>Resume
+                      </a>
+                      <button onclick="discardExamMode(<?php echo intval($emRow['examTaken']); ?>)" class="btn btn-sm btn-outline-light px-3" style="border-color:rgba(255,255,255,.2); color:rgba(255,255,255,.7);">
+                        <i class="fas fa-trash-alt me-1"></i>Discard
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              <?php endif; ?>
+
+              <div class="d-flex align-items-center p-3 rounded-4 hover-shadow w-100"
+                   style="min-width:250px; max-width:100%; background:linear-gradient(135deg,#0a1628,#1e3a5f); border:2px solid #3b82f6;">
+                <div class="me-3 rounded-3" style="width:100px; height:100px; background:rgba(59,130,246,.12); display:flex; align-items:center; justify-content:center; border:1px solid rgba(59,130,246,.2);">
+                  <i class="fas fa-brain" style="font-size:40px; color:#3b82f6;"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <h6 class="fw-bold mb-1" style="color:#fff;">CAT Exam Mode</h6>
+                  <p class="small mb-2" style="color:rgba(255,255,255,.55);">NCLEX-style adaptive exam. IRT engine adjusts difficulty in real time. Auto-terminates on pass/fail.</p>
+                  <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <?php if ($isPackege2): ?>
+                      <a href="exam/index.php" class="btn btn-sm px-3" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff;">
+                        <i class="fas fa-brain me-1"></i>Start Exam
+                      </a>
+                    <?php else: ?>
+                      <a href="subscription.php" class="btn btn-sm btn-secondary px-3 disabled" tabindex="-1" style="opacity:.65; cursor:not-allowed;">
+                        <i class="fas fa-lock me-1"></i>Subscribe
+                      </a>
+                    <?php endif; ?>
+                    <span style="background:rgba(59,130,246,.18); color:#93c5fd; border:1px solid rgba(59,130,246,.3); font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; padding:3px 9px; border-radius:20px;">
+                      IRT Adaptive
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               </div>
               </div>
              </div>
@@ -1523,6 +1579,38 @@ function discardExam(examTaken) {
         }
       } catch (err) {
         Swal.fire('Error', 'Failed to clear data.', 'error');
+      }
+    }
+  });
+}
+
+function discardExamMode(examTaken) {
+  Swal.fire({
+    title: 'Discard CAT Exam?',
+    text: 'This will permanently delete all progress for this paused Exam Mode attempt. Your IRT state and answers will be lost.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#3b82f6',
+    confirmButtonText: 'Yes, Discard',
+    cancelButtonText: 'Keep it'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        const response = await fetch('exam/cancel_exam.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ examTaken: examTaken })
+        });
+        const res = await response.json();
+        if (res.ok) {
+          Swal.fire({ title: 'Discarded', text: 'Exam data cleared.', icon: 'success', timer: 1500, showConfirmButton: false });
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          throw new Error(res.error || 'Server Error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to clear exam data.', 'error');
       }
     }
   });

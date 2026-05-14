@@ -167,6 +167,79 @@ if (isset($con)) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
 
+    // Exam Mode (150-item adaptive CAT) — permanent results table
+    // See EXAM_MODE_ENHANCEMENT_PLAN.md §4.1 — separate from exam_results so NGN practice and Exam Mode stay fully isolated
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `exammoderesults` (
+            `id`                   int(11)       NOT NULL AUTO_INCREMENT,
+            `student_id`           int(11)       NOT NULL,
+            `examTaken`            int(11)       NOT NULL,
+
+            -- Question identification
+            `question_uid`         varchar(100)  NOT NULL,
+            `question_type`        varchar(50)   DEFAULT NULL,
+            `question_id`          int(11)       DEFAULT NULL,
+            `question_number`      int(11)       DEFAULT NULL,
+            `source_table`         varchar(50)   DEFAULT NULL,
+
+            -- Answer data
+            `user_answer`          text,
+            `correct_answer`       text,
+            `initial_answer`       text          DEFAULT NULL,
+            `changes`              json          DEFAULT NULL,
+
+            -- Scoring
+            `isCorrect`            tinyint(1)    DEFAULT 0,
+            `score`                float         DEFAULT 0,
+            `earned_points`        float         DEFAULT 0,
+            `max_points`           int(11)       DEFAULT 1,
+            `weighted_score`       float         DEFAULT 0,
+
+            -- IRT state captured at answer time
+            `theta_before`         float         DEFAULT 0.0,
+            `theta_after`          float         DEFAULT 0.0,
+            `sem_after`            float         DEFAULT 1.0,
+            `item_difficulty`      float         DEFAULT 0.0,
+            `item_information`     float         DEFAULT 0.0,
+
+            -- Metadata
+            `topic`                varchar(255)  DEFAULT NULL,
+            `system`               varchar(255)  DEFAULT NULL,
+            `cnc`                  varchar(255)  DEFAULT NULL,
+            `dlevel`               varchar(100)  DEFAULT NULL,
+            `narcan`               varchar(255)  DEFAULT NULL,
+            `concept`              varchar(255)  DEFAULT NULL,
+            `rationale`            text,
+
+            -- Tracking
+            `omitted`              tinyint(1)    DEFAULT 0,
+            `changes_count`        int(11)       DEFAULT 0,
+            `time_taken`           int(11)       DEFAULT 0,
+            `totalTime`            int(11)       DEFAULT 0,
+            `timestamp`            datetime      DEFAULT current_timestamp(),
+
+            -- Running totals (denormalized for quick lookup)
+            `running_correct`      int(11)       DEFAULT 0,
+            `running_total`        int(11)       DEFAULT 0,
+            `running_percent`      float         DEFAULT 0,
+
+            -- Termination metadata (populated only on final/terminal row)
+            `is_terminal`          tinyint(1)    DEFAULT 0,
+            `termination_reason`   varchar(100)  DEFAULT NULL,
+            `final_result`         varchar(20)   DEFAULT NULL,
+            `final_percent`        float         DEFAULT NULL,
+            `final_theta`          float         DEFAULT NULL,
+            `final_sem`            float         DEFAULT NULL,
+            `total_items_answered` int(11)       DEFAULT NULL,
+            `exam_duration_sec`    int(11)       DEFAULT NULL,
+
+            PRIMARY KEY (`id`),
+            KEY `student_exam`   (`student_id`, `examTaken`),
+            KEY `student_id`     (`student_id`),
+            KEY `exam_terminal`  (`student_id`, `examTaken`, `is_terminal`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
     // Permanent exam results table
     mysqli_query($con, "
         CREATE TABLE IF NOT EXISTS `exam_results` (
@@ -245,6 +318,16 @@ if (isset($con)) {
         _addColIfMissing($con, $t, 'changes',         'JSON DEFAULT NULL');
         _addColIfMissing($con, $t, 'question_number', 'INT(11) DEFAULT NULL');
     }
+
+    // 6.4b — Exam Mode (CAT/IRT) pause-resume state columns on temporary_exam_state
+    // See EXAM_MODE_ENHANCEMENT_PLAN.md §4.2 — differentiates NGN practice (exam_mode='ngn') from Exam Mode (exam_mode='exam')
+    _addColIfMissing($con, 'temporary_exam_state', 'exam_mode',           "VARCHAR(20) DEFAULT 'ngn'");
+    _addColIfMissing($con, 'temporary_exam_state', 'adaptive_difficulty', "VARCHAR(10) DEFAULT 'medium'");
+    _addColIfMissing($con, 'temporary_exam_state', 'correct_streak',      'INT(11) DEFAULT 0');
+    _addColIfMissing($con, 'temporary_exam_state', 'wrong_streak',        'INT(11) DEFAULT 0');
+    _addColIfMissing($con, 'temporary_exam_state', 'irt_theta',           'FLOAT DEFAULT 0.0');
+    _addColIfMissing($con, 'temporary_exam_state', 'irt_sem',             'FLOAT DEFAULT 1.0');
+    _addColIfMissing($con, 'temporary_exam_state', 'irt_history',         'LONGTEXT DEFAULT NULL');
 
     // 6.5 — testimonial table (may be absent from DB exports)
     mysqli_query($con, "
