@@ -1,6 +1,5 @@
 <?php
 include '../../config.php';
-session_start();
 $user_id = $_SESSION['user_id'] ?? 0;
 
 header('Content-Type: application/json');
@@ -10,7 +9,8 @@ if (!$user_id) {
   exit;
 }
 
-$type = $_GET['type'] ?? '';
+$con = getQuizConnection();
+$type  = $_GET['type']  ?? '';
 $value = $_GET['value'] ?? '';
 
 if ($type === 'concept') {

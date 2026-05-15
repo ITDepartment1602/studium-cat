@@ -105,7 +105,7 @@ body, html {
             const topics2 = "<?php echo addslashes($topics2); ?>";
             const kilanlan = "<?php echo addslashes($kilanlan); ?>";
             const id = "<?php echo addslashes($id); ?>";
-            window.location.href = `question1.php?topics1=${topics1}&topics2=${topics2}&kilanlan=${kilanlan}&id=${id}`;
+            window.location.href = `index.php?step=1&topics1=${topics1}&topics2=${topics2}&kilanlan=${kilanlan}&id=${id}`;
         }
 
         // Automatically redirect after 3 seconds
