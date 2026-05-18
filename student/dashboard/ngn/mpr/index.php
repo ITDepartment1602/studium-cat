@@ -1,6 +1,6 @@
 <?php
 require_once '../../../../config.php';
-// session_start handled by config.php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $question_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if($question_id > 0){
@@ -17,12 +17,32 @@ if (!$data) {
 $items = explode("\n", $data['items']); 
 $correct = explode(",", $data['correct']);
 $rationale = $data['rationale'] ?? '';
+$furtherinfo = $data['furtherinfo'] ?? '';
+$image = $data['image'] ?? '';
 $question = $data['question'] ?? '';
 
-$required = 1;
+$required = count($items);
 if (preg_match('/Select\s+(\d+)/i', $question, $match)) {
     $required = (int)$match[1];
+} elseif (stripos($question, 'Select all that apply') !== false) {
+    $required = count($items);
 }
+
+// Dynamic clinical reference tabs from `tabs` DB field (spec §1.2)
+$tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
+$hasTabs = !empty($tabs_data);
+
+// Fetch Stats
+$topic = $data['topic'] ?? 'General';
+$system = $data['system'] ?? 'N/A';
+$cnc = $data['cnc'] ?? 'N/A';
+$dlevel = $data['dlevel'] ?? 'N/A';
+$concept = $data['concept'] ?? 'General';
+$narcan = $data['narcan'] ?? 'N/A';
+$q_uid = 'mpr_' . $data['id'];
+$peer_q = mysqli_query($con, "SELECT AVG(isCorrect) * 100 as avg_score FROM exam_results WHERE question_uid = '$q_uid'");
+$peer_data = mysqli_fetch_assoc($peer_q);
+$avg_peer_score = $peer_data['avg_score'] ? round($peer_data['avg_score'], 1) . '%' : 'N/A';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -31,6 +51,7 @@ if (preg_match('/Select\s+(\d+)/i', $question, $match)) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MPR Question</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <style>
@@ -49,9 +70,137 @@ if (preg_match('/Select\s+(\d+)/i', $question, $match)) {
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Inter', sans-serif;
-  background: transparent; /* Parent handles background */
+  background: transparent;
   color: var(--text);
-  padding: 20px;
+}
+
+/* Two-panel layout */
+.two-panel { display: flex; min-height: 100vh; overflow: hidden; }
+.left-panel { width: 40%; min-width: 260px; background: #fff; border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.panel-title { padding: 14px 20px; background: #f1f5f9; font-weight: 800; font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+.tabs-row {
+  display: flex;
+  padding: 8px 12px 0;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.tabs-row::-webkit-scrollbar {
+  height: 3px;
+}
+.tabs-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tabs-row::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+}
+.tabs-row:hover::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+.tabs-row:hover {
+  scrollbar-width: thin;
+}
+.detail-value { color: #0a1628; font-weight: 600; }
+
+.stats-btn {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.stats-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+.stats-btn i { font-size: 14px; color: #3b82f6; }
+.tab-btn { padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; color: var(--text-muted); white-space: nowrap; }
+.tab-btn.active { background: #f8fafc; color: var(--accent); border: 1px solid var(--border); border-bottom-color: #f8fafc; margin-bottom: -1px; }
+.tab-content-area { flex: 1; overflow-y: auto; padding: 16px; }
+.clinical-record { background: #fdfdfd; border: 1px solid #f1f5f9; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+.right-panel { flex: 1; overflow-y: auto; padding: 20px; min-width: 0; }
+@media (max-width: 900px) {
+  .two-panel { flex-direction: column; height: auto; overflow: visible; }
+  .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 35vh; overflow-y: auto; }
+  .right-panel { width: 100% !important; overflow: visible; }
+}
+
+.nclex-tips {
+    margin-top: 24px;
+    padding: 20px;
+    background: #f0fdf4;
+    border-radius: 12px;
+    border: 1px solid #bbf7d0;
+}
+.tips-title {
+    font-weight: 800;
+    color: #166534;
+    font-size: 13px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.5px;
+}
+.tips-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.tips-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 14.5px;
+    color: #15803d;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+.tips-list li i {
+    color: #22c55e;
+    margin-top: 3px;
+    flex-shrink: 0;
+    font-size: 16px;
+}
+.rationale-image-wrapper {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+.image-title {
+    font-weight: 800;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tip-highlight {
+    background: #fef08a;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-weight: 700;
+    color: #854d0e;
+    border-bottom: 1.5px solid #f59e0b;
+    display: inline;
+    line-height: 1;
+    white-space: normal;
 }
 
 .card {
@@ -173,21 +322,6 @@ body {
   border-color: var(--danger);
 }
 
-/* Omitted answer - item was selected but later deselected */
-.option-item.omitted-reveal {
-  border-color: #f59e0b;
-  background: #fffbeb;
-  opacity: 0.75;
-}
-.option-item.omitted-reveal .option-text {
-  text-decoration: line-through;
-  color: #92400e;
-}
-.option-item.omitted-reveal .custom-checkbox {
-  background: #f59e0b;
-  border-color: #f59e0b;
-}
-
 .actions {
   margin-top: 32px;
   display: flex;
@@ -270,13 +404,41 @@ body {
 </style>
 </head>
 <body>
+<div class="two-panel">
+<?php if ($hasTabs): ?>
+<div class="left-panel">
+  <div class="panel-title">Clinical Reference</div>
+  <div class="tabs-row">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div class="tab-btn <?= $i === 0 ? 'active' : '' ?>" data-tab="mtab-<?= $i ?>"><?= htmlspecialchars($tab['title']) ?></div>
+    <?php endforeach; ?>
+  </div>
+  <div class="tab-content-area">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div id="mtab-<?= $i ?>" class="tab-pane" <?= $i > 0 ? 'style="display:none;"' : '' ?>>
+      <?php foreach ((array)($tab['content'] ?? []) as $item): ?>
+      <div class="clinical-record"><?= htmlspecialchars($item) ?></div>
+      <?php endforeach; ?>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+<div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
 
 <div class="card">
     <div class="previous-badge" id="prevBadge">
         <i class="fas fa-lock"></i> This question has been submitted and is now read-only.
     </div>
 
-    <div class="instruction-badge">Multiple Response</div>
+    <div class="instruction-badge">
+        <i class="fas fa-list-check"></i>
+        <?php if ($required < count($items)): ?>
+            Multiple Response: Select <?= $required ?>
+        <?php else: ?>
+            Multiple Response: Select All That Apply
+        <?php endif; ?>
+    </div>
     
     <div class="question-text">
         <?= nl2br(htmlspecialchars($question)) ?>
@@ -303,12 +465,89 @@ body {
         <div class="rationale-text" id="rationaleText"></div>
     </div>
 </div>
+</div><!-- /.right-panel -->
+</div><!-- /.two-panel -->
 
 <script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+    document.getElementById(this.dataset.tab).style.display = '';
+  });
+});
+
 $(document).ready(function(){
-    let correct = <?= json_encode($correct) ?>;
-    let required = <?= $required ?>;
-    let rationale = <?= json_encode($rationale) ?>;
+    const correct = <?= json_encode($correct) ?>;
+    const rationale = <?= json_encode($rationale) ?>;
+    const furtherinfo = <?= json_encode($furtherinfo) ?>;
+    let image = <?= json_encode($image) ?>;
+
+    /* Stats Data */
+    const _qStartTime = Date.now();
+    const questionStats = {
+        difficulty: <?= json_encode($dlevel) ?>,
+        peerScore: <?= json_encode($avg_peer_score) ?>,
+        concept: <?= json_encode($concept) ?>,
+        topic: <?= json_encode($topic) ?>,
+        system: <?= json_encode($system ?? 'N/A') ?>,
+        cnc: <?= json_encode($cnc) ?>,
+        type: 'Multiple Response (MPR)'
+    };
+
+    window.showStatsModal = function() {
+        const secs = Math.round((Date.now() - _qStartTime) / 1000);
+        const timeTaken = secs < 60 ? secs + ' s' : Math.floor(secs/60) + ' m ' + (secs%60) + ' s';
+        Swal.fire({
+            title: '<i class="fas fa-chart-bar" style="color:#3b82f6; margin-right:6px;"></i> Statistics',
+            html: `
+                <div style="text-align:left; padding:4px 0;">
+                    <div style="display:flex; gap:10px; margin-bottom:16px;">
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-gauge-high" style="color:#f59e0b;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Difficulty level</div>
+                            <div style="font-size:13px; font-weight:800; color:#0f172a;">${questionStats.difficulty}</div>
+                        </div>
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-users" style="color:#8b5cf6;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Avg. Peers Score</div>
+                            <div style="font-size:13px; font-weight:800; color:#10b981;">${questionStats.peerScore}</div>
+                        </div>
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-hourglass-half" style="color:#3b82f6;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Time taken</div>
+                            <div style="font-size:13px; font-weight:800; color:#0f172a;">${timeTaken}</div>
+                        </div>
+                    </div>
+                    <div style="border-top:1px solid #e2e8f0; padding-top:14px; display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Subject</span>
+                            <span style="background:#eff6ff; color:#3b82f6; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.concept}</span>
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Lesson</span>
+                            <span style="background:#eff6ff; color:#3b82f6; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.topic}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Client Need Area</span>
+                            <span style="background:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.cnc}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Client Need Topic</span>
+                            <span style="background:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.system}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Question Type</span>
+                            <span style="background:#fef3c7; color:#d97706; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.type}</span>
+                        </div>
+                    </div>
+                </div>
+            `,
+            confirmButtonText: 'Got it',
+            confirmButtonColor: '#3b82f6',
+            width: '500px'
+        });
+    };
+
     let isEditing = false;
     let isReviewMode = false;
     let hasInteracted = false;      // Track first user interaction
@@ -381,18 +620,13 @@ $(document).ready(function(){
 
     function showResult(scoreText, showCorrectLines = true, prevInitial = null) {
         $('.option-item').removeClass('correct-reveal wrong-reveal omitted-reveal');
-        
+
         if(showCorrectLines) {
-            const displayInitial = prevInitial && prevInitial.length > 0 ? prevInitial : initialAnswers;
-            
             $('input[name="answers[]"]').each(function(){
                 let val = $(this).val();
                 let parent = $(this).closest('.option-item');
-                
-                // Show omitted items (were in initial but not in current)
-                if(displayInitial.includes(val) && !currentAnswers.includes(val)) {
-                    parent.addClass('omitted-reveal');
-                } else if(correct.includes(val)){
+
+                if(correct.includes(val)){
                     parent.addClass('correct-reveal');
                 } else if($(this).is(':checked')) {
                     parent.addClass('wrong-reveal');
@@ -400,8 +634,47 @@ $(document).ready(function(){
             });
         }
 
-        $('#rationaleText').html(rationale || "No rationale provided.");
-        $('#resType').html("Score: " + scoreText + " — Rationale");
+        let resultHtml = rationale || "No rationale provided.";
+        
+        if (furtherinfo) {
+            let tips = [];
+            try {
+                let decoded = JSON.parse(furtherinfo);
+                if (Array.isArray(decoded)) tips = decoded;
+                else tips = [furtherinfo];
+            } catch (e) {
+                tips = furtherinfo.split('\n').filter(l => l.trim() !== '');
+            }
+
+            resultHtml += '<div class="nclex-tips">';
+            resultHtml += '<div class="tips-title"><i class="fas fa-lightbulb"></i> NCLEX Tips & Further Information</div>';
+            resultHtml += '<ul class="tips-list">';
+            tips.forEach(t => {
+                // Collapse newlines and extra spaces for a continuous sentence
+                let cleanTip = t.replace(/\s+/g, ' ').trim();
+                // Highlight words wrapped in %
+                let highlighted = cleanTip.replace(/%([^%]+)%/g, '<span class="tip-highlight">$1</span>');
+                resultHtml += '<li><i class="fas fa-check-circle"></i> <span>' + highlighted + '</span></li>';
+            });
+            resultHtml += '</ul></div>';
+        }
+        
+        if (image) {
+            resultHtml += '<div class="rationale-image-wrapper">';
+            resultHtml += '<div class="image-title"><i class="fas fa-image"></i> Related Illustration</div>';
+            resultHtml += '<img src="../../../../admin/dashboard/pages/uploads/' + image + '" alt="NCLEX Illustration" style="max-width:100%; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+            resultHtml += '</div>';
+        }
+
+        $('#rationaleText').html(resultHtml);
+        $('#resType').html(`
+            <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                <span>Score: ${scoreText} — Rationale</span>
+                <button class="stats-btn" onclick="showStatsModal()">
+                    <i class="fas fa-info-circle"></i> Question Info
+                </button>
+            </div>
+        `);
         $('#result').fadeIn();
         
         $('input[name="answers[]"]').prop('disabled', true);
@@ -480,6 +753,9 @@ $(document).ready(function(){
             question_type:'mpr'
         },'*');
     });
+
+    // Signal parent that this iframe is ready to receive prefill data
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 });
 </script>
 </body>

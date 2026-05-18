@@ -1,642 +1,344 @@
 <?php
 include '../../config.php';
 
-session_start();
-$user_id = $_SESSION['user_id'];
-
-// Fetch user data
-$select = mysqli_query($con, "SELECT * FROM `login` WHERE id = '$user_id'") or die('query failed');
-if (mysqli_num_rows($select) > 0) {
-    $fetch = mysqli_fetch_assoc($select);
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . BASE_URL . 'index.php');
+    exit;
 }
-?>
+$user_id = $_SESSION['user_id'];
+$kilanlan = isset($_GET['kilanlan']) ? $_GET['kilanlan'] : '';
 
+$select = mysqli_query($con, "SELECT * FROM `login` WHERE id = '$user_id'") or die('query failed');
+$fetch  = mysqli_fetch_assoc($select);
+
+date_default_timezone_set('Asia/Manila');
+$daysLeft = floor((strtotime($fetch['dateexpired']) - time()) / 86400);
+if ($daysLeft < 0) { header('Location: ../../logout.php'); exit; }
+
+// Fetch concepts for this category
+$conceptQuery = mysqli_query($con, "SELECT * FROM topics1 WHERE kilanlan = '$kilanlan'");
+$concepts = [];
+while ($row = mysqli_fetch_array($conceptQuery)) {
+    $concepts[] = $row['title'];
+}
+
+// Pre-fetch ALL topics for ALL concepts at PHP time — eliminates AJAX latency on concept click
+$allConceptTopics = [];
+foreach ($concepts as $concept) {
+    $conceptEsc = mysqli_real_escape_string($con, $concept);
+    $tq = mysqli_query($con, "SELECT system, COUNT(*) as cnt FROM question WHERE topics1 = '$conceptEsc' AND system IS NOT NULL AND system != '' GROUP BY system ORDER BY system ASC");
+    $rows = [];
+    while ($tr = mysqli_fetch_assoc($tq)) {
+        $rows[] = ['system' => $tr['system'], 'count' => (int)$tr['cnt']];
+    }
+    $allConceptTopics[$concept] = $rows;
+}
+
+$conceptIcons = [
+    'Adult Health'               => 'bi bi-person-fill',
+    'Child Health'               => 'bi bi-emoji-smile-fill',
+    'Critical Care'              => 'bi bi-heart-pulse-fill',
+    'Fundamentals'               => 'bi bi-gear-fill',
+    'Leadership And Management'  => 'bi bi-people-fill',
+    'Mental Health'              => 'bi bi-lightbulb-fill',
+    'Pharmacology'               => 'bi bi-capsule',
+    'Maternal And Newborn Health'=> 'bi bi-gender-female',
+];
+
+$pageTitle = 'Study Topics — Studium';
+?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="../ty/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="../ty/css/dataTables.bootstrap5.min.css" />
-    <link rel="stylesheet" href="../ty/css/style.css" />
-    <link rel="stylesheet" href="css/style1.css">
-    <link rel="stylesheet" href="../pchart/pchart.css">
-    <link rel="stylesheet" href="../pricing/moda.css">
-    <link rel="stylesheet" href="../pricing/exam.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <title>Studium</title>
-    <link rel="shortcut icon" type="text/css" href="../../img/logo1.svg">
-    <style>
-        .nurse a:hover,
-        .product a:hover {
-            color: black;
-            text-decoration: none;
-        }
+  <?php include '_layout/head.php'; ?>
+  <style>
+    /* Concept select card */
+    .s-csel { cursor: pointer; display: block; }
+    .s-csel-inner {
+      border: 2px solid var(--s-border);
+      border-radius: 14px;
+      padding: 18px 14px;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      background: #fff;
+    }
+    .s-csel:hover .s-csel-inner {
+      border-color: var(--s-accent);
+      box-shadow: 0 4px 14px rgba(13,148,136,.12);
+    }
+    .s-csel.selected .s-csel-inner {
+      border-color: var(--s-accent);
+      background: rgba(13,148,136,.07);
+      box-shadow: 0 4px 14px rgba(13,148,136,.15);
+    }
+    .s-csel-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: rgba(13,148,136,.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      color: var(--s-accent);
+      margin: 0 auto 10px;
+      transition: background 0.2s;
+    }
+    .s-csel.selected .s-csel-icon {
+      background: var(--s-accent);
+      color: #fff;
+    }
+    .s-csel-name {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--s-primary);
+      line-height: 1.3;
+    }
 
-        label {
-            display: inline-block;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-    </style>
+    /* Topic pill */
+    .s-topic-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 24px;
+      background: rgba(13,148,136,.08);
+      border: 1.5px solid rgba(13,148,136,.25);
+      color: var(--s-primary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .s-topic-pill i { color: var(--s-accent); font-size: 0.75rem; }
+    .s-topic-pill .s-tp-count {
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--s-muted);
+    }
+    .s-topic-pill.disabled {
+      background: #f1f5f9;
+      border-color: var(--s-border);
+      color: var(--s-muted);
+      opacity: 0.6;
+    }
+    .s-topic-pill.disabled i { color: var(--s-muted); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .custom-confirm-button { background-color: #1e6091 !important; color: white !important; }
+    .custom-cancel-button  { background-color: #ef4444 !important; color: white !important; }
+  </style>
 </head>
-
 <body>
-    <!-- Top Navigation Bar -->
-    <!-- top navigation bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark fixed-top" style="background-color:#1B4965;">
-        <div class="container-fluid">
-            <button class="navbar-toggler" style="color: #fff; font-size: 10px" type="button" data-bs-toggle="offcanvas"
-                data-bs-target="#sidebar" aria-controls="offcanvasExample">
-                <span class="navbar-toggler-icon" data-bs-target="#sidebar"></span>
-            </button>
-            <?php
-            $select = mysqli_query($con, "SELECT * FROM `login` WHERE id = '$user_id'") or die('query failed');
-            if (mysqli_num_rows($select) > 0) {
-                $fetch = mysqli_fetch_assoc($select);
-            }
-            date_default_timezone_set('Asia/Manila');
-            $dateExpired = strtotime($fetch['dateexpired']);
-            $today = strtotime(date('Y-m-d H:i:s'));
-            $diff = $dateExpired - $today;
-            $daysLeft = floor($diff / (60 * 60 * 24));
 
-            $interval = '';
-            if ($daysLeft == 7) {
-                $interval = '1 week';
-            } else if ($daysLeft > 1) {
-                $interval = $daysLeft . ' days';
-            } else if ($daysLeft == 1) {
-                $interval = '1 day';
-            } else if ($daysLeft < 0) {
-                header('Location: ../../logout.php');
-                exit;
-            }
+<?php include '_layout/sidebar.php'; ?>
 
-            if ($daysLeft == 0 && $diff > 0) {
-                echo '<span class="text-white notif1" style="color: #fff;"> <i class="fa fa-bell"></i> Your account is expiring today.</span>';
-            } else if ($daysLeft <= 7 && $daysLeft > 0) {
-                echo '<span class="text-white notif2" style="color: #fff;"> <i class="fa fa-bell"> </i> ' . $interval . ' remaining until expiration.</span>';
-            }
-            ?>
-            <a class="navbar-brand me-auto ms-lg-0 ms-3 text-uppercase fw-bold" style="font-size: 20px"></a>
-            <a class="nav-link text-white" href="../../logout.php">
+<main class="s-main">
+  <div class="s-page-header">
+    <h1>NARC Traditional QBanks</h1>
+    <p>Select a concept to begin your study session</p>
+  </div>
 
-                <i class="fa fa-sign-out logouts" style="color: #fff; " aria-hidden="true"></i>
-            </a>
+  <!-- Step 1: Select Concept -->
+  <div class="s-card mb-4">
+    <div class="s-card-title"><i class="bi bi-grid-3x3-gap"></i> Step 1 — Select Concept</div>
+    <?php if (empty($concepts)): ?>
+      <p style="font-size:0.85rem; color:var(--s-muted);">No concepts found for this category.</p>
+    <?php else: ?>
+    <div class="row g-3">
+      <?php foreach ($concepts as $concept):
+        $icon = $conceptIcons[$concept] ?? 'bi bi-journals';
+      ?>
+      <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 col-6">
+        <label class="s-csel" data-concept="<?php echo htmlspecialchars($concept); ?>">
+          <input type="radio" name="topics" value="<?php echo htmlspecialchars($concept); ?>"
+                 class="conceptRadio" style="display:none;">
+          <div class="s-csel-inner">
+            <div class="s-csel-icon"><i class="<?php echo $icon; ?>"></i></div>
+            <div class="s-csel-name"><?php echo htmlspecialchars($concept); ?></div>
+          </div>
+        </label>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+  </div>
 
-            <style>
-                .logouts {
+  <!-- Step 2: Topics (always visible) -->
+  <div class="s-card mb-4" id="topicsCard">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="s-card-title mb-0"><i class="bi bi-list-check"></i> Step 2 — Topics Included</div>
+      <span id="topicsCount" style="font-size:0.72rem; color:var(--s-muted); font-weight:600;"></span>
+    </div>
+    <p style="font-size:0.78rem; color:var(--s-muted); margin-bottom:16px;" id="topicsDesc">
+      <i class="bi bi-info-circle me-1"></i>All topics below are automatically included. Your test will draw 150 random questions from this concept.
+    </p>
+    <div id="topicsContainer" class="d-flex flex-wrap gap-2" style="min-height:72px; align-items:center;">
+      <div id="topics-placeholder" style="display:flex; align-items:center; gap:10px; color:var(--s-muted); font-size:0.84rem;">
+        <i class="bi bi-arrow-up-circle" style="font-size:1.3rem; color:var(--s-border-2);"></i>
+        <span>Select a concept above to see the topics included</span>
+      </div>
+    </div>
+    <div id="topicsHidden"></div>
+  </div>
 
-                    font-size: 13px;
-                }
-
-                .notif1 {
-
-                    font-size: 10px;
-                }
-
-                .notif2 {
-
-                    font-size: 11px;
-                }
-
-                @media (min-width: 768px) {
-                    .logouts {
-                        font-size: 32px;
-                    }
-
-                    .notif1 {
-
-                        font-size: 14px;
-                    }
-
-                    .notif2 {
-
-                        font-size: 14px;
-                    }
-                }
-            </style>
-        </div>
-    </nav>
-    <!-- top navigation bar -->
-
-    <!-- offcanvas -->
-    <div class="offcanvas offcanvas-start sidebar-nav ml-6" tabindex="-1" id="sidebar">
-        <div class="offcanvas-body p-0" style=" background-color: #62B6CB;">
-            <nav class="navbar-dark" style="width: 100%; ">
-                <ul class="navbar-nav" style=" background-color: #62B6CB; padding-bottom: 80%;">
-
-                    <!---<form action="" method=" POST">
-              <div class="col-md-auto">
-                <input type="text" name="search" class='form-control' placeholder="Search By Name" value="">
-    
-    
-                </form>--->
-                    <?php
-                    $select = mysqli_query($con, "SELECT * FROM `login` WHERE id = '$user_id'") or die('query failed');
-                    if (mysqli_num_rows($select) > 0) {
-                        $fetch = mysqli_fetch_assoc($select);
-                    }
-                    ?>
+  <!-- Start Button (always visible, disabled until concept chosen) -->
+  <div class="d-flex justify-content-end mb-4" id="startRow">
+    <button class="s-btn s-btn-teal" id="startTestButton" disabled style="padding:12px 36px; font-size:1rem; opacity:0.5; cursor:not-allowed;">
+      <i class="bi bi-play-circle-fill me-2"></i> Start Study Session
+    </button>
+  </div>
+</main>
 
 
-
-                    <li style="width: 100%; background-color: #62B6CB;">
-                        <table id="table" style="margin-top: 20px; width: 100%; background-color: #1B4965;">
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <img src="../../img/logo2.svg"
-                                    style="width:100px; margin-left: 50px; margin-bottom: 50px;">
-
-                            </tr>
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <div>
-                                    <p style="margin-top: -10%; color: black; font-weight: normal; text-align: center;">
-                                        Hello
-                                        <span style="font-weight: bold; ">
-                                            <?php echo explode(' ', trim($fetch['fullname']))[0]; ?>!
-                                        </span>
-
-                                    </p>
-
-                                </div>
-                            </tr>
-
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <td>
-                                    <a href="index.php?bundle_name=<?php echo $fetch['bundle_name']; ?>" id="myVideo"
-                                        class="nav-link">
-                                        <p style="font-size: 14px;"> <i class="bi bi-house"
-                                                style="font-size: 17px;"></i>
-                                            Home ></p>
-                                    </a>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <td>
-                                    <a href="profile.php" id="myVideo" class="nav-link">
-                                        <p style="font-size: 14px;"><i class="bi bi-person-square"
-                                                style="font-size: 17px;"></i> View
-                                            Profile ></p>
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <?php
-                                $select = mysqli_query($con, "SELECT * FROM `login` WHERE id = '$user_id'") or die('query failed');
-                                if (mysqli_num_rows($select) > 0) {
-                                    $fetch = mysqli_fetch_assoc($select);
-                                }
-                                ?>
-                                <td>
-                                    <a href="note.php?id=<?php echo $fetch['id'] ?>" id="myVideo" class="nav-link">
-                                        <p style="font-size: 14px;"><i class="bi bi-journal"
-                                                style="font-size: 17px;"></i>
-                                            My Notes ></p>
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <td>
-                                    <a href="../../img/userguide.mp4" target="_blank" rel="noopener noreferrer"
-                                        id="myVideo" class="nav-link">
-                                        <p style="font-size: 14px;"><i class="bi bi-question-circle"
-                                                style="font-size: 17px;"></i></i> User
-                                            Guide ></p>
-                                    </a>
-                                </td>
-                            </tr>
-
-
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <td>
-                                    <a href="subscription.php" id="myVideo" class="nav-link">
-                                        <p style="font-size: 14px;"><i class="bi bi-calendar-check"
-                                                style="font-size: 17px;"></i>
-                                            Subscription ></p>
-                                    </a>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <td>
-                                    <a href="package.php" id="myVideo" class="nav-link">
-                                        <p style="font-size: 14px;"><i class="bi bi-box-seam"
-                                                style="font-size: 17px;"></i>
-                                            Package >
-                                        </p>
-                                    </a>
-                                </td>
-                            </tr>
-
-
-
-
-                            <tr>
-                                <td class="nav-link px-1">
-                                </td>
-                                <td>
-                                    <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank"
-                                        id="myVideo" class="nav-link">
-                                        <p style="font-size: 14px;"><i class="bi bi-telephone"
-                                                style="font-size: 17px;"></i>
-                                            Contact Us
-                                            >
-                                        </p>
-                                    </a>
-                                </td>
-                            </tr>
-                        </table>
-
-                    </li>
-                    <tr>
-                        <td class="nav-link px-1">
-                        </td>
-
-                    </tr>
-                    <div
-                        style="position: absolute; bottom: 0; left: 0; right: 0; text-align: center; padding-bottom: 20px; background-color: #62B6CB;">
-                        <li style="background-color: #62B6CB; margin-top: -8px;">
-                            <hr class="dropdown-divider bg-dark" style="" />
-                        </li>
-                        <?php
-                        $select = mysqli_query($con, "SELECT * FROM `login` WHERE id = '$user_id'") or die('query failed');
-                        if (mysqli_num_rows($select) > 0) {
-                            $fetch = mysqli_fetch_assoc($select);
-                        }
-                        ?>
-                        <p style="color: black; font-weight: bold; font-size: 14px; text-align: center; ">
-                            Expiration
-                            Date</p>
-                        <p style="color: black; font-size: 14px; text-align: center; margin-top: -20px;">
-                            <?php echo date('F d, Y', strtotime($fetch['dateexpired'])); ?><br>
-                            <?php echo date('h:i A', strtotime($fetch['dateexpired'])); ?>
-                        </p>
-                        <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank">
-                            Upgrade Now!
-                        </a>
-                    </div>
-
-                </ul>
-            </nav>
-        </div>
+<!-- ── Study Session Instruction Overlay ── -->
+<div id="instrOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(10,22,40,0.97); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#fff; border-radius:20px; max-width:560px; width:100%; padding:40px 36px; box-shadow:0 24px 80px rgba(0,0,0,.4); position:relative;">
+    <div style="text-align:center; margin-bottom:28px;">
+      <div style="width:64px; height:64px; border-radius:50%; background:rgba(13,148,136,.12); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+        <i class="bi bi-shield-fill-check" style="font-size:1.8rem; color:#0d9488;"></i>
+      </div>
+      <h2 style="font-size:1.25rem; font-weight:800; color:#0a1628; margin:0 0 6px;">Study Session Instructions</h2>
+      <p style="font-size:0.82rem; color:#64748b; margin:0;">Please read before starting your session.</p>
     </div>
 
-    <!-- Main Content -->
-    <main class="mt-5 pt-4">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-md-12 mb-3">
-                    <div class="card-body">
-                        <h4 style="color:#0A2558;">Question Type</h4>
-                        <p style="font-size: 15px"><i>(Please select Concepts and Topics)</i></p>
-                        <br>
-                        <div class="container">
-                            <div class="box">
-                                <p style="color:#0A2558"><b>Test Mode</b></p>
-
-                                <label>
-                                    <input type="radio" name="test_mode" value="Study Mode" required>
-                                    <span>Study Mode</span>
-                                </label>
-                                <a href="#"
-                                    style="text-decoration: none; user-select: none; color: #767676; font-size: 15px; pointer-events: none;">
-                                    <i class="fa fa-circle-thin" aria-hidden="true"></i>
-                                    <span style="color: black; font-size: 16px "> <span
-                                            style="text-decoration: line-through;">Exam Mode</span>(Soon)</span>
-                                </a>
-                            </div>
-                            <hr>
-                            <form action="question/question1.php" method='GET'>
-                                <p style="color:#0A2558"><b>Concepts</b></p>
-                                <div class="row">
-                                    <?php
-                                    $kilanlan = $_GET['kilanlan'];
-
-                                    $q = "SELECT * FROM topics1 WHERE kilanlan = '$kilanlan'";
-                                    $query = mysqli_query($con, $q);
-                                    $concepts = [];
-
-                                    while ($row = mysqli_fetch_array($query)) {
-                                        $concepts[] = $row['title'];
-                                    }
-
-                                    $totalConcepts = count($concepts);
-                                    $conceptsPerColumn = ceil($totalConcepts / 4);
-
-                                    for ($i = 0; $i < 4; $i++) {
-                                        echo '<div class="col-md-3">';
-                                        for ($j = 0; $j < $conceptsPerColumn; $j++) {
-                                            $index = $i * $conceptsPerColumn + $j;
-                                            if ($index < $totalConcepts) {
-                                                echo "<div class='box'>
-                                                    <label>
-                                                        <input type='radio' name='topics' value='{$concepts[$index]}' class='conceptCheckbox' required disabled>
-                                                        <span>{$concepts[$index]}</span>
-                                                    </label>
-                                                </div>";
-                                            }
-                                        }
-                                        echo '</div>';
-                                    }
-                                    ?>
-                                </div>
-                                <hr>
-                                <p style="color:#0A2558"><b>Topics</b></p>
-                                <div class="mb-2 " style="display: none;">
-                                    <label>
-                                        <input  type="checkbox" id="selectAllTopics" disabled> Select All Topics
-                                        <i class="fa fa-info-circle"
-                                            style="color: #5598C6; cursor: help; position: relative; top: 1px;"
-                                            data-bs-toggle="tooltip" data-bs-placement="right"
-                                            title="Select all options. The test will contain 150 random questions"></i>
-                                    </label>
-                                </div>
-                                <p style="font-size: 12px; font-style: italic; color: #6B7280; margin: 0;">
-  To prevent any errors, all topics have been automatically selected. Your test will include 150 random questions.
-</p>
-
-
-                                <div id="topicsContainer" class="row">
-                                    <?php
-                                    $allTopicsQuery = mysqli_query($con, "SELECT DISTINCT `system`, `topics1` FROM `question`");
-                                    $topics = [];
-
-                                    if (mysqli_num_rows($allTopicsQuery) > 0) {
-                                        while ($system = mysqli_fetch_assoc($allTopicsQuery)) {
-                                            $normalizedSystemName = strtolower(trim($system['system']));
-                                            if (!in_array($normalizedSystemName, $topics)) {
-                                                $topics[] = $normalizedSystemName;
-                                            }
-                                        }
-                                    }
-
-                                    if (!empty($topics)) {
-                                        $topicsPerColumn = 3;
-                                        $columnCount = 0;
-
-                                        echo '<div class="col-md-3 d-flex flex-column">';
-
-                                        foreach ($topics as $topic) {
-                                            echo "<label class='flex-grow-1'>
-                                                <input type='checkbox' class='topicCheckbox' value='0|{$topic}' data-count='0' disabled> 
-                                                " . ucfirst($topic) . " 
-                                              </label>";
-
-                                            $columnCount++;
-
-                                            if ($columnCount % $topicsPerColumn == 0) {
-                                                echo '</div>';
-                                                if ($columnCount < count($topics)) {
-                                                    echo '<div class="col-md-3 d-flex flex-column">';
-                                                }
-                                            }
-                                        }
-
-                                        if ($columnCount % $topicsPerColumn != 0) {
-                                            echo '</div>';
-                                        }
-                                    } else {
-                                        echo "No topics found.";
-                                    }
-                                    ?>
-                                </div>
-                                <button class="btn" style="background: #1B4965; color: white; float: right;"
-                                    id="startTestButton">Start Test</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:28px;">
+      <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 16px; background:#f8fafc; border-radius:10px; border-left:3px solid #0d9488;">
+        <i class="bi bi-check2-circle" style="color:#0d9488; font-size:1.1rem; margin-top:1px; flex-shrink:0;"></i>
+        <div>
+          <div style="font-size:0.87rem; font-weight:700; color:#0f172a; margin-bottom:3px;">Complete All Questions</div>
+          <div style="font-size:0.8rem; color:#64748b; line-height:1.5;">Results are displayed only after all 150 questions are answered.</div>
         </div>
-    </main>
-
-    <div class="copy"
-        style="background-color: #1B4965; height: 30px; position: fixed; bottom: 0; left: 0; right: 0; text-align: center;">
-        <center><span style="color:white;">© Studium 2025, All Right Reserved.</span></center>
+      </div>
+      <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 16px; background:#f8fafc; border-radius:10px; border-left:3px solid #0d9488;">
+        <i class="bi bi-laptop" style="color:#0d9488; font-size:1.1rem; margin-top:1px; flex-shrink:0;"></i>
+        <div>
+          <div style="font-size:0.87rem; font-weight:700; color:#0f172a; margin-bottom:3px;">Use One Device Only</div>
+          <div style="font-size:0.8rem; color:#64748b; line-height:1.5;">Do not use more than one device simultaneously during the session.</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 16px; background:#f8fafc; border-radius:10px; border-left:3px solid #0d9488;">
+        <i class="bi bi-arrow-counterclockwise" style="color:#0d9488; font-size:1.1rem; margin-top:1px; flex-shrink:0;"></i>
+        <div>
+          <div style="font-size:0.87rem; font-weight:700; color:#0f172a; margin-bottom:3px;">Avoid Reloading or Going Back</div>
+          <div style="font-size:0.8rem; color:#64748b; line-height:1.5;">Do not reload the page or use the browser back button during the session.</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 16px; background:#f8fafc; border-radius:10px; border-left:3px solid #0d9488;">
+        <i class="bi bi-camera" style="color:#0d9488; font-size:1.1rem; margin-top:1px; flex-shrink:0;"></i>
+        <div>
+          <div style="font-size:0.87rem; font-weight:700; color:#0f172a; margin-bottom:3px;">Report Missing Exhibits</div>
+          <div style="font-size:0.8rem; color:#64748b; line-height:1.5;">Screenshot and report any questions that appear to be missing exhibits or images.</div>
+        </div>
+      </div>
     </div>
-    <script src="../ty/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.0.2/dist/chart.min.js"></script>
-    <script src="../ty/js/jquery-3.5.1.js"></script>
-    <script src="../ty/js/jquery.dataTables.min.js"></script>
-    <script src="../ty/js/dataTables.bootstrap5.min.js"></script>
-    <script src="../ty/js/script.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" charset="utf-8"></script>
-    <script src="assets/js/main.js"></script>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const studyModeRadio = document.querySelector('input[name="test_mode"][value="Study Mode"]');
-            const conceptRadios = document.querySelectorAll('.conceptCheckbox');
-            const selectAllTopics = document.getElementById('selectAllTopics');
+    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:20px; padding:12px 16px; border:1.5px solid #e2e8f0; border-radius:10px; user-select:none;">
+      <input type="checkbox" id="instrAgree" style="width:18px; height:18px; accent-color:#0d9488; cursor:pointer;" onchange="document.getElementById('instrBeginBtn').disabled = !this.checked;">
+      <span style="font-size:0.85rem; font-weight:600; color:#0f172a;">I understand and agree to follow these instructions.</span>
+    </label>
 
-            studyModeRadio.addEventListener('change', function () {
-                if (this.checked) {
-                    conceptRadios.forEach(radio => radio.disabled = false);
-                } else {
-                    conceptRadios.forEach(radio => {
-                        radio.disabled = true;
-                        radio.checked = false;
-                    });
-                    selectAllTopics.disabled = true;
-                    selectAllTopics.checked = false;
-                }
-            });
+    <input type="hidden" id="instrDestUrl" value="">
 
-            conceptRadios.forEach(radio => {
-                radio.addEventListener('change', function () {
-                    const studyModeChecked = studyModeRadio.checked;
+    <div style="display:flex; gap:10px;">
+      <button onclick="document.getElementById('instrOverlay').style.display='none';"
+        style="flex:1; padding:12px; border:1.5px solid #e2e8f0; background:#fff; border-radius:10px; font-size:0.9rem; font-weight:600; color:#64748b; cursor:pointer; font-family:inherit;">
+        Cancel
+      </button>
+      <button id="instrBeginBtn" disabled
+        onclick="window.location.href = document.getElementById('instrDestUrl').value;"
+        style="flex:2; padding:12px; background:#0d9488; border:none; border-radius:10px; font-size:0.9rem; font-weight:700; color:#fff; cursor:pointer; font-family:inherit; transition:opacity 0.2s;"
+        onmouseover="if(!this.disabled)this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
+        <i class="bi bi-play-circle-fill" style="margin-right:6px;"></i> Begin Session
+      </button>
+    </div>
+  </div>
+</div>
 
-                    if (this.checked && !studyModeChecked) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Please select a Test Mode!',
-                        });
-                    }
+<script>
+// All topic data pre-computed server-side — zero AJAX latency on concept click
+const allTopics = <?= json_encode($allConceptTopics, JSON_UNESCAPED_UNICODE) ?>;
 
-                    selectAllTopics.checked = false;
+document.addEventListener('DOMContentLoaded', function () {
+  const conceptLabels  = document.querySelectorAll('.s-csel');
+  const topicsContainer = document.getElementById('topicsContainer');
+  const topicsHidden   = document.getElementById('topicsHidden');
+  const topicsCount    = document.getElementById('topicsCount');
 
-                    if (this.checked) {
-                        fetch(`get_topics.php?topics1=${this.value}`)
-                            .then(response => response.text())
-                            .then(html => {
-                                document.getElementById('topicsContainer').innerHTML = html;
-                                selectAllTopics.disabled = false;
-                                initializeTopicCheckboxes();
-                            });
-                    } else {
-                        selectAllTopics.disabled = true;
-                        selectAllTopics.checked = false;
-                    }
-                });
-            });
+  let selectedConcept = null;
 
-          function initializeTopicCheckboxes() {
-    const checkboxes = document.querySelectorAll('.topicCheckbox');
-    const selectAllCheckbox = document.getElementById('selectAllTopics');
+  conceptLabels.forEach(label => {
+    label.addEventListener('click', function () {
+      conceptLabels.forEach(l => l.classList.remove('selected'));
+      this.classList.add('selected');
+      this.querySelector('.conceptRadio').checked = true;
+      selectedConcept = this.dataset.concept;
 
-    // ✅ Auto-check topics that have data-count > 0
-    checkboxes.forEach(checkbox => {
-        const count = parseInt(checkbox.getAttribute('data-count') || 0);
-        if (count > 0) {
-            checkbox.checked = true;
+      const topics = allTopics[selectedConcept] || [];
+      if (topics.length === 0) {
+        topicsContainer.innerHTML = '<p style="color:var(--s-muted); font-size:0.85rem;">No topics found for this concept.</p>';
+        topicsHidden.innerHTML = '';
+        topicsCount.textContent = '';
+        return;
+      }
+
+      let pillsHtml = '', hiddenHtml = '', total = 0;
+      topics.forEach(t => {
+        const disabled = t.count === 0 ? ' disabled' : '';
+        pillsHtml += `<div class="s-topic-pill${disabled}"><i class="bi bi-check-circle-fill"></i>${esc(t.system)}<span class="s-tp-count">(${t.count})</span></div>`;
+        if (t.count > 0) {
+          hiddenHtml += `<input type="hidden" class="topicHidden" value="${esc(encodeURIComponent(t.system)+'|'+encodeURIComponent(t.system))}" data-count="${t.count}">`;
+          total += t.count;
         }
+      });
 
-        // 🔒 Prevent unchecking once checked
-        checkbox.addEventListener('click', function (e) {
-            if (this.checked) return; // allow default if it was unchecked
-            e.preventDefault(); // block uncheck action
-            this.checked = true; // keep it checked
-        });
+      topicsContainer.innerHTML = pillsHtml;
+      topicsHidden.innerHTML = hiddenHtml;
+      topicsCount.textContent = `${topics.filter(t => t.count > 0).length} topics · ${total} questions`;
+
+      const btn = document.getElementById('startTestButton');
+      if (total >= 150) {
+        btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = '';
+      } else {
+        btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed';
+      }
     });
+  });
 
-    // Optional: disable "Select All" since all are already checked
-    selectAllCheckbox.disabled = true;
-    selectAllCheckbox.checked = true;
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-    updateTotalCount();
-}
+  document.getElementById('startTestButton').addEventListener('click', function (e) {
+    e.preventDefault();
 
-
-
-            function updateTotalCount() {
-                let totalCount = 0;
-                const checkedCheckboxes = document.querySelectorAll('.topicCheckbox:checked');
-                checkedCheckboxes.forEach(checkbox => {
-                    totalCount += parseInt(checkbox.getAttribute('data-count'));
-                });
-            }
-
-            initializeTopicCheckboxes();
-        });
-    </script>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            // Initialize all tooltips
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl)
-            });
-
-            document.getElementById('startTestButton').addEventListener('click', function (event) {
-                event.preventDefault();
-                const conceptSelected = document.querySelector('.conceptCheckbox:checked');
-                const topicsSelected = document.querySelectorAll('#topicsContainer .topicCheckbox:checked');
-                const studyModeChecked = document.querySelector('input[name="test_mode"]:checked');
-                const sumOfTopicCounts = Array.from(topicsSelected).reduce((total, topic) => total + parseInt(topic.getAttribute('data-count')), 0);
-
-                if (!studyModeChecked) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Please select a Test Mode!',
-                    });
-                } else if (!conceptSelected) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Please select a Concept!',
-                    });
-                } else if (topicsSelected.length === 0) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Please select at least one topic!',
-                    });
-                } else if (sumOfTopicCounts < 150) {
-                    Swal.fire({
-                        title: "Not Enough Topics Selected",
-                        text: `You only selected a total of ${sumOfTopicCounts} questions for topics. Please select ${150 - sumOfTopicCounts} more to proceed.`,
-                        icon: "warning",
-                        button: "OK",
-                    });
-                } else {
-                    // Show the instructions modal
-                    Swal.fire({
-                        title: '<strong>Exam Instructions</strong>',
-                        html: `
-        <ul style="list-style: none; padding: 0; text-align: left;">
-            <li><strong>• Complete All Questions:</strong> Your results will only be displayed after you have finished all 150 questions. Make sure to answer all questions before submitting.</li> <br/>
-            <li><strong>• Use One Device Only:</strong> Do not use more than one device at a time while taking the exam. This can lead to errors in your results. Each account should only be accessed from one device during the exam.</li> <br/>
-            <li><strong>• Avoid Reloading or Navigating Back:</strong> Do not reload the page or use the back button on your browser or mobile device. This can disrupt the exam process and may affect your results.</li><br/>
-            <li><strong>• Report Missing Exhibits:</strong> If you encounter a question that does not have any exhibits or attachments, please report it on the technical support page. Include a screenshot of the question for reference so that it can be addressed appropriately.</li>
-        </ul>
-    `,
-
-                        showCloseButton: false,
-                        confirmButtonText: 'I Understand',
-                        cancelButtonText: 'Cancel',
-                        showCancelButton: true,
-                        width: '600px', // Set to a larger size
-                        maxWidth: '600px', // Set a max width
-                        allowOutsideClick: false,
-                        customClass: {
-                            confirmButton: 'custom-confirm-button', // Custom class for confirm button
-                            cancelButton: 'custom-cancel-button' // Optional: custom class for cancel button
-                        },
-
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Redirect to the question page
-                            const selectedTopics = Array.from(topicsSelected).map(topic => topic.value);
-                            window.location.href = `question/pre-loader.php?topics1=${conceptSelected.value}&topics2=${selectedTopics.join(',')}&kilanlan=<?= $kilanlan ?>&id=<?= $fetch['id'] ?>`;
-                        } else if (result.isDismissed) {
-                            // Handle cancel action if needed
-                            console.log('User canceled the action.');
-                        }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Redirect to the question page
-                            const selectedTopics = Array.from(topicsSelected).map(topic => topic.value);
-                            window.location.href = `question/pre-loader.php?topics1=${conceptSelected.value}&topics2=${selectedTopics.join(',')}&kilanlan=<?= $kilanlan ?>&id=<?= $fetch['id'] ?>`;
-                        }
-                    });
-                }
-            });
-        });
-
-        const style = document.createElement('style');
-        style.innerHTML = `
-
-        *{
-
-text-transform: none;
+    if (!selectedConcept) {
+      Swal.fire({ icon: 'error', title: 'Oops...', text: 'Please select a concept!' });
+      return;
     }
-    .custom-confirm-button {
-        background-color: #1B4965 !important;
-        color: white !important;
+
+    const hiddenInputs = document.querySelectorAll('#topicsHidden .topicHidden');
+    if (hiddenInputs.length === 0) {
+      Swal.fire({ icon: 'warning', title: 'No Topics', text: 'No topics are available for this concept yet.' });
+      return;
     }
-    .custom-cancel-button {
-        background-color: #f00 !important; /* Optional: Red color for cancel button */
-        color: white !important;
+
+    const sumOfCounts = Array.from(hiddenInputs).reduce((sum, h) => sum + parseInt(h.getAttribute('data-count') || 0), 0);
+    if (sumOfCounts < 150) {
+      Swal.fire({
+        title: 'Not Enough Questions',
+        text: `This concept has ${sumOfCounts} questions. At least 150 are needed to start a session.`,
+        icon: 'warning'
+      });
+      return;
     }
-`;
-        document.head.appendChild(style);
-    </script>
+
+    // Build the destination URL
+    const selectedTopics = Array.from(hiddenInputs).map(h => h.value);
+    const destUrl = `question/pre-loader.php?topics1=${encodeURIComponent(selectedConcept)}&topics2=${selectedTopics.join(',')}&kilanlan=<?= htmlspecialchars($kilanlan) ?>&id=<?= $fetch['id'] ?>`;
+
+    // Show custom instruction overlay
+    document.getElementById('instrDestUrl').value = destUrl;
+    document.getElementById('instrOverlay').style.display = 'flex';
+    document.getElementById('instrAgree').checked = false;
+    document.getElementById('instrBeginBtn').disabled = true;
+  });
+});
+</script>
 </body>
-
 </html>
-

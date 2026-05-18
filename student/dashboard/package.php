@@ -1,624 +1,317 @@
+<?php
+include '../../config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . BASE_URL . 'index.php');
+    exit;
+}
+$user_id = $_SESSION['user_id'];
+
+$select = mysqli_query($con, "SELECT * FROM `login` WHERE id = '$user_id'") or die('query failed');
+$fetch  = mysqli_fetch_assoc($select);
+
+date_default_timezone_set('Asia/Manila');
+$daysLeft = floor((strtotime($fetch['dateexpired']) - time()) / 86400);
+if ($daysLeft < 0) { header('Location: ../../logout.php'); exit; }
+
+$pageTitle = 'Packages — Studium';
+?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <title>Pricing Table</title>
+  <?php include '_layout/head.php'; ?>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
   <style>
-    .pricing {
-      font-family: "Archivo Black", serif;
-      font-weight: 400;
-      font-style: normal;
+    .pricing { font-family: "Archivo Black", serif; font-weight: 400; font-style: normal; }
+    .s-pkg-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(27,73,101,.1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: box-shadow 0.25s, transform 0.25s;
     }
+    .s-pkg-card:hover { box-shadow: 0 10px 30px rgba(27,73,101,.15); transform: translateY(-4px); }
+    .s-pkg-pdf-box {
+      border: 2px solid var(--s-primary);
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin: 10px 0;
+    }
+    .s-pkg-enroll {
+      display: block;
+      background: linear-gradient(135deg, var(--s-primary), var(--s-accent));
+      color: #fff;
+      font-weight: 600;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      text-decoration: none;
+      margin-top: 16px;
+      transition: opacity 0.2s;
+    }
+    .s-pkg-enroll:hover { opacity: 0.88; color: #fff; }
+    .s-pkg-check { color: var(--s-accent); margin-right: 4px; }
+    .s-pkg-feature { font-size: 0.83rem; color: var(--s-text); margin: 4px 0; }
+    .s-pkg-title { font-size: 1rem; font-weight: 700; color: var(--s-primary); margin-bottom: 4px; }
+    .s-pkg-subtitle { font-size: 0.82rem; color: var(--s-muted); margin-bottom: 6px; }
+    .s-pkg-price { font-size: 2rem; font-weight: 700; color: var(--s-primary); padding: 8px 0; }
   </style>
 </head>
+<body>
 
-<body class="bg-gradient-to-br from-white to-sky-100 min-h-screen flex flex-col justify-between">
-  <nav class="bg-white shadow fixed w-full z-10">
-    <div class="container mx-auto flex justify-between items-center p-4">
-      <div class="logo-container">
-        <img src="../../img/logo.png" alt="NCLEX Logo" class="h-24 md:h-20 lg:h-16" />
-      </div>
-      <div class="md:hidden">
-        <button id="mobile-menu-toggle" class="text-gray-700 focus:outline-none">
-          <i class="fas fa-bars"></i>
-        </button>
-      </div>
-      <div class="hidden md:flex space-x-4">
-        <a href="javascript:window.history.back()" class="text-gray-700 hover:text-[#3954A2]">Home</a>
-        <a href="#" class="text-gray-700 hover:text-[#3954A2]" id="pdf-reviewer-toggle">PDF Reviewer</a>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Technical" target="_blank" rel="noopener noreferrer"
-          class="text-gray-700 hover:text-[#3954A2]">Contact</a>
+<?php include '_layout/sidebar.php'; ?>
+
+<main class="s-main">
+  <div class="s-page-header">
+    <h1>Packages</h1>
+    <p>View available NCLEX Amplified review packages</p>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Package 1 -->
+    <div class="col-xl-4 col-md-6 col-12">
+      <div class="s-pkg-card">
+        <div>
+          <div class="s-pkg-title">Package 1</div>
+          <div class="s-pkg-subtitle">Unlimited NCLEX Review until you PASS</div>
+          <div class="s-pkg-price pricing">₱6,999</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>24/7 dashboard Access</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lecture: 8am to 12:30 <b>(M-F)</b></div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Weekly Recap 8am-12nn</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Free Study Plan Consultation</div>
+          <div class="s-pkg-pdf-box">
+            <div style="color:var(--s-primary); font-weight:600; font-size:0.82rem; margin-bottom:6px;">Free PDF Reviewers:</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>La Charity</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX Amplified Q/A Compilation Edition 1</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Saunders</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lippincott 14th edition</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mosby Comprehensive Book</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Notes</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Cram Questionnaires</div>
+          </div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>250 Items Exclusive Questionnaires</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Live Testimony</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Passer Certificate</div>
+        </div>
+        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank" class="s-pkg-enroll">
+          <i class="bi bi-facebook me-1"></i> Enroll Now
+        </a>
       </div>
     </div>
-  </nav>
 
-  <div id="mobile-menu" class="fixed inset-0 bg-white z-20 hidden md:hidden">
-    <div class="flex justify-end p-4">
-      <button id="mobile-menu-close" class="text-gray-700">
-        <i class="fas fa-times"></i>
+    <!-- Package 2 -->
+    <div class="col-xl-4 col-md-6 col-12">
+      <div class="s-pkg-card" style="border:2px solid var(--s-accent);">
+        <div>
+          <div class="s-pkg-title">Package 2 <span class="s-badge s-badge-teal" style="font-size:0.65rem; vertical-align:middle;">Popular</span></div>
+          <div class="s-pkg-subtitle">Unlimited NCLEX Review until you PASS</div>
+          <div class="s-pkg-price pricing">₱8,499</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>24/7 dashboard Access</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lecture: 8am to 12:30 <b>(M-F)</b></div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Weekly Recap 8am-12nn</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Free Study Plan Consultation</div>
+          <div class="s-pkg-pdf-box">
+            <div style="color:var(--s-primary); font-weight:600; font-size:0.82rem; margin-bottom:6px;">Free PDF Reviewers:</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>La Charity</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX Amplified Q/A Compilation Edition 1</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Saunders</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lippincott 14th edition</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mosby Comprehensive Book</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Notes</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Cram Questionnaires</div>
+          </div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Our Very Own NCLEX Codex (PDF)</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX AMPLIFIED Q/A EDITION 2</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>250 Items Exclusive Questionnaires</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Live Testimony</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Passer Certificate</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mind Conditioning Consultation</div>
+        </div>
+        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank" class="s-pkg-enroll">
+          <i class="bi bi-facebook me-1"></i> Enroll Now
+        </a>
+      </div>
+    </div>
+
+    <!-- Package 3 -->
+    <div class="col-xl-4 col-md-6 col-12">
+      <div class="s-pkg-card">
+        <div>
+          <div class="s-pkg-title">Package 3</div>
+          <div class="s-pkg-subtitle">Unlimited NCLEX Review until you PASS</div>
+          <div class="s-pkg-price pricing">₱9,999</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>24/7 dashboard Access</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lecture: 8am to 12:30 <b>(M-F)</b></div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Weekly Recap 8am-12nn</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Free Study Plan Consultation</div>
+          <div class="s-pkg-pdf-box">
+            <div style="color:var(--s-primary); font-weight:600; font-size:0.82rem; margin-bottom:6px;">Free PDF Reviewers:</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>La Charity</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX Amplified Q/A Compilation Edition 1</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Saunders</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lippincott 14th edition</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mosby Comprehensive Book</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Notes</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Cram Questionnaires</div>
+          </div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Our Very Own NCLEX Codex (PDF)</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX AMPLIFIED Q/A EDITION 2</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>250 Items Exclusive Questionnaires</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Live Testimony</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Passer Certificate</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mind Conditioning Consultation</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Our Pathway Processing Center 5%-10% Discount</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Free Initial Assessment from Our Pathway Processing Center</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>3 months Studium CAT</div>
+        </div>
+        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank" class="s-pkg-enroll">
+          <i class="bi bi-facebook me-1"></i> Enroll Now
+        </a>
+      </div>
+    </div>
+
+    <!-- Package 4 -->
+    <div class="col-xl-4 col-md-6 col-12">
+      <div class="s-pkg-card">
+        <div>
+          <div class="s-pkg-title">Package 4</div>
+          <div class="s-pkg-subtitle">4 months Review + Package 1</div>
+          <div class="s-pkg-price pricing">₱2,499</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>24/7 dashboard Access</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lecture: 8am to 12:30 <b>(M-F)</b></div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Weekly Recap 8am-12nn</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Free Study Plan Consultation</div>
+          <div class="s-pkg-pdf-box">
+            <div style="color:var(--s-primary); font-weight:600; font-size:0.82rem; margin-bottom:6px;">Free PDF Reviewers:</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>La Charity</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX Amplified Q/A Compilation Edition 1</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Saunders</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lippincott 14th edition</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mosby Comprehensive Book</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Notes</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Cram Questionnaires</div>
+          </div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>250 Items Exclusive Questionnaires</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Live Testimony</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Passer Certificate</div>
+        </div>
+        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank" class="s-pkg-enroll">
+          <i class="bi bi-facebook me-1"></i> Enroll Now
+        </a>
+      </div>
+    </div>
+
+    <!-- Package 5 -->
+    <div class="col-xl-4 col-md-6 col-12">
+      <div class="s-pkg-card">
+        <div>
+          <div class="s-pkg-title">Package 5</div>
+          <div class="s-pkg-subtitle">8 months Review + Package 1</div>
+          <div class="s-pkg-price pricing">₱3,499</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>24/7 dashboard Access</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lecture: 8am to 12:30 <b>(M-F)</b></div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Weekly Recap 8am-12nn</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Free Study Plan Consultation</div>
+          <div class="s-pkg-pdf-box">
+            <div style="color:var(--s-primary); font-weight:600; font-size:0.82rem; margin-bottom:6px;">Free PDF Reviewers:</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>La Charity</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX Amplified Q/A Compilation Edition 1</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Saunders</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lippincott 14th edition</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mosby Comprehensive Book</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Notes</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Cram Questionnaires</div>
+          </div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>250 Items Exclusive Questionnaires</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Live Testimony</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Passer Certificate</div>
+        </div>
+        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank" class="s-pkg-enroll">
+          <i class="bi bi-facebook me-1"></i> Enroll Now
+        </a>
+      </div>
+    </div>
+
+    <!-- Package 6 -->
+    <div class="col-xl-4 col-md-6 col-12">
+      <div class="s-pkg-card">
+        <div>
+          <div class="s-pkg-title">Package 6</div>
+          <div class="s-pkg-subtitle">1 year Review + Package 1</div>
+          <div class="s-pkg-price pricing">₱4,499</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>24/7 dashboard Access</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lecture: 8am to 12:30 <b>(M-F)</b></div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Weekly Recap 8am-12nn</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Free Study Plan Consultation</div>
+          <div class="s-pkg-pdf-box">
+            <div style="color:var(--s-primary); font-weight:600; font-size:0.82rem; margin-bottom:6px;">Free PDF Reviewers:</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>La Charity</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX Amplified Q/A Compilation Edition 1</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Saunders</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Lippincott 14th edition</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Mosby Comprehensive Book</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Notes</div>
+            <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>NCLEX RN Cram Questionnaires</div>
+          </div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>250 Items Exclusive Questionnaires</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Live Testimony</div>
+          <div class="s-pkg-feature"><i class="bi bi-check-square-fill s-pkg-check"></i>Passer Certificate</div>
+        </div>
+        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank" class="s-pkg-enroll">
+          <i class="bi bi-facebook me-1"></i> Enroll Now
+        </a>
+      </div>
+    </div>
+
+  </div><!-- end row -->
+
+  <!-- PDF Reviewer Info -->
+  <div class="s-card mt-2">
+    <div class="d-flex align-items-start gap-3">
+      <i class="bi bi-file-earmark-pdf-fill" style="font-size:1.3rem; color:var(--s-accent); flex-shrink:0; margin-top:2px;"></i>
+      <div>
+        <div class="fw-semibold mb-1" style="color:var(--s-primary); font-size:0.9rem;">PDF Reviewer Add-On</div>
+        <div style="font-size:0.82rem; color:var(--s-muted);">
+          <strong>Edition 1: ₱2,999</strong> &nbsp;|&nbsp; <strong>Edition 2: ₱2,499</strong><br>
+          Includes: Lippincott 14th Ed · Kaplan 12th Ed · Remar Nursing Pharmacology 7th Ed · Nursing Pharmacology 7th Ed · Pharmacology Made Easy · Pharmacology for Nurses · Pathophysiology for Nurses
+        </div>
+      </div>
+      <button id="pdfReviewerBtn" class="s-btn s-btn-outline ms-auto" style="white-space:nowrap; flex-shrink:0;">
+        <i class="bi bi-info-circle me-1"></i> Details
       </button>
     </div>
-    <div class="flex flex-col items-center space-y-4 mt-12">
-      <a href="javascript:window.history.back()" class="text-gray-700 hover:text-[#3954A2]">Go Back</a>
-      <a href="#" class="text-gray-700 hover:text-[#3954A2]" id="pdf-reviewer-toggle">PDF Reviewer</a>
-      <a href="#" class="text-gray-700 hover:text-[#3954A2]">Contact</a>
-    </div>
   </div>
 
-  <div class="main-content mt-32 md:mt-26 lg:mt-24 p-4">
-    <div class="mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
-      <div
-        class="bg-white rounded-lg shadow-md p-6 transition-transform duration-300 hover:shadow-lg flex flex-col justify-between shadow-[#3954a2]">
-        <div class="text-left mb-4">
-          <h2 class="text-lg font-bold text-[#3954A2]">Package 1</h2>
+</main>
 
-          <div class="space-y-2 text-left">
-            <div>Unlimited NCLEX Review until you PASS</div>
-            <div class="text-4xl py-2 font-bold pricing">₱6,999</div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 24/7
-              dashboard Access
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Lecture: 8am
-              to 12:30 <b>(M-F)</b>
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Weekly Recap
-              8am-12nn
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Free Study
-              Plan Consultation
-            </div>
 
-            <div style="
-                  border: 2px solid #3954a2;
-                  padding: 10px;
-                  border-radius: 10px;
-                ">
-              <div class="text-[#3954A2] font-bold">Free PDF Reviewers:</div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> La Charity
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-                Amplified Q/A Compilation Edition 1
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Saunders
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Lippincott
-                14th edition
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Mosby
-                Comprehensive Book
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Notes
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Cram Questionnaires
-              </div>
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 250 Items
-              Exclusive Questionnaires (Based on latest Trend in NCLEX)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Live
-              Testimony
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Passer
-              Certificate
-            </div>
-          </div>
-        </div>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank"
-          class="bg-[#3954A2] text-white font-semibold py-2 rounded mt-4 w-full text-center">ENROLL NOW</a>
-      </div>
-
-      <div
-        class="bg-white rounded-lg shadow-md p-6 transition-transform duration-300 hover:shadow-lg flex flex-col justify-between shadow-[#3954a2]">
-        <div class="text-left mb-4">
-          <h2 class="text-lg font-bold text-[#3954A2]">Package 2</h2>
-
-          <div class="space-y-2 text-left">
-            <div>Unlimited NCLEX Review until you PASS</div>
-            <div class="text-4xl py-2 font-bold pricing">₱8,499</div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 24/7
-              dashboard Access
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Lecture: 8am
-              to 12:30 <b>(M-F)</b>
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Weekly Recap
-              8am-12nn
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Free Study
-              Plan Consultation
-            </div>
-
-            <div style="
-                  border: 2px solid #3954a2;
-                  padding: 10px;
-                  border-radius: 10px;
-                ">
-              <div class="text-[#3954A2] font-bold">Free PDF Reviewers:</div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> La Charity
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-                Amplified Q/A Compilation Edition 1
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Saunders
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Lippincott
-                14th edition
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Mosby
-                Comprehensive Book
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Notes
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Cram Questionnaires
-              </div>
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Our Very Own
-              NCLEX Codex (PDF)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-              AMPLIFIED Q/A EDITION 2
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 250 Items
-              Exclusive Questionnaires (Based on latest Trend in NCLEX)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Live
-              Testimony
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Passer
-              Certificate
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Mind
-              Conditioning Consultation
-            </div>
-          </div>
-        </div>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank"
-          class="bg-[#3954A2] text-white font-semibold py-2 rounded mt-4 w-full text-center">ENROLL NOW</a>
-      </div>
-
-      <div
-        class="bg-white rounded-lg shadow-md p-6 transition-transform duration-300 hover:shadow-lg flex flex-col justify-between shadow-[#3954a2]">
-        <div class="text-left mb-4">
-          <h2 class="text-lg font-bold text-[#3954A2]">Package 3</h2>
-
-          <div class="space-y-2 text-left">
-            <div>Unlimited NCLEX Review until you PASS</div>
-            <div class="text-4xl py-2 font-bold pricing">₱9,999</div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 24/7
-              dashboard Access
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Lecture: 8am
-              to 12:30 <b>(M-F)</b>
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Weekly Recap
-              8am-12nn
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Free Study
-              Plan Consultation
-            </div>
-
-            <div style="
-                  border: 2px solid #3954a2;
-                  padding: 10px;
-                  border-radius: 10px;
-                ">
-              <div class="text-[#3954A2] font-bold">Free PDF Reviewers:</div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> La Charity
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-                Amplified Q/A Compilation Edition 1
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Saunders
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Lippincott
-                14th edition
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Mosby
-                Comprehensive Book
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Notes
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Cram Questionnaires
-              </div>
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Our Very Own
-              NCLEX Codex (PDF)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-              AMPLIFIED Q/A EDITION 2
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 250 Items
-              Exclusive Questionnaires (Based on latest Trend in NCLEX)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Live
-              Testimony
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Passer
-              Certificate
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Mind
-              Conditioning Consultation
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Our Pathway
-              Processing Center 5% - 10% Discount
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Free Initial
-              Assesment from Our Pathway Processing Center
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 3 months
-              Studium CAT
-            </div>
-          </div>
-        </div>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank"
-          class="bg-[#3954A2] text-white font-semibold py-2 rounded mt-4 w-full text-center">ENROLL NOW</a>
-      </div>
-
-      <div
-        class="bg-white rounded-lg shadow-md p-6 transition-transform duration-300 hover:shadow-lg flex flex-col justify-between shadow-[#3954a2]">
-        <div class="text-left mb-4">
-          <h2 class="text-lg font-bold text-[#3954A2]">Package 4</h2>
-
-          <div class="space-y-2 text-left">
-            <div>4 months Review + Package 1</div>
-            <br />
-            <div class="text-4xl py-2 font-bold pricing">₱2,499</div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 24/7
-              dashboard Access
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Lecture: 8am
-              to 12:30 <b>(M-F)</b>
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Weekly Recap
-              8am-12nn
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Free Study
-              Plan Consultation
-            </div>
-
-            <div style="
-                  border: 2px solid #3954a2;
-                  padding: 10px;
-                  border-radius: 10px;
-                ">
-              <div class="text-[#3954A2] font-bold">Free PDF Reviewers:</div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> La Charity
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-                Amplified Q/A Compilation Edition 1
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Saunders
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Lippincott
-                14th edition
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Mosby
-                Comprehensive Book
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Notes
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Cram Questionnaires
-              </div>
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 250 Items
-              Exclusive Questionnaires (Based on latest Trend in NCLEX)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Live
-              Testimony
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Passer
-              Certificate
-            </div>
-          </div>
-        </div>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank"
-          class="bg-[#3954A2] text-white font-semibold py-2 rounded mt-4 w-full text-center">ENROLL NOW</a>
-      </div>
-
-      <div
-        class="bg-white rounded-lg shadow-md p-6 transition-transform duration-300 hover:shadow-lg flex flex-col justify-between shadow-[#3954a2]">
-        <div class="text-left mb-4">
-          <h2 class="text-lg font-bold text-[#3954A2]">Package 5</h2>
-
-          <div class="space-y-2 text-left">
-            <div>8 months Review + Package 1</div>
-            <br />
-            <div class="text-4xl py-2 font-bold pricing">₱3,499</div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 24/7
-              dashboard Access
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Lecture: 8am
-              to 12:30 <b>(M-F)</b>
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Weekly Recap
-              8am-12nn
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Free Study
-              Plan Consultation
-            </div>
-
-            <div style="
-                  border: 2px solid #3954a2;
-                  padding: 10px;
-                  border-radius: 10px;
-                ">
-              <div class="text-[#3954A2] font-bold">Free PDF Reviewers:</div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> La Charity
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-                Amplified Q/A Compilation Edition 1
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Saunders
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Lippincott
-                14th edition
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Mosby
-                Comprehensive Book
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Notes
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Cram Questionnaires
-              </div>
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 250 Items
-              Exclusive Questionnaires (Based on latest Trend in NCLEX)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Live
-              Testimony
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Passer
-              Certificate
-            </div>
-          </div>
-        </div>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank"
-          class="bg-[#3954A2] text-white font-semibold py-2 rounded mt-4 w-full text-center">ENROLL NOW</a>
-      </div>
-      <div
-        class="bg-white rounded-lg shadow-md p-6 transition-transform duration-300 hover:shadow-lg flex flex-col justify-between shadow-[#3954a2]">
-        <div class="text-left mb-4">
-          <h2 class="text-lg font-bold text-[#3954A2]">Package 6</h2>
-
-          <div class="space-y-2 text-left">
-            <div>1 year Review + Package 1</div>
-            <br />
-            <div class="text-4xl py-2 font-bold pricing">₱4,499</div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 24/7
-              dashboard Access
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Lecture: 8am
-              to 12:30 <b>(M-F)</b>
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Weekly Recap
-              8am-12nn
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Free Study
-              Plan Consultation
-            </div>
-
-            <div style="
-                  border: 2px solid #3954a2;
-                  padding: 10px;
-                  border-radius: 10px;
-                ">
-              <div class="text-[#3954A2] font-bold">Free PDF Reviewers:</div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> La Charity
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX
-                Amplified Q/A Compilation Edition 1
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Saunders
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Lippincott
-                14th edition
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> Mosby
-                Comprehensive Book
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Notes
-              </div>
-              <div>
-                <i class="fa fa-check-square-o text-[#DC292A]"></i> NCLEX RN
-                Cram Questionnaires
-              </div>
-            </div>
-
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> 250 Items
-              Exclusive Questionnaires (Based on latest Trend in NCLEX)
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Live
-              Testimony
-            </div>
-            <div>
-              <i class="fa fa-check-square-o text-[#DC292A]"></i> Passer
-              Certificate
-            </div>
-          </div>
-        </div>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Payment.Transaction" target="_blank"
-          class="bg-[#3954A2] text-white font-semibold py-2 rounded mt-4 w-full text-center">ENROLL NOW</a>
-      </div>
-    </div>
-  </div>
-
-  <footer class="bg-[#3954A2] text-white p-6">
-    <div class="container mx-auto text-center">
-
-      <p>&copy; 2025 NCLEX Amplified. All rights reserved.</p>
-    </div>
-  </footer>
-
-  <script>
-    document
-      .getElementById("mobile-menu-toggle")
-      .addEventListener("click", function () {
-        document.getElementById("mobile-menu").classList.toggle("hidden");
-      });
-
-    document
-      .getElementById("mobile-menu-close")
-      .addEventListener("click", function () {
-        document.getElementById("mobile-menu").classList.add("hidden");
-      });
-
-    document
-      .getElementById("pdf-reviewer-toggle")
-      .addEventListener("click", function () {
-        Swal.fire({
-          title: "PDF Reviewer",
-          html: `
-                    <strong>Edition 1: ₱2999</strong><br>
-                    <strong>Edition 2: ₱2499</strong><br>
-                    <b>Included in the PDF reviewer are:</b>
-                    <ul>
-                        <li>Lippincott 14th Edition</li>
-                        <li>Kaplan 12th Edition</li>
-                        <li>Remar Nursing Pharmacology 7th Edition</li>
-                        <li>Nursing Pharmacology 7th Edition</li>
-                        <li>Pharmacology Made Easy</li>
-                        <li>Pharmacology for Nurses</li>
-                        <li>Pathophysiology for Nurses</li>
-                    </ul>
-                `,
-          showCloseButton: true,
-          focusConfirm: false,
-          confirmButtonText: "Close",
-          confirmButtonAriaLabel: "Close this dialog",
-        });
-      });
-
-    // Automatic SweetAlert popup
+<script src="../ty/js/bootstrap.bundle.min.js"></script>
+<script>
+document.getElementById('pdfReviewerBtn').addEventListener('click', function () {
     Swal.fire({
-      title: 'Coming Soon!',
-      text: 'This subscription will be coming soon.',
-      icon: 'info',
-      confirmButtonText: 'Got it',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Navigate back
-        window.history.back();
-      }
+        title: 'PDF Reviewer',
+        html: `
+<strong>Edition 1: ₱2,999</strong><br>
+<strong>Edition 2: ₱2,499</strong><br><br>
+<b>Included in the PDF reviewer:</b>
+<ul style="text-align:left; margin-top:8px;">
+    <li>Lippincott 14th Edition</li>
+    <li>Kaplan 12th Edition</li>
+    <li>Remar Nursing Pharmacology 7th Edition</li>
+    <li>Nursing Pharmacology 7th Edition</li>
+    <li>Pharmacology Made Easy</li>
+    <li>Pharmacology for Nurses</li>
+    <li>Pathophysiology for Nurses</li>
+</ul>`,
+        showCloseButton: true,
+        focusConfirm: false,
+        confirmButtonText: 'Close',
     });
-  </script>
+});
+</script>
 </body>
-
 </html>

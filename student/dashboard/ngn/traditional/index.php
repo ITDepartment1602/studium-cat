@@ -1,6 +1,6 @@
 <?php
 require_once '../../../../config.php';
-// session_start handled by config.php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
@@ -39,6 +39,20 @@ $topic = $data['topic'] ?? 'General';
 $system = $data['system'] ?? 'N/A';
 $cnc = $data['cnc'] ?? 'N/A';
 $dlevel = $data['dlevel'] ?? 'N/A';
+$concept = $data['concept'] ?? 'General';
+$narcan = $data['narcan'] ?? 'N/A';
+$furtherinfo = $data['furtherinfo'] ?? '';
+$image = $data['image'] ?? '';
+
+// Dynamic clinical reference tabs from `tabs` DB field (spec §1.2)
+$tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
+$hasTabs = !empty($tabs_data);
+
+// Fetch Stats
+$q_uid = 'traditional_' . $data['id'];
+$peer_q = mysqli_query($con, "SELECT AVG(isCorrect) * 100 as avg_score FROM exam_results WHERE question_uid = '$q_uid'");
+$peer_data = mysqli_fetch_assoc($peer_q);
+$avg_peer_score = $peer_data['avg_score'] ? round($peer_data['avg_score'], 1) . '%' : 'N/A';
 
 // Build options array with proper labels
 $options = [];
@@ -79,8 +93,134 @@ foreach ($choicesArray as $idx => $choice) {
       font-family: 'Inter', sans-serif;
       background: transparent;
       color: var(--text);
-      padding: 24px;
     }
+
+    /* Two-panel layout */
+    .two-panel { display: flex; min-height: 100vh; overflow: hidden; }
+    .left-panel { width: 40%; min-width: 260px; background: #fff; border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+    .panel-title { padding: 14px 20px; background: #f1f5f9; font-weight: 800; font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+    .tabs-row {
+      display: flex;
+      padding: 8px 12px 0;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      overflow-y: hidden;
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    .tabs-row::-webkit-scrollbar {
+      height: 3px;
+    }
+    .tabs-row::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .tabs-row::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 10px;
+    }
+    .tabs-row:hover::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+    }
+    .tabs-row:hover {
+      scrollbar-width: thin;
+    }
+    .tab-btn { padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; color: var(--text-muted); white-space: nowrap; }
+    .tab-btn.active { background: #f8fafc; color: var(--accent); border: 1px solid var(--border); border-bottom-color: #f8fafc; margin-bottom: -1px; }
+    .tab-content-area { flex: 1; overflow-y: auto; padding: 16px; }
+    .clinical-record { background: #fdfdfd; border: 1px solid #f1f5f9; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+    .right-panel { flex: 1; overflow-y: auto; padding: 24px; min-width: 0; }
+    @media (max-width: 900px) {
+      .two-panel { flex-direction: column; height: auto; overflow: visible; }
+      .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 35vh; overflow-y: auto; }
+      .right-panel { width: 100% !important; overflow: visible; }
+    }
+
+    .nclex-tips {
+        margin-top: 24px;
+        padding: 20px;
+        background: #f0fdf4;
+        border-radius: 12px;
+        border: 1px solid #bbf7d0;
+    }
+    .tips-title {
+        font-weight: 800;
+        color: #166534;
+        font-size: 13px;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        letter-spacing: 0.5px;
+    }
+    .tips-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .tips-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 14.5px;
+        color: #15803d;
+        margin-bottom: 10px;
+        line-height: 1.5;
+    }
+    .tips-list li i {
+        color: #22c55e;
+        margin-top: 3px;
+        flex-shrink: 0;
+        font-size: 16px;
+    }
+    .rationale-image-wrapper {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+    }
+    .image-title {
+        font-weight: 800;
+        color: var(--text-muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .tip-highlight {
+        background: #fef08a;
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-weight: 700;
+        color: #854d0e;
+        border-bottom: 1.5px solid #f59e0b;
+        display: inline;
+        line-height: 1;
+        white-space: normal;
+    }
+    .stats-btn {
+        background: #f1f5f9;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .stats-btn:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+    .stats-btn i { font-size: 14px; color: #3b82f6; }
 
     .card {
       max-width: 950px;
@@ -219,24 +359,6 @@ foreach ($choicesArray as $idx => $choice) {
       text-decoration: none;
     }
 
-    /* Omitted answer - the one they initially selected but changed */
-    .option-item.omitted-reveal {
-      border-color: #f59e0b;
-      background: #fffbeb;
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
-      opacity: 0.75;
-    }
-
-    .option-item.omitted-reveal .option-label {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      color: white;
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-    }
-
-    .option-item.omitted-reveal .option-text {
-      text-decoration: line-through;
-      color: #92400e;
-    }
 
     .option-item.wrong-reveal {
       border-color: var(--danger);
@@ -455,6 +577,27 @@ foreach ($choicesArray as $idx => $choice) {
   </style>
 </head>
 <body>
+<div class="two-panel">
+<?php if ($hasTabs): ?>
+<div class="left-panel">
+  <div class="panel-title">Clinical Reference</div>
+  <div class="tabs-row">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div class="tab-btn <?= $i === 0 ? 'active' : '' ?>" data-tab="ttab-<?= $i ?>"><?= htmlspecialchars($tab['title']) ?></div>
+    <?php endforeach; ?>
+  </div>
+  <div class="tab-content-area">
+    <?php foreach ($tabs_data as $i => $tab): ?>
+    <div id="ttab-<?= $i ?>" class="tab-pane" <?= $i > 0 ? 'style="display:none;"' : '' ?>>
+      <?php foreach ((array)($tab['content'] ?? []) as $item): ?>
+      <div class="clinical-record"><?= htmlspecialchars($item) ?></div>
+      <?php endforeach; ?>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+<div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
 
 <div class="card">
 
@@ -507,10 +650,87 @@ foreach ($choicesArray as $idx => $choice) {
     </button>
   </div>
 </div>
+</div><!-- /.right-panel -->
+</div><!-- /.two-panel -->
 
 <script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+    document.getElementById(this.dataset.tab).style.display = '';
+  });
+});
+
   const correctAnswer = <?= json_encode($correctAnswer) ?>;
-  const rationale = <?= json_encode($rationale) ?>;
+    const rationale = <?= json_encode($rationale) ?>;
+    const furtherinfo = <?= json_encode($furtherinfo) ?>;
+
+    /* Stats Data */
+    const _qStartTime = Date.now();
+    const questionStats = {
+        difficulty: <?= json_encode($dlevel) ?>,
+        peerScore: <?= json_encode($avg_peer_score) ?>,
+        concept: <?= json_encode($concept) ?>,
+        topic: <?= json_encode($topic) ?>,
+        system: <?= json_encode($system) ?>,
+        cnc: <?= json_encode($cnc) ?>,
+        type: 'Traditional Multiple Choice'
+    };
+
+    window.showStatsModal = function() {
+        const secs = Math.round((Date.now() - _qStartTime) / 1000);
+        const timeTaken = secs < 60 ? secs + ' s' : Math.floor(secs/60) + ' m ' + (secs%60) + ' s';
+        Swal.fire({
+            title: '<i class="fas fa-chart-bar" style="color:#3b82f6; margin-right:6px;"></i> Statistics',
+            html: `
+                <div style="text-align:left; padding:4px 0;">
+                    <div style="display:flex; gap:10px; margin-bottom:16px;">
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-gauge-high" style="color:#f59e0b;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Difficulty level</div>
+                            <div style="font-size:13px; font-weight:800; color:#0f172a;">${questionStats.difficulty}</div>
+                        </div>
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-users" style="color:#8b5cf6;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Avg. Peers Score</div>
+                            <div style="font-size:13px; font-weight:800; color:#10b981;">${questionStats.peerScore}</div>
+                        </div>
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-hourglass-half" style="color:#3b82f6;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Time taken</div>
+                            <div style="font-size:13px; font-weight:800; color:#0f172a;">${timeTaken}</div>
+                        </div>
+                    </div>
+                    <div style="border-top:1px solid #e2e8f0; padding-top:14px; display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Subject</span>
+                            <span style="background:#eff6ff; color:#3b82f6; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.concept}</span>
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Lesson</span>
+                            <span style="background:#eff6ff; color:#3b82f6; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.topic}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Client Need Area</span>
+                            <span style="background:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.cnc}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Client Need Topic</span>
+                            <span style="background:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.system}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Question Type</span>
+                            <span style="background:#fef3c7; color:#d97706; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.type}</span>
+                        </div>
+                    </div>
+                </div>
+            `,
+            confirmButtonText: 'Got it',
+            confirmButtonColor: '#3b82f6',
+            width: '500px'
+        });
+    };
+  const image = <?= json_encode($image) ?>;
   const questionId = <?= json_encode($id) ?>;
 
   let locked = false;
@@ -555,6 +775,9 @@ foreach ($choicesArray as $idx => $choice) {
       }
     }
   });
+
+  // Signal parent that this iframe is ready to receive prefill data
+  if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 
   // Handle option selection
   document.querySelectorAll('input[name="answer"]').forEach(input => {
@@ -624,14 +847,7 @@ foreach ($choicesArray as $idx => $choice) {
       item.classList.remove('correct-reveal', 'wrong-reveal', 'disabled', 'omitted-reveal');
       item.querySelector('input').disabled = true;
 
-      // Show omitted answer if it exists and is different from final answer
-      const showOmitted = (prefillData?.initial_answer !== undefined && prefillData?.initial_answer !== null) ? 
-        (value === parseInt(prefillData.initial_answer) && value !== userAnswer) :
-        (answerChanged && value === initialAnswer && value !== userAnswer);
-        
-      if (showOmitted) {
-        item.classList.add('omitted-reveal');
-      } else if (value === correctAnswer) {
+      if (value === correctAnswer) {
         item.classList.add('correct-reveal');
       } else if (value === userAnswer && !isCorrect) {
         item.classList.add('wrong-reveal');
@@ -645,28 +861,55 @@ foreach ($choicesArray as $idx => $choice) {
     const resultTitle = document.getElementById('resultTitle');
     const rationaleContent = document.getElementById('rationaleContent');
 
-    if (isCorrect) {
-      resultTitle.className = 'result-title correct';
-      resultTitle.innerHTML = '<i class="fas fa-check-circle"></i> Correct!';
-    } else {
-      resultTitle.className = 'result-title incorrect';
-      resultTitle.innerHTML = '<i class="fas fa-times-circle"></i> Incorrect';
-    }
+    resultTitle.className = 'result-title ' + (isCorrect ? 'correct' : 'incorrect');
+    resultTitle.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content: space-between; width: 100%;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+                <span>${isCorrect ? 'Correct' : 'Incorrect'}</span>
+            </div>
+            <button class="stats-btn" onclick="showStatsModal()">
+                <i class="fas fa-info-circle"></i> Question Info
+            </button>
+        </div>
+    `;
 
     // Add omitted answer note if applicable
-    let rationaleText = rationale ? '<strong>Rationale:</strong> ' + rationale.replace(/\n/g, '<br>') : 'No rationale provided.';
+    let rationaleText = rationale ? rationale.replace(/\n/g, '<br>') : 'No rationale provided.';
     
-    const hasChanges = (prefillData?.initial_answer !== undefined && prefillData?.initial_answer !== null) ? 
-      (parseInt(prefillData.initial_answer) !== userAnswer) :
-      (answerChanged && initialAnswer !== null);
-    
-    if (hasChanges) {
-      const labelMap = {1: 'A', 2: 'B', 3: 'C', 4: 'D'};
-      const omittedVal = (prefillData?.initial_answer !== undefined) ? parseInt(prefillData.initial_answer) : initialAnswer;
-      rationaleText += '<br><br><span style="color: #f59e0b; font-weight: 600;"><i class="fas fa-info-circle"></i> You changed your answer from <strong>' + labelMap[omittedVal] + '</strong> to <strong>' + labelMap[userAnswer] + '</strong></span>';
+    let resultHtml = rationaleText;
+
+    if (furtherinfo) {
+        let tips = [];
+        try {
+            let decoded = JSON.parse(furtherinfo);
+            if (Array.isArray(decoded)) tips = decoded;
+            else tips = [furtherinfo];
+        } catch (e) {
+            tips = furtherinfo.split('\n').filter(l => l.trim() !== '');
+        }
+
+        resultHtml += '<div class="nclex-tips">';
+        resultHtml += '<div class="tips-title"><i class="fas fa-lightbulb"></i> NCLEX Tips & Further Information</div>';
+        resultHtml += '<ul class="tips-list">';
+        tips.forEach(t => {
+            // Collapse newlines and extra spaces for a continuous sentence
+            let cleanTip = t.replace(/\s+/g, ' ').trim();
+            // Highlight words wrapped in %
+            let highlighted = cleanTip.replace(/%([^%]+)%/g, '<span class="tip-highlight">$1</span>');
+            resultHtml += '<li><i class="fas fa-check-circle"></i> <span>' + highlighted + '</span></li>';
+        });
+        resultHtml += '</ul></div>';
     }
     
-    rationaleContent.innerHTML = rationaleText;
+    if (image) {
+        resultHtml += '<div class="rationale-image-wrapper">';
+        resultHtml += '<div class="image-title"><i class="fas fa-image"></i> Related Illustration</div>';
+        resultHtml += '<img src="../../../../admin/dashboard/pages/uploads/' + image + '" alt="NCLEX Illustration" style="max-width:100%; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+        resultHtml += '</div>';
+    }
+
+    rationaleContent.innerHTML = resultHtml;
 
     resultSection.classList.add('show');
   }

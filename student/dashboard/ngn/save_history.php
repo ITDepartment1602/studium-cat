@@ -48,7 +48,27 @@ $changes_count  = isset($body['changes_count'])  ? intval($body['changes_count']
 $question_number = isset($body['question_number']) ? intval($body['question_number']) : 0;
 $time_taken      = isset($body['time_taken'])      ? intval($body['time_taken']) : 0;
 $totalTime       = isset($body['totalTime'])       ? intval($body['totalTime']) : 0;
+$concept         = isset($body['concept'])         ? $body['concept'] : null;
 $created_at      = date('Y-m-d H:i:s');
+
+// Always resolve concept from question table — critical for NCLEX Readiness dashboard
+if ($concept === null && $question_uid !== '') {
+    static $qTableMap = [
+        'highlight' => 'highlight', 'traditional' => 'traditional', 'mc' => 'traditional',
+        'bowtie' => 'btq', 'bt' => 'btq', 'mmr' => 'mmr', 'mpr' => 'mpr',
+        'sata' => 'sata', 'dropdown' => 'dropdown', 'ddl' => 'dropdown',
+        'dragndrop' => 'dragndrop',
+    ];
+    // Parse numeric ID from question_uid format "type-NNN"
+    $resolvedId = $question_id > 0 ? $question_id : 0;
+    if ($resolvedId === 0 && preg_match('/-(\d+)$/', $question_uid, $m)) {
+        $resolvedId = (int)$m[1];
+    }
+    if ($resolvedId > 0 && isset($qTableMap[$question_type])) {
+        $cRow = db()->fetchOne("SELECT concept FROM `{$qTableMap[$question_type]}` WHERE id = ? LIMIT 1", [$resolvedId]);
+        if ($cRow) $concept = $cRow['concept'] ?? null;
+    }
+}
 
 // Delete existing record for the same question in this attempt to support re-submissions
 db()->execute(
@@ -63,15 +83,15 @@ $ok = db()->execute(
      topic, system, cnc, dlevel,
      user_answer, correct_answer, initial_answer, changes,
      isCorrect, score, earned_points, max_points,
-     omitted, changes_count, rationale,
+     omitted, changes_count, rationale, concept,
      question_number, time_taken, totalTime, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
         $student_id, $examTaken, $question_uid, $question_type, $question_id,
         $topic, $system, $cnc, $dlevel,
         $user_answer, $correct_answer, $initial_answer, $changes,
         $isCorrect, $score, $earned_points, $max_points,
-        $omitted, $changes_count, $rationale,
+        $omitted, $changes_count, $rationale, $concept,
         $question_number, $time_taken, $totalTime, $created_at
     ]
 );

@@ -1,6 +1,6 @@
 <?php
 require_once '../../../../config.php';
-// session_start handled by config.php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id > 0) {
@@ -13,13 +13,38 @@ if (!$data) {
     die('<div style="font-family: Arial; padding: 20px;">No MMR question found.</div>');
 }
 
-$columns = json_decode($data['columns'], true) ?? [];
-$rows    = json_decode($data['rows'], true) ?? [];
-$nurses_notes = json_decode($data['nurses_notes'], true) ?? [];
-$vital_signs  = json_decode($data['vital_signs'], true) ?? [];
-$diagnostics   = json_decode($data['diagnostics'], true) ?? [];
-$correct       = json_decode($data['correct'], true) ?? [];
-$rationale     = $data['rationale'] ?? '';
+$columns   = json_decode($data['columns'] ?: '[]', true) ?: [];
+$rows      = json_decode($data['rows']    ?: '[]', true) ?: [];
+$correct   = json_decode($data['correct'] ?: '{}', true) ?: [];
+$rationale = $data['rationale'] ?? '';
+$furtherinfo = $data['furtherinfo'] ?? '';
+$image = $data['image'] ?? '';
+
+// Dynamic clinical reference tabs from `tabs` DB field (spec §1.2)
+// Fall back to the legacy individual columns if `tabs` field is absent/empty.
+$tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
+if (empty($tabs_data)) {
+    // Legacy fallback: build tabs from old separate columns
+    $nn = json_decode(($data['nurses_notes'] ?? '') ?: '[]', true) ?: [];
+    $vs = json_decode(($data['vital_signs']  ?? '') ?: '[]', true) ?: [];
+    $dx = json_decode(($data['diagnostics']  ?? '') ?: '[]', true) ?: [];
+    if (!empty($nn))  $tabs_data[] = ['title' => 'Nurse Notes',  'content' => $nn];
+    if (!empty($vs))  $tabs_data[] = ['title' => 'Vital Signs',  'content' => $vs];
+    if (!empty($dx))  $tabs_data[] = ['title' => 'Diagnostics',  'content' => $dx];
+}
+$hasTabs = !empty($tabs_data);
+
+// Fetch Stats
+$topic = $data['topic'] ?? 'General';
+$system = $data['system'] ?? 'N/A';
+$cnc = $data['cnc'] ?? 'N/A';
+$dlevel = $data['dlevel'] ?? 'N/A';
+$concept = $data['concept'] ?? 'General';
+$narcan = $data['narcan'] ?? 'N/A';
+$q_uid = 'mmr_' . $data['id'];
+$peer_q = mysqli_query($con, "SELECT AVG(isCorrect) * 100 as avg_score FROM exam_results WHERE question_uid = '$q_uid'");
+$peer_data = mysqli_fetch_assoc($peer_q);
+$avg_peer_score = $peer_data['avg_score'] ? round($peer_data['avg_score'], 1) . '%' : 'N/A';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -28,6 +53,7 @@ $rationale     = $data['rationale'] ?? '';
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MMR Question</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <style>
@@ -189,12 +215,33 @@ body {
 
 .matrix-table td:first-child {
   text-align: left;
-  font-weight: 600;
   font-size: 14px;
   color: var(--text);
   background: #fcfcfd;
   width: 40%;
 }
+
+.stats-btn {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.stats-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+.stats-btn i { font-size: 14px; color: #3b82f6; }
 
 .matrix-table tr:last-child td { border-bottom: none; }
 .matrix-table th:last-child, .matrix-table td:last-child { border-right: none; }
@@ -208,7 +255,6 @@ body {
 /* Reveal Colors */
 .cell-correct { background-color: #ecfdf5 !important; }
 .cell-wrong { background-color: #fef2f2 !important; }
-.cell-omitted { background-color: #fffbeb !important; text-decoration: line-through; opacity: 0.75; }
 
 /* FOOTER */
 .footer {
@@ -259,6 +305,71 @@ body {
     border-left: 4px solid #cbd5e1;
 }
 
+.nclex-tips {
+    margin-top: 24px;
+    padding: 20px;
+    background: #f0fdf4;
+    border-radius: 12px;
+    border: 1px solid #bbf7d0;
+}
+.tips-title {
+    font-weight: 800;
+    color: #166534;
+    font-size: 13px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.5px;
+}
+.tips-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.tips-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 14.5px;
+    color: #15803d;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+.tips-list li i {
+    color: #22c55e;
+    margin-top: 3px;
+    flex-shrink: 0;
+    font-size: 16px;
+}
+.rationale-image-wrapper {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+.image-title {
+    font-weight: 800;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tip-highlight {
+    background: #fef08a;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-weight: 700;
+    color: #854d0e;
+    border-bottom: 1.5px solid #f59e0b;
+    display: inline;
+    line-height: 1;
+    white-space: normal;
+}
+
 /* RESPONSIVE CSS MUST BE LAST IN CASCADE */
 @media (max-width: 900px) {
   .main-content { flex-direction: column; overflow: visible; display: block; height: auto; }
@@ -282,35 +393,31 @@ body {
 
 <div class="app-container">
     <div class="main-content">
-        <!-- Clinical Panel -->
+        <!-- Clinical Panel — shown only when the question has tabs data -->
+        <?php if ($hasTabs): ?>
         <div class="left-panel">
             <div class="panel-header">Client Records</div>
             <div class="tabs-nav">
-                <div class="tab-btn active" data-tab="notes">Nurse Notes</div>
-                <div class="tab-btn" data-tab="vitals">Vital Signs</div>
-                <div class="tab-btn" data-tab="diagnostics">Diagnostics</div>
+                <?php foreach ($tabs_data as $i => $tab): ?>
+                <div class="tab-btn <?= $i === 0 ? 'active' : '' ?>" data-tab="tab-<?= $i ?>"><?= htmlspecialchars($tab['title']) ?></div>
+                <?php endforeach; ?>
             </div>
             <div class="tab-content-area">
-                <div id="notes" class="tab-pane">
+                <?php foreach ($tabs_data as $i => $tab): ?>
+                <div id="tab-<?= $i ?>" class="tab-pane" <?= $i > 0 ? 'style="display:none;"' : '' ?>>
                     <ul class="clinical-list">
-                        <?php foreach($nurses_notes as $n) echo "<li>" . htmlspecialchars($n) . "</li>"; ?>
+                        <?php foreach ((array)($tab['content'] ?? []) as $item): ?>
+                            <li><?= htmlspecialchars($item) ?></li>
+                        <?php endforeach; ?>
                     </ul>
                 </div>
-                <div id="vitals" class="tab-pane" style="display:none;">
-                    <ul class="clinical-list">
-                        <?php foreach($vital_signs as $v) echo "<li>" . htmlspecialchars($v) . "</li>"; ?>
-                    </ul>
-                </div>
-                <div id="diagnostics" class="tab-pane" style="display:none;">
-                    <ul class="clinical-list">
-                        <?php foreach($diagnostics as $d) echo "<li>" . htmlspecialchars($d) . "</li>"; ?>
-                    </ul>
-                </div>
+                <?php endforeach; ?>
             </div>
         </div>
+        <?php endif; ?>
 
-        <!-- Question Panel -->
-        <div class="right-panel">
+        <!-- Question Panel — expands to full width when no tabs -->
+        <div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
             <div class="previous-badge" id="prevBadge">
                 <i class="fas fa-lock"></i> This matrix has been submitted and is now read-only.
             </div>
@@ -359,7 +466,74 @@ body {
 $(document).ready(function(){
     const columns = <?= json_encode($columns) ?>;
     const correct = <?= json_encode($correct) ?>;
-    const rationale = <?= json_encode($rationale) ?>;
+    let rationale = <?= json_encode($rationale) ?>;
+    let furtherinfo = <?= json_encode($furtherinfo) ?>;
+    let image = <?= json_encode($image) ?>;
+
+    /* Stats Data */
+    const _qStartTime = Date.now();
+    const questionStats = {
+        difficulty: <?= json_encode($dlevel) ?>,
+        peerScore: <?= json_encode($avg_peer_score) ?>,
+        concept: <?= json_encode($concept) ?>,
+        topic: <?= json_encode($topic) ?>,
+        system: <?= json_encode($system) ?>,
+        cnc: <?= json_encode($data['cnc'] ?? 'N/A') ?>,
+        type: 'Matrix Multiple Response (MMR)'
+    };
+
+    window.showStatsModal = function() {
+        const secs = Math.round((Date.now() - _qStartTime) / 1000);
+        const timeTaken = secs < 60 ? secs + ' s' : Math.floor(secs/60) + ' m ' + (secs%60) + ' s';
+        Swal.fire({
+            title: '<i class="fas fa-chart-bar" style="color:#3b82f6; margin-right:6px;"></i> Statistics',
+            html: `
+                <div style="text-align:left; padding:4px 0;">
+                    <div style="display:flex; gap:10px; margin-bottom:16px;">
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-gauge-high" style="color:#f59e0b;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Difficulty level</div>
+                            <div style="font-size:13px; font-weight:800; color:#0f172a;">${questionStats.difficulty}</div>
+                        </div>
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-users" style="color:#8b5cf6;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Avg. Peers Score</div>
+                            <div style="font-size:13px; font-weight:800; color:#10b981;">${questionStats.peerScore}</div>
+                        </div>
+                        <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                            <div style="font-size:18px; margin-bottom:4px;"><i class="fas fa-hourglass-half" style="color:#3b82f6;"></i></div>
+                            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Time taken</div>
+                            <div style="font-size:13px; font-weight:800; color:#0f172a;">${timeTaken}</div>
+                        </div>
+                    </div>
+                    <div style="border-top:1px solid #e2e8f0; padding-top:14px; display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Subject</span>
+                            <span style="background:#eff6ff; color:#3b82f6; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.concept}</span>
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Lesson</span>
+                            <span style="background:#eff6ff; color:#3b82f6; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.topic}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Client Need Area</span>
+                            <span style="background:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.cnc}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Client Need Topic</span>
+                            <span style="background:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.system}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; min-width:130px;">Question Type</span>
+                            <span style="background:#fef3c7; color:#d97706; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;">${questionStats.type}</span>
+                        </div>
+                    </div>
+                </div>
+            `,
+            confirmButtonText: 'Got it',
+            confirmButtonColor: '#3b82f6',
+            width: '500px'
+        });
+    };
+
     let isReviewMode = false;
     let initialAnswers = {};
     let hasInteracted = false;
@@ -397,11 +571,9 @@ $(document).ready(function(){
         hasInteracted = true;  // Mark that user has interacted
     });
 
-    function showResult(scoreHeader, prevAnswers = {}) {
+    function showResult(scoreHeader, prevAnswers = {}, earnedPoints = 0, maxPoints = 0, isCorrect = false) {
         $('.matrix-table td').removeClass('cell-correct cell-wrong cell-omitted');
-        
-        const displayInitial = Object.keys(prevAnswers).length > 0 ? prevAnswers : initialAnswers;
-        
+
         // Use the same robust key matching as in the scoring logic
         const getCorrectList = (colName) => {
             const key = Object.keys(correct).find(k => k.trim().toLowerCase() === colName.trim().toLowerCase());
@@ -411,20 +583,14 @@ $(document).ready(function(){
         columns.forEach(col => {
             const list = getCorrectList(col);
             const listLower = list.map(s => s.toString().trim().toLowerCase());
-            const initialList = displayInitial[col] || [];
-            const initialLower = initialList.map(s => s.toString().trim().toLowerCase());
 
             $(`input[name="${col}[]"]`).each(function(){
                 let val = $(this).val().trim().toLowerCase();
                 let parent = $(this).parent();
                 let isCorrect = listLower.includes(val);
-                let wasInitial = initialLower.includes(val);
                 let isNowChecked = $(this).is(':checked');
-                
-                // Show omitted if was checked initially but not now
-                if(wasInitial && !isNowChecked) {
-                    parent.addClass('cell-omitted');
-                } else if(isCorrect) {
+
+                if(isCorrect) {
                     parent.addClass('cell-correct');
                 } else if(isNowChecked) {
                     parent.addClass('cell-wrong');
@@ -432,8 +598,52 @@ $(document).ready(function(){
             });
         });
 
-        $('#resSummary').html(scoreHeader);
-        $('#rationaleText').html(rationale || "No rationale provided.");
+        let summaryHtml = `
+            <div style="display:flex; align-items:center; justify-content: space-between; width: 100%;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${isCorrect ? '#10b981' : '#ef4444'}; font-size:18px;"></i>
+                    <span style="color:${isCorrect ? '#10b981' : '#ef4444'}; font-size:16px;">${scoreHeader}</span>
+                </div>
+                <button class="stats-btn" onclick="showStatsModal()">
+                    <i class="fas fa-info-circle"></i> Question Info
+                </button>
+            </div>
+        `;
+        $('#resSummary').html(summaryHtml);
+        
+        let resultHtml = rationale || "No rationale provided.";
+        
+        if (furtherinfo) {
+            let tips = [];
+            try {
+                let decoded = JSON.parse(furtherinfo);
+                if (Array.isArray(decoded)) tips = decoded;
+                else tips = [furtherinfo];
+            } catch (e) {
+                tips = furtherinfo.split('\n').filter(l => l.trim() !== '');
+            }
+
+            resultHtml += '<div class="nclex-tips">';
+            resultHtml += '<div class="tips-title"><i class="fas fa-lightbulb"></i> NCLEX Tips & Further Information</div>';
+            resultHtml += '<ul class="tips-list">';
+            tips.forEach(t => {
+                // Collapse newlines and extra spaces for a continuous sentence
+                let cleanTip = t.replace(/\s+/g, ' ').trim();
+                // Highlight words wrapped in %
+                let highlighted = cleanTip.replace(/%([^%]+)%/g, '<span class="tip-highlight">$1</span>');
+                resultHtml += '<li><i class="fas fa-check-circle"></i> <span>' + highlighted + '</span></li>';
+            });
+            resultHtml += '</ul></div>';
+        }
+        
+        if (image) {
+            resultHtml += '<div class="rationale-image-wrapper">';
+            resultHtml += '<div class="image-title"><i class="fas fa-image"></i> Related Illustration</div>';
+            resultHtml += '<img src="../../../../admin/dashboard/pages/uploads/' + image + '" alt="NCLEX Illustration" style="max-width:100%; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+            resultHtml += '</div>';
+        }
+
+        $('#rationaleText').html(resultHtml);
         $('#result').fadeIn();
         
         $('input.matrix-checkbox').prop('disabled', true);
@@ -470,6 +680,9 @@ $(document).ready(function(){
             }
         }
     });
+
+    // Signal parent that this iframe is ready to receive prefill data
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 
     $('#submitBtn').click(function(){
         if(isReviewMode) return; // Prevent resubmission in review mode

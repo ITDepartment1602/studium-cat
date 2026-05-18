@@ -1,242 +1,169 @@
 <?php
-include(__DIR__ . '/conn/conn.php');
-?>
+include '../../config.php';
 
-<!-- POST -->
-<?php
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $id = $_GET["id"];
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . BASE_URL . 'index.php');
+    exit;
+}
+$user_id = intval($_SESSION['user_id']);
 
-    if (isset($_POST["note_title"]) && isset($_POST["note_content"])) {
-        $noteTitle = $_POST["note_title"];
-        $noteContent = $_POST["note_content"];
-        $dateTime = date("Y-m-d H:i:s");
-
-        try {
-            $stmt = $conn->prepare("INSERT INTO tbl_notes (login_id, note_title, note, date_time) VALUES (:id, :note_title, :note, :date_time)");
-            $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':note_title', $noteTitle);
-            $stmt->bindParam(':note', $noteContent);
-            $stmt->bindParam(':date_time', $dateTime);
-            $stmt->execute();
-            echo '<script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>';
-            echo '<script>
-            swal({
-                title: "Success!",
-                text: "Note added successfully!",
-                icon: "success",
-                button: "Ok",
-            }).then(function() {
-              
-            });
-            </script>';
-        } catch (PDOException $e) {
-            // Handle the exception (optional: log the error)
-        }
+// Handle add note
+$addSuccess = false;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['note_title'], $_POST['note_content'])) {
+    $noteTitle   = mysqli_real_escape_string($con, trim($_POST['note_title']));
+    $noteContent = mysqli_real_escape_string($con, trim($_POST['note_content']));
+    $dateTime    = date('Y-m-d H:i:s');
+    if ($noteTitle !== '') {
+        $ins = mysqli_query($con, "INSERT INTO tbl_notes (login_id, note_title, note, date_time) VALUES ('$user_id', '$noteTitle', '$noteContent', '$dateTime')");
+        $addSuccess = ($ins !== false);
     }
 }
-?>
 
+// Handle delete note
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    $delId = intval($_POST['delete_id']);
+    mysqli_query($con, "DELETE FROM tbl_notes WHERE tbl_notes_id = '$delId' AND login_id = '$user_id'");
+    header('Location: mynotes.php');
+    exit;
+}
+
+// Fetch notes
+$result = mysqli_query($con, "SELECT * FROM tbl_notes WHERE login_id = '$user_id' ORDER BY date_time DESC");
+$notes  = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $notes[] = $row;
+}
+
+$pageTitle = 'My Notes — Studium';
+?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Take-Note App</title>
-
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
-        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
-        integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-
-
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-    <style>
-        body {
-            background-color: #f5f7ff;
-        }
-
-        .main-panel,
-        .card {
-            margin: auto;
-            height: 90vh;
-            overflow-y: auto;
-        }
-
-        .note-content {
-            max-height: 20em;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .modal-content {
-            width: 50%;
-            margin-left: 25%;
-        }
-
-        @media (max-width: 768px) {
-            .shownotes {
-                display: none;
-            }
-
-            .modal-content {
-                width: 90%;
-                margin-left: 4%;
-            }
-        }
-    </style>
-
+  <?php include '_layout/head.php'; ?>
 </head>
-
 <body>
-    <!-- Button trigger modal -->
-    <a data-toggle="modal" data-target="#exampleModalCenter" class="sidebar-link" style="cursor: pointer;">
-        <i class="fa fa-book" style="cursor: pointer;" title="My Notes"></i>
-    </a>
 
-    <!-- Modal -->
-    <div class="modal fade" id="exampleModalCenter" tabindex="-1" role="dialog"
-        aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:100%; margin-top: -5%;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLongTitle" style="color: #0A2558;"><b>My Notes</b></h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
+<?php include '_layout/sidebar.php'; ?>
 
-                        <!-- Add Note -->
-                        <div class="col-md-4 border-right">
-                            <div class="card" style="height: 100%;">
-                                <div class="card-header" style="color: #0A2558;">
-                                    Add Note
-                                </div>
-                                <div class="card-body">
-                                    <form method="post">
-                                        <div class="form-group">
-                                            <label for="noteTitle" style="color: #0A2558;">Title</label>
-                                            <input type="text" class="form-control" id="noteTitle" name="note_title"
-                                                placeholder="Title">
-                                            <small id="emailHelp" class="form-text text-muted">Title of your
-                                                note</small>
-                                            <input type="hidden" name="login_id" value=" ">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="note" style="color: #0A2558;">Note</label>
-                                            <textarea class="form-control" id="note" name="note_content"
-                                                rows="7"></textarea>
-                                        </div>
-                                        <button type="submit" class="btn btn-secondary"
-                                            style="float: right; background-color: #1B4965;">Submit</button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
+<main class="s-main">
 
-
-
-
-                        <!-- Update and Delete Notes -->
-                        <div class="col-md-8">
-                            <div class="shownotes">
-                                <div class="card" style="height: 490px;">
-                                    <div class="card-header" style="color: #0A2558;">
-                                        Notes Details
-                                    </div>
-
-                                    <div class="card-body">
-                                        <div class="data-item">
-                                            <ul class="list-group">
-
-                                                <?php
-                                                $id = $_GET['id'];
-                                                $stmt = $conn->prepare("SELECT * FROM `tbl_notes` WHERE login_id = :id");
-                                                $stmt->bindParam(':id', $id);
-                                                $stmt->execute();
-
-                                                $result = $stmt->fetchAll();
-
-                                                foreach ($result as $row) {
-                                                    $noteID = $row['tbl_notes_id'];
-                                                    $noteTitle = $row['note_title'];
-                                                    $noteContent = $row['note'];
-                                                    $noteDateTime = $row['date_time'];
-
-                                                    // Convert the date_time value to a formatted date and time string
-                                                    $formattedDateTime = date('F j, Y H:i A', strtotime($noteDateTime));
-                                                    ?>
-                                                    <li class="list-group-item mt-2" style="color: #000;">
-                                                        <h5 style="text-transform:uppercase;">
-                                                            <b><?php echo $noteTitle ?></b>
-                                                        </h5>
-                                                        <p class="note-content"><?php echo $noteContent ?></p>
-                                                        <small class="block text-muted text-info">Created:
-                                                            <?php echo $formattedDateTime ?></small>
-                                                        <div style="display: flex; justify-content: end;">
-                                                            <a style="color: #1B4965; text-decoration: underline; cursor: pointer;"
-                                                                onclick="showFullNote('<?php echo addslashes($noteTitle); ?>', '<?php echo addslashes($noteContent); ?>')">
-                                                                View Note
-                                                            </a>
-                                                        </div>
-                                                        <script>
-                                                            function showFullNote(title, content) {
-                                                                Swal.fire({
-                                                                    title: title,
-                                                                    html: `<p style="text-align: left;">${content}</p>`,
-                                                                    showCloseButton: false,
-                                                                    showCancelButton: false,
-                                                                    showConfirmButton: false,
-                                                                    customClass: {
-                                                                        popup: 'swal2-note-popup'
-                                                                    }
-                                                                });
-                                                            }
-                                                        </script>
-                                                    </li>
-                                                    <?php
-                                                }
-                                                ?>
-
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <div class="s-page-header-row">
+    <div>
+      <h1>My Notes</h1>
+      <p>Keep your study notes organized in one place.</p>
     </div>
+    <button class="s-btn s-btn-teal" onclick="openAddModal()">
+      <i class="bi bi-plus-lg me-1"></i>Add Note
+    </button>
+  </div>
 
-    <script>
-        function delete_note(id) {
-            if (confirm("Do you confirm to delete this note?")) {
-                window.location = "../delete_note.php?delete=" + id;
-            }
-        }
-    </script>
+  <?php if ($addSuccess): ?>
+  <div class="s-alert-banner mb-4" style="border-color:#0D9488; background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+    <i class="bi bi-check-circle-fill" style="color:#0D9488; font-size:1.2rem;"></i>
+    <div>Note added successfully!</div>
+  </div>
+  <?php endif; ?>
 
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-        integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-        crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js"
-        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-        crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
-        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
-        crossorigin="anonymous"></script>
+  <!-- Notes Grid -->
+  <?php if (empty($notes)): ?>
+  <div class="s-empty">
+    <i class="bi bi-journal-x"></i>
+    <p>No notes yet. Click the <strong>Add Note</strong> button to get started.</p>
+  </div>
+  <?php else: ?>
+  <div class="row g-3 mb-5">
+    <?php foreach ($notes as $note):
+      $fmtDate = date('M d, Y · h:i A', strtotime($note['date_time']));
+      $safeTitle   = htmlspecialchars($note['note_title'], ENT_QUOTES, 'UTF-8');
+      $safeContent = htmlspecialchars($note['note'],       ENT_QUOTES, 'UTF-8');
+    ?>
+    <div class="col-xl-3 col-lg-4 col-md-6 col-12">
+      <div class="s-note-card">
+        <div class="s-note-title"><?= $safeTitle ?></div>
+        <div class="s-note-preview"><?= nl2br($safeContent) ?></div>
+        <div class="d-flex justify-content-between align-items-center mt-3 pt-2" style="border-top:1px solid var(--s-border);">
+          <span style="font-size:0.68rem; color:var(--s-muted);"><?= $fmtDate ?></span>
+          <div class="d-flex gap-2">
+            <button class="s-btn s-btn-outline" style="padding:4px 10px; font-size:0.72rem;"
+              onclick="viewNote(<?= htmlspecialchars(json_encode($note['note_title']), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($note['note']), ENT_QUOTES) ?>)">
+              <i class="bi bi-eye"></i>
+            </button>
+            <form method="POST" style="display:inline;" onsubmit="return confirmDelete(event, this)">
+              <input type="hidden" name="delete_id" value="<?= intval($note['tbl_notes_id']) ?>">
+              <button type="submit" class="s-btn s-btn-danger" style="padding:4px 10px; font-size:0.72rem;">
+                <i class="bi bi-trash3"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <?php endforeach; ?>
+  </div>
+  <?php endif; ?>
+
+</main>
+
+<!-- Add Note Modal — custom modal system (Bootstrap-free) -->
+<div class="s-modal-backdrop" id="addNoteModalBackdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="s-modal s-modal--sm">
+    <div class="s-modal-header s-modal-header--gradient">
+      <h5 class="s-modal-title"><i class="bi bi-journal-plus me-2"></i>Add New Note</h5>
+      <button type="button" class="s-modal-close" data-s-dismiss="modal" aria-label="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <form method="POST">
+      <div class="s-modal-body">
+        <div class="mb-3">
+          <label class="s-label">Title</label>
+          <input type="text" name="note_title" class="s-input" placeholder="Note title..." required maxlength="255">
+        </div>
+        <div class="mb-0">
+          <label class="s-label">Content</label>
+          <textarea name="note_content" class="s-input" rows="6" placeholder="Write your note here..." style="resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="s-modal-footer">
+        <button type="button" class="s-btn s-btn-outline" data-s-dismiss="modal">Cancel</button>
+        <button type="submit" class="s-btn s-btn-teal"><i class="bi bi-check2 me-1"></i>Save Note</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAddModal() {
+  SModal.open('addNoteModalBackdrop');
+}
+
+function viewNote(title, content) {
+  Swal.fire({
+    title: title,
+    html: `<p style="text-align:left; white-space:pre-wrap; font-size:0.9rem; color:#1e293b;">${content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`,
+    showConfirmButton: false,
+    showCloseButton: true,
+    width: '560px',
+    customClass: { popup: 'text-start' }
+  });
+}
+
+function confirmDelete(e, form) {
+  e.preventDefault();
+  Swal.fire({
+    title: 'Delete Note?',
+    text: 'This note will be permanently deleted.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel'
+  }).then(result => {
+    if (result.isConfirmed) form.submit();
+  });
+  return false;
+}
+</script>
 </body>
-
 </html>

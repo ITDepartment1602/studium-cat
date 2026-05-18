@@ -1,6 +1,5 @@
 <?php
 include '../../config.php';
-session_start();
 $user_id = $_SESSION['user_id'] ?? 0;
 
 header('Content-Type: application/json');
@@ -10,7 +9,8 @@ if (!$user_id) {
   exit;
 }
 
-$type = $_GET['type'] ?? '';
+$con = getQuizConnection();
+$type  = $_GET['type']  ?? '';
 $value = $_GET['value'] ?? '';
 
 if ($type === 'concept') {
@@ -88,6 +88,25 @@ if ($type === 'topic') {
         'correct' => intval($correct),
         'wrong' => intval($wrong)
     ]);
+    exit;
+}
+
+// ── NGN stats from exam_results ──
+if ($type === 'ngn_concept') {
+    $db  = db()->getConnection();
+    $val = $db->real_escape_string($value);
+    $uid = intval($user_id);
+    $row = $db->query("SELECT COUNT(DISTINCT question_uid) as used, SUM(isCorrect) as correct, COUNT(*) - SUM(isCorrect) as wrong FROM exam_results WHERE student_id = $uid AND concept = '$val'")->fetch_assoc();
+    echo json_encode(['total' => intval($row['used']), 'used' => intval($row['used']), 'correct' => intval($row['correct']), 'wrong' => intval($row['wrong'])]);
+    exit;
+}
+
+if ($type === 'ngn_topic') {
+    $db  = db()->getConnection();
+    $val = $db->real_escape_string($value);
+    $uid = intval($user_id);
+    $row = $db->query("SELECT COUNT(DISTINCT question_uid) as used, SUM(isCorrect) as correct, COUNT(*) - SUM(isCorrect) as wrong FROM exam_results WHERE student_id = $uid AND topic = '$val'")->fetch_assoc();
+    echo json_encode(['total' => intval($row['used']), 'used' => intval($row['used']), 'correct' => intval($row['correct']), 'wrong' => intval($row['wrong'])]);
     exit;
 }
 
