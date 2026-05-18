@@ -276,6 +276,183 @@ $pageTitle = 'Dashboard — Studium';
   }
   ?>
 
+  <!-- ── Hero Banner ── -->
+  <?php
+  $noData = ($overallCorrect + $overallWrong) === 0;
+  if ($noData) {
+    $heroTier = 'none';
+    $heroIcon = 'bi-rocket-takeoff-fill';
+  } elseif ($overallAccuracy >= 85) {
+    $heroTier = 'perfect';
+    $heroIcon = 'bi-trophy-fill';
+  } elseif ($overallAccuracy >= 75) {
+    $heroTier = 'high';
+    $heroIcon = 'bi-patch-check-fill';
+  } elseif ($overallAccuracy >= 55) {
+    $heroTier = 'mid';
+    $heroIcon = 'bi-arrow-up-circle-fill';
+  } else {
+    $heroTier = 'low';
+    $heroIcon = 'bi-fire';
+  }
+
+  $heroQuotesByTier = [
+    'low'     => [
+      "Every expert was once a beginner. Keep going.",
+      "The NCLEX is hard. Quitting is harder to live with. Push through.",
+      "Every wrong answer is a lesson. You're building the nurse in you.",
+      "Small progress is still progress. Keep grinding.",
+      "Struggle is the sign you're growing. Don't stop now.",
+      "Champions are made in the moments they want to quit.",
+      "You didn't come this far to only come this far.",
+    ],
+    'mid'     => [
+      "The finish line is closer than you think. Stay the course.",
+      "Consistency is your superpower. Keep showing up every day.",
+      "You've come too far to stop. Stay focused and finish strong.",
+      "Progress isn't always linear — but you're trending up.",
+      "Trust the process. Your hard work is compounding.",
+      "Every session is one step closer to passing day.",
+    ],
+    'high'    => [
+      "You're in the passing zone. Stay sharp and don't let up!",
+      "NCLEX-ready and proving it. Keep that momentum going.",
+      "You're ahead of the curve. One more push and you'll be unstoppable.",
+      "Channel this confidence into exam day. You've earned it.",
+      "Discipline got you here. Let it carry you to the finish.",
+    ],
+    'perfect' => [
+      "Top performance. Your dedication is clearly showing.",
+      "You're performing at the highest level. Own it.",
+      "Elite scores. NCLEX doesn't stand a chance.",
+      "Mastery takes repetition — and you're proving that every session.",
+    ],
+    'none'    => [
+      "Your NCLEX journey starts today. Every great nurse began right here.",
+      "The first step is the hardest. Choose a mode below and begin.",
+      "Thousands of nurses passed the NCLEX one question at a time. Start yours.",
+      "Your future patients are counting on you. Begin your review today.",
+    ],
+  ];
+
+  $allHeroQuotes = array_merge(...array_values($heroQuotesByTier));
+  $tierQuotes    = $heroQuotesByTier[$heroTier];
+  ?>
+  <div class="s-hero-banner mb-4">
+    <div class="s-hero-orb s-hero-orb--1"></div>
+    <div class="s-hero-orb s-hero-orb--2"></div>
+    <div class="s-hero-inner">
+      <div class="s-hero-icon-col">
+        <div class="s-hero-icon-wrap">
+          <svg class="s-hero-logo" viewBox="0 0 2858 1997" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2217.78 1971.36C951.926 1971.36 1497.93 1538.44 594.344 810.147C594.344 1009.31 680.34 1457.02 1262.06 1854.67C692.08 1605.45 524.148 1228.06 511.429 1070.51C314.195 1083.34 88.2955 941.476 0 868.94C476.062 2001.42 1531.69 2051.53 2217.78 1971.36Z" fill="white"/>
+            <path d="M594.953 825.34C594.952 455.709 747.925 111.114 844.693 0C909.111 155.279 1099.55 500.098 1345.97 637.149C1075.08 1043.91 1216.57 1572.48 1345.97 1765.45C1034.57 1427.04 1122.45 1283.58 594.953 825.34Z" fill="white"/>
+            <path d="M1330.84 1747.73C1413.82 1441.95 1846.8 995.848 2857.46 1567.68C2602.61 2139.3 1564.6 2038.03 1330.84 1747.73Z" fill="white"/>
+            <path d="M2747.04 227.463C1208.43 147.798 1163.03 1106.81 1337.72 1591.21C1417.89 1408.37 1638.86 1003.4 2557.16 1241.84C2473.45 838.113 2471.8 484.402 2747.04 227.463Z" fill="white"/>
+            <path d="M598.328 1314.8C281.019 1235.14 89.4524 1020 3.37402 873.441C65.2604 931.39 261.947 1046.1 516.469 1071.76C520.407 1124.64 535.035 1187.37 598.328 1314.8Z" fill="white"/>
+            <path d="M595.798 826.183C708.881 1405.1 927.453 1253.2 1332.52 1751.95C929.978 1221.13 1023.66 1167.12 595.798 826.183Z" fill="white"/>
+            <path d="M1307.18 613.681C998.303 424.393 866.514 237.214 773.861 107.176C786.52 86.0779 815.213 28.6923 844.749 2.53125C912.866 148.414 1101.55 478.036 1307.18 613.681C1319.02 620.939 1331.13 628.2 1343.5 635.46C1331.35 628.918 1319.23 621.633 1307.18 613.681Z" fill="white"/>
+            <path d="M2744.39 227.852C2031.28 324.903 1277.67 562.04 1338.44 1590.76C975.558 525.754 1962.92 122.367 2744.39 227.852Z" fill="white"/>
+            <path d="M1329.15 1751.11C1421.14 1411.86 1880.22 1013.53 2853.24 1566.29C2048.16 1566.29 1551.1 1438.02 1329.15 1751.11Z" fill="white"/>
+          </svg>
+        </div>
+      </div>
+      <div class="s-hero-body">
+        <div class="s-hero-label">Daily Motivation</div>
+        <div class="s-hero-quote-wrap">
+          <i class="bi bi-quote s-hero-quote-mark s-hero-quote-mark--open"></i>
+          <div class="s-hero-quote" id="heroQuoteText"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+  .s-hero-banner {
+    position: relative; overflow: hidden; border-radius: 16px;
+    background: linear-gradient(135deg, var(--s-primary, #007CBF) 0%, #0D9488 100%);
+    padding: 34px 28px;
+    box-shadow: 0 4px 20px rgba(0,124,191,0.18);
+  }
+  .s-hero-orb {
+    position: absolute; border-radius: 50%; pointer-events: none;
+    background: rgba(255,255,255,0.07);
+  }
+  .s-hero-orb--1 { width: 180px; height: 180px; top: -60px; right: -30px; }
+  .s-hero-orb--2 { width: 100px; height: 100px; bottom: -30px; right: 120px; }
+  .s-hero-inner {
+    position: relative; display: flex; align-items: center; gap: 22px;
+  }
+  .s-hero-icon-col { flex-shrink: 0; }
+  .s-hero-icon-wrap {
+    width: 64px; height: 64px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .s-hero-logo {
+    width: 58px; height: 58px; opacity: 0.22;
+    filter: brightness(0) invert(1);
+  }
+  .s-hero-body { flex: 1; min-width: 0; }
+  .s-hero-label {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 6px;
+  }
+  .s-hero-quote-wrap { position: relative; padding-left: 4px; min-height: 2.4em; }
+  .s-hero-quote-mark {
+    padding-top: 10px;
+    font-size: 1.6rem; color: rgba(255,255,255,0.25); line-height: 1;
+  }
+  .s-hero-quote-mark--open {
+    position: absolute; top: -6px; left: -4px;
+  }
+  .s-hero-quote-mark--close {
+    display: inline; transform: scaleX(-1);
+    vertical-align: -4px; margin-left: 1px;
+    font-style: normal;
+  }
+  .s-hero-quote {
+    font-size: 1.5rem; font-weight: 700; color: #fff; line-height: 1.45;
+    padding-left: 20px;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .s-hero-quote.fade-out { opacity: 0; transform: translateY(6px); }
+  @media (max-width: 576px) {
+    .s-hero-banner { padding: 22px 18px; }
+    .s-hero-icon-col { display: none; }
+    .s-hero-quote { font-size: 1.05rem; }
+    .s-hero-label { font-size: 0.72rem; }
+  }
+  </style>
+
+  <script>
+  (function() {
+    const quotes = <?= json_encode(array_values($tierQuotes), JSON_UNESCAPED_UNICODE) ?>;
+    let current = 0;
+
+    const closeIcon = '<i class="bi bi-quote s-hero-quote-mark s-hero-quote-mark--close"></i>';
+
+    function heroGoTo(idx) {
+      const el = document.getElementById('heroQuoteText');
+      if (!el) return;
+      el.classList.add('fade-out');
+      setTimeout(function() {
+        current = idx;
+        el.innerHTML = quotes[current] + closeIcon;
+        el.classList.remove('fade-out');
+      }, 380);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const el = document.getElementById('heroQuoteText');
+      if (!el || !quotes.length) return;
+      el.innerHTML = quotes[0] + closeIcon;
+      setInterval(function() {
+        heroGoTo((current + 1) % quotes.length);
+      }, 10000);
+    });
+  })();
+  </script>
+
   <!-- ── Practice Mode Cards ── -->
   <h5 class="s-section-title mb-3"><i class="bi bi-lightning-charge-fill me-2"></i>Choose Your Practice Mode</h5>
 
@@ -340,7 +517,7 @@ $pageTitle = 'Dashboard — Studium';
     <?php
     $tq = mysqli_query($con, "SELECT * FROM bundlelist ORDER BY id ASC");
     while ($brow = mysqli_fetch_array($tq)) {
-      if ($brow['name'] == "NARC NGN QBanks (Soon)") continue; // skip NGN, handled above
+      if (stripos($brow['name'], 'NGN') !== false) continue; // skip all NGN rows, handled above
       $cleanName = str_replace('(Soon)', '', $brow['name']);
     ?>
     <div class="col-lg-4 col-md-6 col-12">
@@ -441,7 +618,7 @@ $pageTitle = 'Dashboard — Studium';
       </div>
       <div class="s-acc-bar-ends">
         <span>0%</span>
-        <span style="color:var(--s-primary); font-weight:700;" id="acc-bar-lbl"><?= $overallAccuracy ?>%</span>
+        <span style="color:var(--s-primary); font-weight:700;" id="acc-bar-lbl">50%</span>
         <span>100%</span>
       </div>
     </div>
@@ -832,7 +1009,7 @@ function setStatsFilter(mode) {
   document.getElementById('acc-title').textContent   = d.accLabel;
   document.getElementById('acc-correct').textContent = d.correct + ' correct';
   document.getElementById('acc-total').textContent   = perfTotal + ' answered';
-  document.getElementById('acc-bar-lbl').textContent = d.accuracy + '%';
+  document.getElementById('acc-bar-lbl').textContent = '50%';
   const bar = document.getElementById('acc-bar');
   if (bar) {
     bar.style.transition = 'none'; bar.style.width = '0%';
