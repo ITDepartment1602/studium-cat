@@ -141,5 +141,6 @@ $response['rationale'] = $question['rationale'] ?? 'No rationale provided.';
 $response['system'] = $question['system'] ?? 'N/A';
 $response['cnc'] = $question['cnc'] ?? 'N/A';
 $response['dlevel'] = $question['dlevel'] ?? 'N/A';
+$response['concept'] = $question['concept'] ?? null;
 
 echo json_encode($response);

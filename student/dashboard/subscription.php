@@ -156,7 +156,7 @@ $plans = [
   </div>
 
   <?php if ($hasReview): ?>
-  <div class="alert mb-4" style="background:rgba(13,148,136,.08); border:1px solid var(--s-accent); border-radius:12px; padding:14px 18px; font-size:0.85rem; color:var(--s-accent);">
+  <div class="s-alert-banner mb-4" style="background:rgba(13,148,136,.08); border-color:var(--s-accent); color:var(--s-accent)">
     <i class="bi bi-tag-fill me-2"></i> <strong>Exclusive 20% Discount Applied!</strong> As a returning student with a review record, you qualify for discounted rates.
   </div>
   <?php endif; ?>
@@ -221,8 +221,6 @@ $plans = [
   </div>
 </main>
 
-<div class="s-footer"><span>© Studium 2025, All Right Reserved.</span></div>
 
-<script src="../ty/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

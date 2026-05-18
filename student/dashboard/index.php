@@ -56,6 +56,176 @@ $wrong = ($r && $row = mysqli_fetch_assoc($r)) ? (int)$row['wrong'] : 0;
 $usedPercent    = ($totalQ > 0)             ? round(($usedQ / $totalQ) * 100) : 0;
 $correctPercent = ($correct + $wrong > 0)   ? round(($correct / ($correct + $wrong)) * 100) : 0;
 
+// Traditional exam stats (from history table)
+$tradQ = mysqli_query($quizCon, "SELECT COUNT(*) as exams, AVG(score) as avg_score, MAX(score) as best, SUM(sahi) as total_correct, SUM(wrong) as total_wrong FROM `history` WHERE email = '$user_id' AND kilanlan = 'NARC Intermediate and Advance QBanks'");
+$tradRow      = $tradQ ? mysqli_fetch_assoc($tradQ) : [];
+$tradExams    = (int)($tradRow['exams'] ?? 0);
+$tradAvgScore = $tradExams > 0 ? round($tradRow['avg_score']) : 0;
+$tradBest     = $tradExams > 0 ? round($tradRow['best']) : 0;
+$tradCorrect  = (int)($tradRow['total_correct'] ?? 0);
+$tradWrong    = (int)($tradRow['total_wrong'] ?? 0);
+$tradAccuracy = ($tradCorrect + $tradWrong > 0) ? round($tradCorrect / ($tradCorrect + $tradWrong) * 100) : 0;
+
+// NGN exam stats (from exam_results table — main DB via db())
+$ngnStats   = db()->fetchOne("SELECT COUNT(*) as total, SUM(isCorrect) as correct, COUNT(DISTINCT examTaken) as exams FROM exam_results WHERE student_id = ?", [$user_id]);
+$ngnTotal   = (int)($ngnStats['total'] ?? 0);
+$ngnCorrect = (int)($ngnStats['correct'] ?? 0);
+$ngnExams   = (int)($ngnStats['exams'] ?? 0);
+$ngnWrong   = $ngnTotal - $ngnCorrect;
+$ngnAccuracy = ($ngnTotal > 0) ? round(($ngnCorrect / $ngnTotal) * 100) : 0;
+
+// ── Overall combined accuracy (questions only — usage computed after ngnUsedQ below) ──
+$overallCorrect  = $correct + $ngnCorrect;
+$overallWrong    = $wrong   + $ngnWrong;
+$overallAccuracy = ($overallCorrect + $overallWrong > 0)
+    ? round($overallCorrect / ($overallCorrect + $overallWrong) * 100) : 0;
+
+// ── NCLEX Readiness: last 3 exam scores per concept ──
+$readinessConceptMap = [
+    'Adult Health'               => 'bi bi-person-fill',
+    'Child Health'               => 'bi bi-emoji-smile-fill',
+    'Critical Care'              => 'bi bi-heart-pulse-fill',
+    'Fundamentals'               => 'bi bi-gear-fill',
+    'Leadership and Management'  => 'bi bi-people-fill',
+    'Mental Health'              => 'bi bi-lightbulb-fill',
+    'Pharmacology'               => 'bi bi-capsule',
+    'Maternal and Newborn Health'=> 'bi bi-gender-female',
+];
+$conceptReadiness = [];
+foreach (array_keys($readinessConceptMap) as $concept) {
+    $rq = mysqli_query($quizCon, "SELECT score FROM `history` WHERE email = '$user_id' AND eid = '$concept' AND kilanlan = 'NARC Intermediate and Advance QBanks' ORDER BY date DESC LIMIT 3");
+    $scores = [];
+    while ($rr = mysqli_fetch_assoc($rq)) { $scores[] = (float)$rr['score']; }
+    $avg    = count($scores) > 0 ? round(array_sum($scores) / count($scores)) : 0;
+    $status = count($scores) === 0 ? 'none' : ($avg >= 75 ? 'ready' : ($avg >= 60 ? 'ontrack' : 'needs'));
+    $conceptReadiness[$concept] = ['scores' => $scores, 'avg' => $avg, 'status' => $status, 'attempts' => count($scores)];
+}
+$readyCount     = count(array_filter($conceptReadiness, fn($c) => $c['status'] === 'ready'));
+$attemptedCount = count(array_filter($conceptReadiness, fn($c) => $c['attempts'] > 0));
+$totalConceptCount = count($conceptReadiness);
+if ($attemptedCount === 0) {
+    $overallReadiness = 'none';
+} elseif ($readyCount === $totalConceptCount) {
+    $overallReadiness = 'ready';
+} elseif ($readyCount >= 5) {
+    $overallReadiness = 'ontrack';
+} else {
+    $overallReadiness = 'needs';
+}
+
+// ── NGN question bank constants ──
+$ngnBankTotal = 32;
+$ngnBankConcept = [
+    'Critical Care'          => 6,
+    'Endocrine'              => 1,
+    'Fluid and Electrolytes' => 2,
+    'Fundamentals'           => 3,
+    'Heart Failure'          => 6,
+    'Pharmacology'           => 9,
+    'Respiratory'            => 5,
+];
+$ngnBankTopic = [
+    'Septic Shock'                          => 6,
+    'Diabetic Ketoacidosis'                 => 1,
+    'Fluid and Electrolyte Imbalances'      => 2,
+    'Postoperative Care'                    => 2,
+    'Skills/Procedures'                     => 1,
+    'Acute Decompensated Heart Failure'     => 6,
+    'Contrast-Induced Nephropathy Prevention' => 4,
+    'Cardiac Medications'                   => 5,
+    'Pulmonary Embolism'                    => 5,
+];
+
+// NGN questions used by this student
+$ngnUsedRow  = db()->fetchOne("SELECT COUNT(DISTINCT question_uid) as used FROM exam_results WHERE student_id = ?", [$user_id]);
+$ngnUsedQ    = (int)($ngnUsedRow['used'] ?? 0);
+$ngnUnusedQ  = $ngnBankTotal - $ngnUsedQ;
+$ngnUsedPct  = $ngnBankTotal > 0 ? round($ngnUsedQ / $ngnBankTotal * 100) : 0;
+
+// ── Overall Questions Usage = Traditional bank + NGN bank combined ──
+// Formula: (trad used + NGN used) / (trad total bank + NGN total bank) × 100
+$overallUsedQ   = $usedQ + $ngnUsedQ;
+$overallTotalQ  = $totalQ + $ngnBankTotal;
+$overallUnusedQ = $overallTotalQ - $overallUsedQ;
+$overallUsedPct = $overallTotalQ > 0 ? round($overallUsedQ / $overallTotalQ * 100) : 0;
+
+// ── NGN Readiness per concept ──
+$ngnConceptMap = [
+    'Critical Care'          => 'bi bi-heart-pulse-fill',
+    'Endocrine'              => 'bi bi-capsule',
+    'Fluid and Electrolytes' => 'bi bi-droplet-fill',
+    'Fundamentals'           => 'bi bi-gear-fill',
+    'Heart Failure'          => 'bi bi-heartbreak-fill',
+    'Pharmacology'           => 'bi bi-prescription2',
+    'Respiratory'            => 'bi bi-wind',
+];
+$ngnConceptReadiness = [];
+foreach (array_keys($ngnConceptMap) as $concept) {
+    $rows = db()->fetchAll(
+        "SELECT examTaken, SUM(isCorrect) as correct, COUNT(*) as total
+         FROM exam_results WHERE student_id = ? AND concept = ?
+         GROUP BY examTaken ORDER BY MIN(timestamp) DESC LIMIT 3",
+        [$user_id, $concept]
+    );
+    $scores = [];
+    foreach ($rows as $row) {
+        $scores[] = $row['total'] > 0 ? round(($row['correct'] / $row['total']) * 100) : 0;
+    }
+    $avg    = count($scores) > 0 ? round(array_sum($scores) / count($scores)) : 0;
+    $status = count($scores) === 0 ? 'none' : ($avg >= 75 ? 'ready' : ($avg >= 60 ? 'ontrack' : 'needs'));
+    $ngnConceptReadiness[$concept] = ['scores' => $scores, 'avg' => $avg, 'status' => $status, 'attempts' => count($scores)];
+}
+$ngnReadyCount        = count(array_filter($ngnConceptReadiness, fn($c) => $c['status'] === 'ready'));
+$ngnAttemptedCount    = count(array_filter($ngnConceptReadiness, fn($c) => $c['attempts'] > 0));
+$ngnTotalConceptCount = count($ngnConceptReadiness);
+$ngnOverallReadiness  = $ngnAttemptedCount === 0 ? 'none'
+    : ($ngnReadyCount === $ngnTotalConceptCount ? 'ready'
+    : ($ngnReadyCount >= 4 ? 'ontrack' : 'needs'));
+
+// NGN concept → topics mapping (for Topics dropdown filtering)
+$ngnConceptTopics = [];
+$_ngn_tables = ['btq','dragndrop','dropdown','highlight','mmr','mpr','sata','traditional'];
+$_ngn_db = db()->getConnection();
+foreach ($_ngn_tables as $_t) {
+    $_r = $_ngn_db->query("SELECT DISTINCT concept, topic FROM `$_t` WHERE concept IS NOT NULL AND concept != '' AND topic IS NOT NULL AND topic != ''");
+    if (!$_r) continue;
+    while ($_row = $_r->fetch_assoc()) {
+        $ngnConceptTopics[$_row['concept']][] = $_row['topic'];
+    }
+}
+foreach ($ngnConceptTopics as $_c => $_ts) {
+    $ngnConceptTopics[$_c] = array_values(array_unique($_ts));
+    sort($ngnConceptTopics[$_c]);
+}
+
+// Traditional concept → topics mapping (for Topics dropdown filtering)
+$tradConceptTopics = [];
+foreach (array_keys($readinessConceptMap) as $_tc) {
+    $_tce = mysqli_real_escape_string($quizCon, $_tc);
+    $_tq  = mysqli_query($quizCon, "SELECT DISTINCT system FROM question WHERE topics1 = '$_tce' AND system IS NOT NULL AND system != '' ORDER BY system ASC");
+    $_ts  = [];
+    while ($_tr = mysqli_fetch_assoc($_tq)) { $_ts[] = $_tr['system']; }
+    $tradConceptTopics[$_tc] = $_ts;
+}
+
+// NGN all-time avg per concept (for line chart)
+$ngnConceptAvgs = [];
+foreach (array_keys($ngnConceptMap) as $concept) {
+    $r2 = db()->fetchOne(
+        "SELECT SUM(isCorrect) as correct, COUNT(*) as total FROM exam_results WHERE student_id = ? AND concept = ?",
+        [$user_id, $concept]
+    );
+    $ngnConceptAvgs[$concept] = ($r2 && $r2['total'] > 0) ? round(($r2['correct'] / $r2['total']) * 100) : 0;
+}
+
+// Traditional all-time avg per concept (for line chart, pre-computed to avoid inline JS queries)
+$tradChartAvgs = [];
+foreach (array_keys($readinessConceptMap) as $concept) {
+    $qt = mysqli_query($quizCon, "SELECT AVG(score) as avg FROM `history` WHERE email = '$user_id' AND eid = '" . mysqli_real_escape_string($quizCon, $concept) . "' AND kilanlan = 'NARC Intermediate and Advance QBanks'");
+    $rt = mysqli_fetch_assoc($qt);
+    $tradChartAvgs[$concept] = $rt && $rt['avg'] !== null ? round($rt['avg']) : 0;
+}
+
 // Update last login
 $result = mysqli_query($con, "UPDATE login SET lastlogin = NOW(), loginstatus = 'Active now' WHERE id = " . intval($user_id));
 
@@ -105,24 +275,6 @@ $pageTitle = 'Dashboard — Studium';
       $passingRounded = ($tot == 0) ? 0 : round($rp['sum(score)'] / $tot);
   }
   ?>
-
-  <!-- ── Hero ── -->
-  <div class="s-hero-banner mb-4">
-    <div class="s-hero-left">
-      <div class="s-hero-greeting">Good <?php
-        $hr = (int)date('H');
-        echo $hr < 12 ? 'Morning' : ($hr < 18 ? 'Afternoon' : 'Evening');
-      ?>, <span><?php echo htmlspecialchars($firstname); ?>!</span></div>
-      <p class="s-hero-sub">Here's your performance snapshot and practice options.</p>
-    </div>
-    <div class="s-hero-donut">
-      <div style="position:relative; width:100px; height:100px;">
-        <canvas id="passingChart"></canvas>
-        <div id="passingValue" class="s-donut-label large" style="font-size:1.2rem; color:#fff;"></div>
-      </div>
-      <div style="font-size:0.7rem; color:rgba(255,255,255,.65); text-align:center; margin-top:6px;">Chance of Passing</div>
-    </div>
-  </div>
 
   <!-- ── Practice Mode Cards ── -->
   <h5 class="s-section-title mb-3"><i class="bi bi-lightning-charge-fill me-2"></i>Choose Your Practice Mode</h5>
@@ -192,14 +344,14 @@ $pageTitle = 'Dashboard — Studium';
       $cleanName = str_replace('(Soon)', '', $brow['name']);
     ?>
     <div class="col-lg-4 col-md-6 col-12">
-      <div class="s-mode-hero-card" style="--mhc-color:#1B4965; --mhc-bg:rgba(27,73,101,.05);">
-        <div class="s-mhc-icon" style="background:rgba(27,73,101,.1);">
-          <i class="bi bi-journals" style="color:#1B4965;"></i>
+      <div class="s-mode-hero-card" style="--mhc-color:var(--s-primary); --mhc-bg:rgba(0,124,191,.05);">
+        <div class="s-mhc-icon" style="background:rgba(0,124,191,.1);">
+          <i class="bi bi-journals" style="color:var(--s-primary);"></i>
         </div>
         <div class="s-mhc-body">
           <div class="s-mhc-title"><?php echo htmlspecialchars($cleanName); ?></div>
           <div class="s-mhc-desc">Traditional multiple-choice questions with in-depth rationale and full topic coverage.</div>
-          <div class="s-mhc-tag" style="background:rgba(27,73,101,.1);color:#1B4965;">Traditional NCLEX</div>
+          <div class="s-mhc-tag" style="background:rgba(0,124,191,.1);color:var(--s-primary);">Traditional NCLEX</div>
         </div>
         <div class="s-mhc-footer">
           <a href="topic.php?kilanlan=<?php echo urlencode($brow['bundlelist_name']); ?>"
@@ -240,44 +392,57 @@ $pageTitle = 'Dashboard — Studium';
 
 
   <!-- ── Statistics ── -->
-  <h5 class="s-section-title mb-4 mt-2"><i class="bi bi-bar-chart-line-fill me-2"></i>Statistics</h5>
+  <div class="s-section-header mt-2 mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <h5 class="s-section-title mb-0"><i class="bi bi-bar-chart-line-fill me-2"></i>Statistics</h5>
+      <button class="s-info-btn" data-tip="Accuracy = correct answers ÷ total attempted × 100. Switch filters to view Overall, Traditional, or NGN performance separately.">i</button>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="s-stat-filter-bar" role="group" aria-label="Statistics filter">
+        <button class="s-stat-tab active" data-filter="overall" onclick="setStatsFilter('overall')">
+          <i class="bi bi-grid-3x3-gap-fill"></i> Overall
+        </button>
+        <button class="s-stat-tab" data-filter="trad" onclick="setStatsFilter('trad')">
+          <i class="bi bi-journals"></i> Traditional
+        </button>
+        <button class="s-stat-tab<?= !$isPackege2 ? ' s-stat-tab-locked' : '' ?>"
+                data-filter="ngn"
+                <?= $isPackege2 ? "onclick=\"setStatsFilter('ngn')\"" : 'disabled' ?>
+                <?= !$isPackege2 ? 'data-tip="Upgrade to Package 2 to unlock NGN exam statistics."' : '' ?>>
+          <i class="bi bi-lightbulb-fill"></i> NGN<?= !$isPackege2 ? '&nbsp;<i class="bi bi-lock-fill" style="font-size:0.6rem;"></i>' : '' ?>
+        </button>
+      </div>
+      <button class="s-toggle-btn" id="stats-toggle-btn" onclick="toggleSection('stats-section-body','stats-toggle-btn')">
+        <i class="bi bi-chevron-down s-chevron"></i><span class="s-toggle-lbl">Hide</span>
+      </button>
+    </div>
+  </div>
 
-  <!-- KPI Row -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-      <div class="s-kpi-card" style="--kc:#0D9488;">
-        <div class="s-kpi-icon-row"><i class="bi bi-check-circle-fill" style="color:#0D9488;"></i></div>
-        <div class="s-kpi-num"><?= $correct ?></div>
-        <div class="s-kpi-label">Correct Answers</div>
-        <div class="s-kpi-bar"><div style="width:<?= $correctPercent ?>%;"></div></div>
-        <div class="s-kpi-sub"><?= $correctPercent ?>% accuracy</div>
+  <div class="s-collapsible" id="stats-section-body">
+
+  <!-- Overall Accuracy Formula Card -->
+  <div class="s-accuracy-overview mb-4">
+    <div class="s-acc-info">
+      <div class="s-acc-pct" id="acc-pct"><?= $overallAccuracy ?>%</div>
+      <div class="s-acc-title" id="acc-title">Overall Accuracy (Traditional + NGN)</div>
+      <div class="s-acc-formula">
+        <span class="s-fpill" id="acc-correct"><?= $overallCorrect ?> correct</span>
+        <span class="s-fop">÷</span>
+        <span class="s-fpill" id="acc-total"><?= ($overallCorrect + $overallWrong) ?> answered</span>
+        <span class="s-fop">× 100</span>
       </div>
     </div>
-    <div class="col-6 col-lg-3">
-      <div class="s-kpi-card" style="--kc:#EF4444;">
-        <div class="s-kpi-icon-row"><i class="bi bi-x-circle-fill" style="color:#EF4444;"></i></div>
-        <div class="s-kpi-num"><?= $wrong ?></div>
-        <div class="s-kpi-label">Incorrect Answers</div>
-        <div class="s-kpi-bar"><div style="width:<?= ($correct+$wrong>0)?100-$correctPercent:0 ?>%;"></div></div>
-        <div class="s-kpi-sub"><?= ($correct+$wrong>0)?100-$correctPercent:0 ?>% of attempts</div>
+    <div class="s-acc-bar-wrap">
+      <div class="s-acc-bar-track">
+        <div class="s-acc-bar-fill" id="acc-bar" data-w="<?= $overallAccuracy ?>"></div>
+        <div class="s-acc-pass-line" style="left:75%">
+          <span class="s-acc-pass-lbl">75% Pass Mark</span>
+        </div>
       </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="s-kpi-card" style="--kc:#1e6091;">
-        <div class="s-kpi-icon-row"><i class="bi bi-journals" style="color:#1e6091;"></i></div>
-        <div class="s-kpi-num"><?= $usedQ ?></div>
-        <div class="s-kpi-label">Questions Used</div>
-        <div class="s-kpi-bar"><div style="width:<?= $usedPercent ?>%;"></div></div>
-        <div class="s-kpi-sub"><?= $usedPercent ?>% of <?= $totalQ ?> total</div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="s-kpi-card" style="--kc:#64748B;">
-        <div class="s-kpi-icon-row"><i class="bi bi-question-circle-fill" style="color:#64748B;"></i></div>
-        <div class="s-kpi-num"><?= $unusedQ ?></div>
-        <div class="s-kpi-label">Unused Questions</div>
-        <div class="s-kpi-bar"><div style="width:<?= 100-$usedPercent ?>%;"></div></div>
-        <div class="s-kpi-sub"><?= 100-$usedPercent ?>% remaining</div>
+      <div class="s-acc-bar-ends">
+        <span>0%</span>
+        <span style="color:var(--s-primary); font-weight:700;" id="acc-bar-lbl"><?= $overallAccuracy ?>%</span>
+        <span>100%</span>
       </div>
     </div>
   </div>
@@ -288,7 +453,7 @@ $pageTitle = 'Dashboard — Studium';
       <div class="s-chart-card">
         <div class="s-chart-card-header">
           <span class="s-chart-card-title"><i class="bi bi-question-circle-fill"></i> Questions Usage</span>
-          <span class="s-badge s-badge-blue"><?= $totalQ ?> Total</span>
+          <span class="s-badge s-badge-blue" id="badge-q-total"><?= $overallTotalQ ?> Total</span>
         </div>
         <div class="s-chart-body">
           <div class="s-donut-wrap flex-shrink-0">
@@ -297,14 +462,14 @@ $pageTitle = 'Dashboard — Studium';
           </div>
           <div class="s-chart-legend">
             <div class="s-legend-item">
-              <span class="s-legend-dot" style="background:#0D9488;"></span>
-              Used &nbsp;<strong><?= $usedQ ?></strong>
-              <span class="s-badge s-badge-teal ms-1"><?= $usedPercent ?>%</span>
+              <span class="s-legend-dot" id="dot-used" style="background:#007CBF;"></span>
+              Used &nbsp;<strong id="legend-used-count"><?= $overallUsedQ ?></strong>
+              <span id="legend-used-pct" class="s-badge s-badge-blue ms-1"><?= $overallUsedPct ?>%</span>
             </div>
             <div class="s-legend-item">
               <span class="s-legend-dot" style="background:#e2e8f0;"></span>
-              Unused &nbsp;<strong><?= $unusedQ ?></strong>
-              <span class="s-badge s-badge-gray ms-1"><?= 100 - $usedPercent ?>%</span>
+              Unused &nbsp;<strong id="legend-unused-count"><?= $overallUnusedQ ?></strong>
+              <span id="legend-unused-pct" class="s-badge s-badge-gray ms-1"><?= 100 - $overallUsedPct ?>%</span>
             </div>
           </div>
         </div>
@@ -314,7 +479,7 @@ $pageTitle = 'Dashboard — Studium';
       <div class="s-chart-card">
         <div class="s-chart-card-header">
           <span class="s-chart-card-title"><i class="bi bi-bar-chart-fill"></i> Performance</span>
-          <span class="s-badge s-badge-teal"><?= $correctPercent ?>% Accuracy</span>
+          <span class="s-badge s-badge-teal" id="badge-perf-pct"><?= $overallAccuracy ?>% Accuracy</span>
         </div>
         <div class="s-chart-body">
           <div class="s-donut-wrap flex-shrink-0">
@@ -324,13 +489,13 @@ $pageTitle = 'Dashboard — Studium';
           <div class="s-chart-legend">
             <div class="s-legend-item">
               <span class="s-legend-dot" style="background:#0D9488;"></span>
-              Correct &nbsp;<strong><?= $correct ?></strong>
-              <span class="s-badge s-badge-teal ms-1"><?= $correctPercent ?>%</span>
+              Correct &nbsp;<strong id="legend-perf-correct"><?= $overallCorrect ?></strong>
+              <span id="legend-perf-correct-pct" class="s-badge s-badge-teal ms-1"><?= $overallAccuracy ?>%</span>
             </div>
             <div class="s-legend-item">
               <span class="s-legend-dot" style="background:#d72638;"></span>
-              Incorrect &nbsp;<strong><?= $wrong ?></strong>
-              <span class="s-badge s-badge-red ms-1"><?= ($correct + $wrong > 0) ? 100 - $correctPercent : 0 ?>%</span>
+              Incorrect &nbsp;<strong id="legend-perf-wrong"><?= $overallWrong ?></strong>
+              <span id="legend-perf-wrong-pct" class="s-badge s-badge-red ms-1"><?= ($overallCorrect + $overallWrong > 0) ? 100 - $overallAccuracy : 0 ?>%</span>
             </div>
           </div>
         </div>
@@ -338,9 +503,20 @@ $pageTitle = 'Dashboard — Studium';
     </div>
   </div>
 
+  </div><!-- /stats-section-body -->
+
 
   <!-- ── Topics & Concepts ── -->
-  <h5 class="s-section-title mb-4 mt-2"><i class="bi bi-grid-fill me-2"></i>Topics & Concepts Statistics</h5>
+  <div class="s-section-header mt-2 mb-4">
+    <div class="d-flex align-items-center gap-2">
+      <h5 class="s-section-title mb-0"><i class="bi bi-grid-fill me-2"></i>Topics & Concepts Statistics</h5>
+      <button class="s-info-btn" data-tip="See how many questions you've attempted and your accuracy per concept and topic. Select from the dropdowns to explore any area.">i</button>
+    </div>
+    <button class="s-toggle-btn" id="topics-toggle-btn" onclick="toggleSection('topics-section-body','topics-toggle-btn')">
+      <i class="bi bi-chevron-down s-chevron"></i><span class="s-toggle-lbl">Hide</span>
+    </button>
+  </div>
+  <div class="s-collapsible" id="topics-section-body">
   <div class="row g-4 mb-4">
 
     <!-- Concepts Statistics -->
@@ -353,10 +529,10 @@ $pageTitle = 'Dashboard — Studium';
             <option value="Child Health">Child Health</option>
             <option value="Critical Care">Critical Care</option>
             <option value="Fundamentals">Fundamentals</option>
-            <option value="Leadership And Management">Leadership And Management</option>
+            <option value="Leadership and Management">Leadership and Management</option>
             <option value="Mental Health">Mental Health</option>
             <option value="Pharmacology">Pharmacology</option>
-            <option value="Maternal And Newborn Health">Maternal And Newborn Health</option>
+            <option value="Maternal and Newborn Health">Maternal and Newborn Health</option>
           </select>
         </div>
         <div class="s-chart-body">
@@ -378,40 +554,15 @@ $pageTitle = 'Dashboard — Studium';
       <div class="s-chart-card">
         <div class="s-chart-card-header">
           <span class="s-chart-card-title"><i class="bi bi-list-ul"></i> Topics</span>
+          <?php
+          // Render only the first concept's topics — JS will swap on concept change
+          $_firstConcept = array_key_first($readinessConceptMap);
+          $_initTopics   = $tradConceptTopics[$_firstConcept] ?? [];
+          ?>
           <select id="conceptSelect" class="s-input" style="max-width:180px; font-size:0.78rem; padding:5px 10px;">
-            <option value="Pain Meds">Pain Meds</option>
-            <option value="Antepartum">Antepartum</option>
-            <option value="Assignment/Delegation">Assignment/Delegation</option>
-            <option value="Cardiovascular">Cardiovascular</option>
-            <option value="Oncology">Oncology</option>
-            <option value="Emergency Care">Emergency Care</option>
-            <option value="Endocrine">Endocrine</option>
-            <option value="Nursing Legalities">Nursing Legalities</option>
-            <option value="Fluid and Electrolyte">Fluid and Electrolyte</option>
-            <option value="Gastrointestinal/Nutrition">Gastrointestinal/Nutrition</option>
-            <option value="Growth and Development">Growth and Development</option>
-            <option value="Hematology">Hematology</option>
-            <option value="Immunology">Immunology</option>
-            <option value="Communicable Disease">Communicable Disease</option>
-            <option value="Integumentary">Integumentary</option>
-            <option value="Management Concepts">Management Concepts</option>
-            <option value="Psychiatry">Psychiatry</option>
-            <option value="Musculoskeletal">Musculoskeletal</option>
-            <option value="Neurology">Neurology</option>
-            <option value="Prioritization">Prioritization</option>
-            <option value="Psych Meds">Psych Meds</option>
-            <option value="Respiratory">Respiratory</option>
-            <option value="Skills/Procedures">Skills/Procedures</option>
-            <option value="Genitourinary">Genitourinary</option>
-            <option value="Eyes/Ears/Nose/Throat">Eyes/Ears/Nose/Throat</option>
-            <option value="Intrapartum">Intrapartum</option>
-            <option value="Postpartum">Postpartum</option>
-            <option value="Labor and Delivery">Labor and Delivery</option>
-            <option value="Drug Computations">Drug Computations</option>
-            <option value="Culture and Religion">Culture and Religion</option>
-            <option value="Neonatology">Neonatology</option>
-            <option value="End of Life Care">End of Life Care</option>
-            <option value="Communication">Communication</option>
+            <?php foreach ($_initTopics as $_t): ?>
+            <option value="<?= htmlspecialchars($_t) ?>"><?= htmlspecialchars($_t) ?></option>
+            <?php endforeach; ?>
           </select>
         </div>
         <div class="s-chart-body">
@@ -438,45 +589,121 @@ $pageTitle = 'Dashboard — Studium';
     <canvas id="scoresChart" style="max-height:260px;"></canvas>
   </div>
 
+  </div><!-- /topics-section-body -->
 
-  <!-- ── Concept Score Cards ── -->
-  <h5 class="s-section-title mb-4 mt-2"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Concept Breakdown</h5>
-  <div class="row g-3 mb-4">
-    <?php
-    $conceptIcons = [
-      'Adult Health'              => 'bi bi-person-fill',
-      'Child Health'              => 'bi bi-emoji-smile-fill',
-      'Critical Care'             => 'bi bi-heart-pulse-fill',
-      'Fundamentals'              => 'bi bi-gear-fill',
-      'Leadership And Management' => 'bi bi-people-fill',
-      'Mental Health'             => 'bi bi-lightbulb-fill',
-      'Pharmacology'              => 'bi bi-capsule',
-      'Maternal And Newborn Health' => 'bi bi-gender-female'
-    ];
-    $concepts = array_keys($conceptIcons);
-    foreach ($concepts as $concept) {
-      $query = "SELECT * FROM `history` WHERE email = '$user_id' AND eid = '$concept' AND kilanlan = 'NARC Intermediate and Advance QBanks'";
-      $data  = mysqli_query($quizCon, $query);
-      $totalScore = 0; $count = 0;
-      while ($rows = mysqli_fetch_array($data)) { $totalScore += $rows['score']; $count++; }
-      $scoreDisplay = ($count > 0) ? round($totalScore / $count) : 0;
-      $scoreColor = $scoreDisplay >= 75 ? '#0D9488' : ($scoreDisplay >= 60 ? '#b45309' : '#ef4444');
-      $scoreBg    = $scoreDisplay >= 75 ? 'rgba(13,148,136,.08)' : ($scoreDisplay >= 60 ? 'rgba(180,83,9,.08)' : 'rgba(239,68,68,.08)');
-    ?>
-    <div class="col-xl-3 col-md-6 col-12">
-      <div class="s-concept-card2 s-concept-card" data-score="<?php echo $scoreDisplay; ?>">
-        <div class="s-cc2-ring" style="background:conic-gradient(<?php echo $scoreColor; ?> <?php echo $scoreDisplay; ?>%, #e9ecef 0);">
-          <div class="s-cc2-inner">
-            <i class="<?php echo $conceptIcons[$concept]; ?>" style="color:<?php echo $scoreColor; ?>;"></i>
-          </div>
+
+  <!-- ── NCLEX Readiness ── -->
+  <div class="s-readiness-header mb-3 mt-2">
+    <div class="d-flex align-items-center gap-2">
+      <h5 class="s-section-title mb-0"><i class="bi bi-patch-check-fill me-2"></i>NCLEX Readiness</h5>
+      <button class="s-info-btn" data-tip="Based on your last 3 exam scores per concept. ≥75% = Ready, ≥60% = Almost, <60% = Needs Work. Switch the filter above to see Traditional or NGN readiness.">i</button>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div id="readiness-banner-wrap">
+        <div class="s-readiness-banner s-rb-<?= $overallReadiness ?>" id="readiness-banner-overall">
+          <?php if ($overallReadiness === 'ready'): ?>
+            <i class="bi bi-patch-check-fill"></i>&nbsp; <strong>NCLEX Ready!</strong>&nbsp; All <?= $totalConceptCount ?> concepts passing.
+          <?php elseif ($overallReadiness === 'ontrack'): ?>
+            <i class="bi bi-arrow-up-circle-fill"></i>&nbsp; <strong>On Track</strong>&nbsp; — <?= $readyCount ?>/<?= $totalConceptCount ?> concepts passing.
+          <?php elseif ($overallReadiness === 'needs'): ?>
+            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; <strong>Needs Work</strong>&nbsp; — <?= $readyCount ?>/<?= $totalConceptCount ?> concepts passing. Focus on the red concepts below.
+          <?php else: ?>
+            <i class="bi bi-hourglass-split"></i>&nbsp; <strong>No Data Yet</strong>&nbsp; — Complete at least one exam to see readiness.
+          <?php endif; ?>
         </div>
-        <div class="s-cc2-score" style="color:<?php echo $scoreColor; ?>;"><?php echo $scoreDisplay; ?><span>%</span></div>
-        <div class="s-cc2-name"><?php echo $concept; ?></div>
-        <div class="s-cc2-meta"><?php echo $count > 0 ? $count . ' exam' . ($count > 1 ? 's' : '') . ' taken' : 'No exams yet'; ?></div>
+        <div class="s-readiness-banner s-rb-<?= $tradAccuracy >= 75 ? 'ready' : ($tradAccuracy >= 60 ? 'ontrack' : ($tradExams > 0 ? 'needs' : 'none')) ?>" id="readiness-banner-trad" style="display:none;">
+          <?php $tradReadyStatus = $tradAccuracy >= 75 ? 'ready' : ($tradAccuracy >= 60 ? 'ontrack' : ($tradExams > 0 ? 'needs' : 'none')); ?>
+          <?php if ($tradReadyStatus === 'ready'): ?>
+            <i class="bi bi-patch-check-fill"></i>&nbsp; <strong>Traditional Ready!</strong>&nbsp; <?= $readyCount ?>/<?= $totalConceptCount ?> concepts at passing standard.
+          <?php elseif ($tradReadyStatus === 'ontrack'): ?>
+            <i class="bi bi-arrow-up-circle-fill"></i>&nbsp; <strong>On Track</strong>&nbsp; — <?= $readyCount ?>/<?= $totalConceptCount ?> concepts passing.
+          <?php elseif ($tradReadyStatus === 'needs'): ?>
+            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; <strong>Needs Work</strong>&nbsp; — <?= $readyCount ?>/<?= $totalConceptCount ?> concepts passing.
+          <?php else: ?>
+            <i class="bi bi-hourglass-split"></i>&nbsp; <strong>No Data Yet</strong>&nbsp; — Take a Traditional exam to start.
+          <?php endif; ?>
+        </div>
+        <div class="s-readiness-banner s-rb-<?= $ngnOverallReadiness ?>" id="readiness-banner-ngn" style="display:none;">
+          <?php if ($ngnOverallReadiness === 'ready'): ?>
+            <i class="bi bi-patch-check-fill"></i>&nbsp; <strong>NGN Ready!</strong>&nbsp; All <?= $ngnTotalConceptCount ?> NGN concepts passing.
+          <?php elseif ($ngnOverallReadiness === 'ontrack'): ?>
+            <i class="bi bi-arrow-up-circle-fill"></i>&nbsp; <strong>NGN On Track</strong>&nbsp; — <?= $ngnReadyCount ?>/<?= $ngnTotalConceptCount ?> concepts passing.
+          <?php elseif ($ngnOverallReadiness === 'needs'): ?>
+            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; <strong>NGN Needs Work</strong>&nbsp; — <?= $ngnReadyCount ?>/<?= $ngnTotalConceptCount ?> concepts passing.
+          <?php else: ?>
+            <i class="bi bi-hourglass-split"></i>&nbsp; <strong>No NGN Data</strong>&nbsp; — Take an NGN exam to start.
+          <?php endif; ?>
+        </div>
+      </div>
+      <button class="s-toggle-btn" id="readiness-toggle-btn" onclick="toggleSection('readiness-section-body','readiness-toggle-btn')">
+        <i class="bi bi-chevron-down s-chevron"></i><span class="s-toggle-lbl">Hide</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="s-collapsible" id="readiness-section-body">
+
+  <p class="s-readiness-note mb-3" id="readiness-note-trad">Based on your <strong>last 3 exam attempts</strong> per concept (150 questions each). A concept is <span style="color:#0D9488;font-weight:600;">Ready</span> when its recent average is ≥ 75%.</p>
+  <p class="s-readiness-note mb-3" id="readiness-note-ngn" style="display:none;">Based on your <strong>last 3 NGN exam attempts</strong> per concept. A concept is <span style="color:#0D9488;font-weight:600;">Ready</span> when its recent accuracy is ≥ 75%.</p>
+
+  <?php
+  $rcColors = [
+    'ready'   => ['color' => '#0D9488', 'bg' => 'rgba(13,148,136,.09)',  'label' => 'Ready',      'icon' => 'bi-check-circle-fill'],
+    'ontrack' => ['color' => '#d97706', 'bg' => 'rgba(217,119,6,.09)',   'label' => 'Almost',     'icon' => 'bi-arrow-up-circle-fill'],
+    'needs'   => ['color' => '#ef4444', 'bg' => 'rgba(239,68,68,.09)',   'label' => 'Needs Work', 'icon' => 'bi-x-circle-fill'],
+    'none'    => ['color' => '#94a3b8', 'bg' => 'rgba(148,163,184,.09)', 'label' => 'No Data',    'icon' => 'bi-dash-circle'],
+  ];
+
+  // Helper macro to render readiness cards
+  function renderReadinessCards(array $conceptMap, array $conceptReadiness, array $rcColors): void {
+    foreach ($conceptReadiness as $concept => $data):
+      $icon = $conceptMap[$concept] ?? 'bi bi-circle-fill';
+      $rc   = $rcColors[$data['status']];
+  ?>
+    <div class="col-xl-3 col-md-6 col-12">
+      <div class="s-readiness-card<?= $data['attempts'] === 0 ? ' s-rc--empty' : '' ?>" style="--rc:<?= $rc['color'] ?>;">
+        <div class="s-rc-header">
+          <div class="s-rc-icon" style="background:<?= $rc['bg'] ?>; color:<?= $rc['color'] ?>;"><i class="<?= $icon ?>"></i></div>
+          <span class="s-rc-status" style="background:<?= $rc['bg'] ?>; color:<?= $rc['color'] ?>;"><i class="bi <?= $rc['icon'] ?> me-1"></i><?= $rc['label'] ?></span>
+        </div>
+        <div class="s-rc-name"><?= htmlspecialchars($concept) ?></div>
+        <div class="s-rc-avg" style="color:<?= $rc['color'] ?>;"><?= $data['avg'] ?><span>%</span></div>
+        <div class="s-rc-sub"><?= $data['attempts'] > 0 ? 'Last '.$data['attempts'].' exam'.($data['attempts']>1?'s':'').' average' : 'No exams taken yet' ?></div>
+        <?php if ($data['attempts'] > 0): ?>
+        <div class="s-rc-pills">
+          <?php foreach ($data['scores'] as $i => $sc):
+            $pc = $sc >= 75 ? '#0D9488' : ($sc >= 60 ? '#d97706' : '#ef4444');
+          ?>
+          <span class="s-rc-pill" style="background:<?= $pc ?>; opacity:<?= round(1-$i*0.18,2) ?>;"><?= round($sc) ?>%</span>
+          <?php endforeach; ?>
+          <span class="s-rc-pill-lbl">← latest</span>
+        </div>
+        <?php else: ?>
+        <div class="s-rc-pills"><span style="font-size:0.7rem;color:var(--s-muted);">Take an exam to track progress</span></div>
+        <?php endif; ?>
+        <div class="s-rc-bar">
+          <div class="s-rc-bar-fill" data-w="<?= $data['avg'] ?>" style="background:<?= $rc['color'] ?>; width:0;"></div>
+          <div class="s-rc-bar-marker"></div>
+        </div>
+        <div class="s-rc-bar-labels">
+          <span>0%</span><span style="color:<?= $rc['color'] ?>;font-weight:600;"><?= $data['avg'] ?>%</span><span>100%</span>
+        </div>
       </div>
     </div>
-    <?php } ?>
+  <?php endforeach; }
+  ?>
+
+  <!-- Traditional readiness cards -->
+  <div class="row g-3 mb-4" id="readiness-cards-trad">
+    <?php renderReadinessCards($readinessConceptMap, $conceptReadiness, $rcColors); ?>
   </div>
+
+  <!-- NGN readiness cards (hidden by default) -->
+  <div class="row g-3 mb-4" id="readiness-cards-ngn" style="display:none;">
+    <?php renderReadinessCards($ngnConceptMap, $ngnConceptReadiness, $rcColors); ?>
+  </div>
+
+  </div><!-- /readiness-section-body -->
 
 </main><!-- /s-main -->
 
@@ -487,77 +714,246 @@ $pageTitle = 'Dashboard — Studium';
 
 
 <!-- ── Scripts ── -->
-<script src="../ty/js/bootstrap.bundle.min.js"></script>
 <script src="../ty/js/jquery-3.5.1.js"></script>
-<script src="../ty/js/jquery.dataTables.min.js"></script>
-<script src="../ty/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
-  // Apply Poppins to all Chart.js instances
-  Chart.defaults.font.family = "'Poppins', sans-serif";
+// ── Chart.js defaults ──
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.tooltip.boxPadding = 4;
 
-  // ── Passing Donut ──
-  const passingValue = <?php echo $passingRounded; ?>;
-  document.getElementById("passingValue").innerText = passingValue + "%";
-  new Chart(document.getElementById('passingChart'), {
+// ── All stats data pre-encoded from PHP ──
+const allStats = {
+  overall: {
+    // Combined Traditional (review table) + NGN (exam_results) stats
+    // Accuracy = (trad_correct + ngn_correct) / (trad_total + ngn_total) × 100
+    // Usage    = (trad_used + ngn_used) / (trad_bank + ngn_bank_32) × 100
+    qUsed: <?= $overallUsedQ ?>, qUnused: <?= $overallUnusedQ ?>, qTotal: <?= $overallTotalQ ?>, qUsedPct: <?= $overallUsedPct ?>,
+    correct: <?= $overallCorrect ?>, wrong: <?= $overallWrong ?>, accuracy: <?= $overallAccuracy ?>,
+    accLabel: 'Overall Accuracy (Traditional + NGN)',
+    chartLabels: <?= json_encode(array_keys($tradChartAvgs)) ?>,
+    chartData:   <?= json_encode(array_values($tradChartAvgs)) ?>
+  },
+  trad: {
+    qUsed: <?= $usedQ ?>, qUnused: <?= $unusedQ ?>, qTotal: <?= $totalQ ?>, qUsedPct: <?= $usedPercent ?>,
+    correct: <?= $tradCorrect ?>, wrong: <?= $tradWrong ?>, accuracy: <?= $tradAccuracy ?>,
+    accLabel: 'Traditional Accuracy',
+    chartLabels: <?= json_encode(array_keys($tradChartAvgs)) ?>,
+    chartData:   <?= json_encode(array_values($tradChartAvgs)) ?>
+  },
+  ngn: {
+    qUsed: <?= $ngnUsedQ ?>, qUnused: <?= $ngnUnusedQ ?>, qTotal: <?= $ngnBankTotal ?>, qUsedPct: <?= $ngnUsedPct ?>,
+    correct: <?= $ngnCorrect ?>, wrong: <?= $ngnWrong ?>, accuracy: <?= $ngnAccuracy ?>,
+    accLabel: 'NGN Accuracy',
+    chartLabels: <?= json_encode(array_keys($ngnConceptAvgs)) ?>,
+    chartData:   <?= json_encode(array_values($ngnConceptAvgs)) ?>
+  }
+};
+
+// ── Donut chart factory ──
+function makeDonut(canvasId, data, colors) {
+  return new Chart(document.getElementById(canvasId), {
     type: 'doughnut',
-    data: {
-      labels: ['Achieved', 'Remaining'],
-      datasets: [{ data: [passingValue, 100 - passingValue], backgroundColor: ['#0D9488','#e9ecef'], borderWidth: 0 }]
-    },
+    data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: colors, borderWidth: 0 }] },
     options: {
-      cutout: '78%',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } }
+      responsive: true, maintainAspectRatio: false, cutout: '80%',
+      animation: { animateRotate: true, duration: 900 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.parsed } }
+      }
     }
   });
+}
 
-  // ── Statistics Donuts ──
-  new Chart(document.getElementById('questionsCircle'), {
-    type: 'doughnut',
-    data: { labels: ['Used','Unused'], datasets: [{ data: [<?= $usedQ ?>, <?= $unusedQ ?>], backgroundColor: ['#0D9488','#ddd'], borderWidth: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false } } }
-  });
+// ── Global chart instances (initialised with Overall combined data) ──
+let qChart    = makeDonut('questionsCircle',  { Used: <?= $overallUsedQ ?>,  Unused: <?= $overallUnusedQ ?>  }, ['#007CBF','#e2e8f0']);
+let perfChart = makeDonut('performanceCircle', { Correct: <?= $overallCorrect ?>, Wrong: <?= $overallWrong ?>  }, ['#0D9488','#ef4444']);
 
-  new Chart(document.getElementById('performanceCircle'), {
-    type: 'doughnut',
-    data: { labels: ['Correct','Wrong'], datasets: [{ data: [<?= $correct ?>, <?= $wrong ?>], backgroundColor: ['#0D9488','#d72638'], borderWidth: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false } } }
-  });
-
-  // ── Line Chart: Average Scores ──
-  const labels = [];
-  const dataScores = [];
-  <?php
-  foreach ($concepts as $concept) {
-    $query = "SELECT * FROM `history` WHERE email = '$user_id' AND eid = '$concept' AND kilanlan = 'NARC Intermediate and Advance QBanks'";
-    $data  = mysqli_query($quizCon, $query);
-    $totalScore = 0; $count = 0;
-    while ($rows = mysqli_fetch_array($data)) { $totalScore += $rows['score']; $count++; }
-    $avg = ($count > 0) ? $totalScore / $count : 0;
-    echo "labels.push('$concept');";
-    echo "dataScores.push(Math.round($avg));";
-  }
-  ?>
-  new Chart(document.getElementById('scoresChart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{ label: 'Average %', data: dataScores, fill: true, tension: 0.4, borderColor: '#1B4965', backgroundColor: 'rgba(13,148,136,0.15)', pointBackgroundColor: '#0D9488' }]
+// ── Line Chart: Average Scores per Concept ──
+let scoresChart = new Chart(document.getElementById('scoresChart'), {
+  type: 'line',
+  data: {
+    labels: <?= json_encode(array_keys($tradChartAvgs)) ?>,
+    datasets: [{
+      label: 'Average %',
+      data: <?= json_encode(array_values($tradChartAvgs)) ?>,
+      fill: true,
+      tension: 0.42,
+      borderColor: '#007CBF',
+      borderWidth: 2.5,
+      backgroundColor: (ctx) => {
+        const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 220);
+        g.addColorStop(0, 'rgba(0,124,191,0.18)');
+        g.addColorStop(1, 'rgba(13,148,136,0.02)');
+        return g;
+      },
+      pointBackgroundColor: '#0D9488',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      pointRadius: 5,
+      pointHoverRadius: 7
+    }]
+  },
+  options: {
+    responsive: true,
+    animation: { duration: 900, easing: 'easeInOutQuart' },
+    scales: {
+      y: {
+        beginAtZero: true, max: 100,
+        grid: { color: 'rgba(0,0,0,0.04)' },
+        ticks: { callback: v => v + '%', color: '#94a3b8', font: { size: 11 } }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 35 }
+      }
     },
-    options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ' Average: ' + ctx.parsed.y + '%' } }
+    }
+  }
+});
+
+// ── setStatsFilter — wires ALL sections to the filter tabs ──
+function setStatsFilter(mode) {
+  // Tab highlight
+  document.querySelectorAll('.s-stat-tab').forEach(t => t.classList.toggle('active', t.dataset.filter === mode));
+
+  const d = allStats[mode];
+  const perfTotal = d.correct + d.wrong;
+  const wrongPct  = perfTotal > 0 ? 100 - d.accuracy : 0;
+
+  // ── Accuracy card ──
+  document.getElementById('acc-pct').textContent     = d.accuracy + '%';
+  document.getElementById('acc-title').textContent   = d.accLabel;
+  document.getElementById('acc-correct').textContent = d.correct + ' correct';
+  document.getElementById('acc-total').textContent   = perfTotal + ' answered';
+  document.getElementById('acc-bar-lbl').textContent = d.accuracy + '%';
+  const bar = document.getElementById('acc-bar');
+  if (bar) {
+    bar.style.transition = 'none'; bar.style.width = '0%';
+    requestAnimationFrame(() => { bar.style.transition = ''; setTimeout(() => { bar.style.width = d.accuracy + '%'; }, 30); });
+  }
+
+  // ── Questions Usage donut ──
+  qChart.data.datasets[0].data = [d.qUsed, d.qUnused];
+  qChart.update();
+  document.getElementById('badge-q-total').textContent    = d.qTotal + ' Total';
+  document.getElementById('legend-used-count').textContent   = d.qUsed;
+  document.getElementById('legend-unused-count').textContent = d.qUnused;
+  document.getElementById('legend-used-pct').textContent     = d.qUsedPct + '%';
+  document.getElementById('legend-unused-pct').textContent   = (100 - d.qUsedPct) + '%';
+
+  // ── Performance donut ──
+  perfChart.data.datasets[0].data = [d.correct, d.wrong];
+  perfChart.update();
+  document.getElementById('badge-perf-pct').textContent          = d.accuracy + '% Accuracy';
+  document.getElementById('legend-perf-correct').textContent     = d.correct;
+  document.getElementById('legend-perf-wrong').textContent       = d.wrong;
+  document.getElementById('legend-perf-correct-pct').textContent = d.accuracy + '%';
+  document.getElementById('legend-perf-wrong-pct').textContent   = wrongPct + '%';
+
+  // ── Average Scores line chart ──
+  scoresChart.data.labels                 = d.chartLabels;
+  scoresChart.data.datasets[0].data       = d.chartData;
+  scoresChart.update();
+
+  // ── Readiness banners ──
+  const rb = id => document.getElementById(id);
+  const show = (el, vis) => { if (el) el.style.display = vis ? '' : 'none'; };
+  show(rb('readiness-banner-overall'), mode === 'overall');
+  show(rb('readiness-banner-trad'),    mode === 'trad');
+  show(rb('readiness-banner-ngn'),     mode === 'ngn');
+
+  // ── Readiness cards + notes ──
+  show(rb('readiness-cards-trad'), mode !== 'ngn');
+  show(rb('readiness-cards-ngn'),  mode === 'ngn');
+  show(rb('readiness-note-trad'),  mode !== 'ngn');
+  show(rb('readiness-note-ngn'),   mode === 'ngn');
+
+  // Re-animate readiness bars for newly visible cards
+  const targetCards = mode === 'ngn'
+    ? document.querySelectorAll('#readiness-cards-ngn .s-rc-bar-fill[data-w]')
+    : document.querySelectorAll('#readiness-cards-trad .s-rc-bar-fill[data-w]');
+  targetCards.forEach((b, i) => {
+    b.style.width = '0%';
+    requestAnimationFrame(() => { setTimeout(() => { b.style.width = b.dataset.w + '%'; }, 80 + i * 30); });
   });
+}
+
+// ── Section collapse/expand with localStorage ──
+function toggleSection(sectionId, btnId) {
+  const section = document.getElementById(sectionId);
+  const btn     = document.getElementById(btnId);
+  if (!section || !btn) return;
+  const collapsed = section.classList.toggle('is-collapsed');
+  btn.classList.toggle('collapsed', collapsed);
+  btn.querySelector('.s-toggle-lbl').textContent = collapsed ? 'Show' : 'Hide';
+  try { localStorage.setItem('s-section-' + sectionId, collapsed ? '1' : '0'); } catch(e) {}
+}
+
+// Restore section collapse states
+(function restoreSectionStates() {
+  ['stats-section-body', 'topics-section-body', 'readiness-section-body'].forEach(id => {
+    try {
+      if (localStorage.getItem('s-section-' + id) !== '1') return;
+      const section = document.getElementById(id);
+      if (!section) return;
+      section.classList.add('is-collapsed');
+      const btn = document.querySelector('[onclick*="' + id + '"]');
+      if (btn) { btn.classList.add('collapsed'); const lbl = btn.querySelector('.s-toggle-lbl'); if (lbl) lbl.textContent = 'Show'; }
+    } catch(e) {}
+  });
+})();
+
+// ── Animate accuracy bar + readiness bars on load ──
+(function initAnimations() {
+  const accBar = document.getElementById('acc-bar');
+  if (accBar) { requestAnimationFrame(() => { setTimeout(() => { accBar.style.width = accBar.dataset.w + '%'; }, 150); }); }
+  document.querySelectorAll('.s-rc-bar-fill[data-w]').forEach((bar, i) => {
+    bar.style.width = '0%';
+    requestAnimationFrame(() => { setTimeout(() => { bar.style.width = bar.dataset.w + '%'; }, 200 + i * 40); });
+  });
+})();
 </script>
 
 <!-- Concept + Topic chart JS -->
 <script>
 let conceptChart, topicChart;
+let currentMode = 'overall';
+
+// Dropdown option lists
+const TRAD_CONCEPTS       = <?= json_encode(array_keys($readinessConceptMap)) ?>;
+const NGN_CONCEPTS        = <?= json_encode(array_keys($ngnConceptMap)) ?>;
+const NGN_TOPICS          = <?= json_encode(array_keys($ngnBankTopic)) ?>;
+const NGN_CONCEPT_TOPICS  = <?= json_encode($ngnConceptTopics, JSON_UNESCAPED_UNICODE) ?>;
+const TRAD_CONCEPT_TOPICS = <?= json_encode($tradConceptTopics, JSON_UNESCAPED_UNICODE) ?>;
+
+const _TRAD_TOPICS = [
+  'Pain Meds','Antepartum','Assignment/Delegation','Cardiovascular','Oncology',
+  'Emergency Care','Endocrine','Nursing Legalities','Fluid and Electrolyte',
+  'Gastrointestinal/Nutrition','Growth and Development','Hematology','Immunology',
+  'Communicable Disease','Integumentary','Management Concepts','Psychiatry',
+  'Musculoskeletal','Neurology','Prioritization','Psych Meds','Respiratory',
+  'Skills/Procedures','Genitourinary','Eyes/Ears/Nose/Throat','Intrapartum',
+  'Postpartum','Labor and Delivery','Drug Computations','Culture and Religion',
+  'Neonatology','End of Life Care','Communication'
+];
+
+function swapDropdown(selectEl, options) {
+  const prev = selectEl.value;
+  selectEl.innerHTML = options.map(o => `<option value="${o}">${o}</option>`).join('');
+  if (options.includes(prev)) selectEl.value = prev;
+}
 
 function updateConceptChart(correct, wrong) {
   if (conceptChart) conceptChart.destroy();
   const data   = (correct + wrong === 0) ? [100] : [correct, wrong];
-  const colors = (correct + wrong === 0) ? ['#ddd'] : ['#0D9488', '#d72638'];
+  const colors = (correct + wrong === 0) ? ['#e2e8f0'] : ['#0D9488', '#d72638'];
   conceptChart = new Chart(document.getElementById('conceptChart'), {
     type: 'doughnut',
     data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
@@ -568,7 +964,7 @@ function updateConceptChart(correct, wrong) {
 function updateTopicChart(correct, wrong) {
   if (topicChart) topicChart.destroy();
   const data   = (correct + wrong === 0) ? [100] : [correct, wrong];
-  const colors = (correct + wrong === 0) ? ['#ddd'] : ['#0D9488', '#d72638'];
+  const colors = (correct + wrong === 0) ? ['#e2e8f0'] : ['#0D9488', '#d72638'];
   topicChart = new Chart(document.getElementById('topicChart'), {
     type: 'doughnut',
     data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
@@ -576,27 +972,86 @@ function updateTopicChart(correct, wrong) {
   });
 }
 
+// type → which DOM prefix to update (concept = right card, topic = left card)
+// conceptSelect (Topics label) → type concept/ngn_topic → prefix concept
+// topicSelect   (Concepts label) → type topic/ngn_concept → prefix topic
 function fetchStats(type, value) {
   fetch(`get_stats.php?type=${type}&value=${encodeURIComponent(value)}`)
     .then(res => res.json())
     .then(data => {
-      const prefix = (type === 'concept') ? 'concept' : 'topic';
-      document.getElementById(prefix + 'Total').innerText   = data.total;
-      document.getElementById(prefix + 'Used').innerText    = data.used;
-      document.getElementById(prefix + 'Correct').innerText = data.correct;
-      document.getElementById(prefix + 'Wrong').innerText   = data.wrong;
-      let cp = (data.correct + data.wrong > 0) ? Math.round((data.correct / (data.correct + data.wrong)) * 100) : 0;
+      const isConcept = (type === 'concept' || type === 'ngn_topic');
+      const prefix    = isConcept ? 'concept' : 'topic';
+      document.getElementById(prefix + 'Total').innerText   = data.total ?? 0;
+      document.getElementById(prefix + 'Used').innerText    = data.used  ?? 0;
+      document.getElementById(prefix + 'Correct').innerText = data.correct ?? 0;
+      document.getElementById(prefix + 'Wrong').innerText   = data.wrong ?? 0;
+      const tot = (data.correct ?? 0) + (data.wrong ?? 0);
+      const cp  = tot > 0 ? Math.round((data.correct / tot) * 100) : 0;
       document.getElementById(prefix + 'CorrectPercent').innerText = cp + '%';
-      document.getElementById(prefix + 'WrongPercent').innerText   = (data.correct + data.wrong > 0 ? 100 - cp : 0) + '%';
-      if (type === 'concept') updateConceptChart(data.correct, data.wrong);
-      else                    updateTopicChart(data.correct, data.wrong);
+      document.getElementById(prefix + 'WrongPercent').innerText   = (tot > 0 ? 100 - cp : 0) + '%';
+      if (isConcept) updateConceptChart(data.correct ?? 0, data.wrong ?? 0);
+      else           updateTopicChart(data.correct ?? 0, data.wrong ?? 0);
     });
 }
 
-document.getElementById('conceptSelect').addEventListener('change', function() { fetchStats('concept', this.value); });
-document.getElementById('topicSelect').addEventListener('change',   function() { fetchStats('topic',   this.value); });
-fetchStats('concept', document.getElementById('conceptSelect').value);
-fetchStats('topic',   document.getElementById('topicSelect').value);
+// ── Filter Topics dropdown to show only topics for the selected concept ──
+function syncNGNTopics(conceptName) {
+  const topicSel = document.getElementById('conceptSelect');
+  const topics = NGN_CONCEPT_TOPICS[conceptName] || NGN_TOPICS;
+  swapDropdown(topicSel, topics);
+  fetchStats('ngn_topic', topicSel.value);
+}
+function syncTradTopics(conceptName) {
+  const topicSel = document.getElementById('conceptSelect');
+  const topics = TRAD_CONCEPT_TOPICS[conceptName] || _TRAD_TOPICS;
+  swapDropdown(topicSel, topics);
+  fetchStats('concept', topicSel.value);
+}
+
+// ── Swap dropdowns when filter mode changes ──
+function syncTopicConceptDropdowns(mode) {
+  const conceptSel = document.getElementById('topicSelect');   // Concepts card dropdown
+  const topicSel   = document.getElementById('conceptSelect'); // Topics card dropdown
+  const isNGN = mode === 'ngn';
+  swapDropdown(conceptSel, isNGN ? NGN_CONCEPTS : TRAD_CONCEPTS);
+  if (isNGN) {
+    syncNGNTopics(conceptSel.value);
+    fetchStats('ngn_concept', conceptSel.value);
+  } else {
+    syncTradTopics(conceptSel.value);
+    fetchStats('topic', conceptSel.value);
+  }
+}
+
+// Patch setStatsFilter to also sync dropdowns
+const _origSetStatsFilter = setStatsFilter;
+setStatsFilter = function(mode) {
+  currentMode = mode;
+  _origSetStatsFilter(mode);
+  syncTopicConceptDropdowns(mode);
+};
+
+// Event listeners — use currentMode to pick correct fetch type
+document.getElementById('topicSelect').addEventListener('change', function() {
+  if (currentMode === 'ngn') {
+    fetchStats('ngn_concept', this.value);
+    syncNGNTopics(this.value);
+  } else {
+    fetchStats('topic', this.value);
+    syncTradTopics(this.value);
+  }
+});
+document.getElementById('conceptSelect').addEventListener('change', function() {
+  const t = currentMode === 'ngn' ? 'ngn_topic' : 'concept';
+  fetchStats(t, this.value);
+});
+
+// Initial load — filter Topics dropdown to match the default concept, then fetch stats
+(function () {
+  const conceptSel = document.getElementById('topicSelect');
+  fetchStats('topic', conceptSel.value);
+  syncTradTopics(conceptSel.value); // syncTradTopics also calls fetchStats('concept',...)
+})();
 </script>
 
 <!-- Discard functions -->
@@ -663,111 +1118,111 @@ document.querySelectorAll('.s-concept-card').forEach(c => c.classList.add('visib
 
 <!-- NGN Modal Styles -->
 <style>
-#ngnModal .modal-content { border-radius: 20px; overflow: hidden; border: none; box-shadow: 0 20px 60px rgba(0,0,0,0.18); }
-#ngnModal .ngn-modal-header { background: linear-gradient(135deg, #004AAD 0%, #02968A 100%); padding: 22px 28px 18px; }
-#ngnModal .ngn-modal-header h5 { color: #fff; font-weight: 700; font-size: 1.15rem; margin: 0; }
-#ngnModal .ngn-modal-header .step-badge { background: rgba(255,255,255,0.2); color: #fff; font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; }
-#ngnModal .modal-body { padding: 22px 24px 12px; max-height: 55vh; overflow-y: auto; }
-#ngnModal .modal-footer { padding: 14px 24px; border-top: 1px solid #f0f0f0; background: #fafafa; }
 .ngn-alert { background: #fff5f5; border-left: 4px solid #e53e3e; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px; }
 .ngn-alert i { color: #e53e3e; margin-top: 2px; }
 .ngn-alert p { margin: 0; color: #c53030; font-size: 0.82rem; line-height: 1.5; }
 .ngn-selectall-bar { display: flex; align-items: center; justify-content: space-between; background: #f8f9ff; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 10px 16px; margin-bottom: 14px; cursor: pointer; transition: background 0.2s; }
 .ngn-selectall-bar:hover { background: #eef2ff; }
-.ngn-selectall-bar label { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: #1B4965; margin: 0; }
+.ngn-selectall-bar label { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--s-primary); margin: 0; }
 .ngn-item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 576px) { .ngn-item-grid { grid-template-columns: 1fr; } }
 .ngn-item-card { display: flex; align-items: center; gap: 12px; background: #fff; border: 2px solid #e9edf5; border-radius: 14px; padding: 12px 14px; cursor: pointer; transition: all 0.18s; user-select: none; }
-.ngn-item-card:hover { border-color: #004AAD; background: #f0f5ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,74,173,0.1); }
+.ngn-item-card:hover { border-color: #007CBF; background: #f0f5ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,74,173,0.1); }
 .ngn-item-card.selected { border-color: #02968A; background: #f0fdf9; }
 .ngn-item-card .ngn-cb { width: 18px; height: 18px; accent-color: #02968A; flex-shrink: 0; pointer-events: none; }
 .ngn-item-card .ngn-label { font-size: 0.88rem; font-weight: 600; color: #2d3748; flex-grow: 1; }
-.ngn-item-card .ngn-count { background: linear-gradient(135deg,#004AAD,#02968A); color:#fff; font-size:0.72rem; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+.ngn-item-card .ngn-count { background: linear-gradient(135deg,#007CBF,#02968A); color:#fff; font-size:0.72rem; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; }
 .ngn-topic-list { display: grid; grid-template-rows: repeat(5, auto); grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
 .ngn-topic-card { display: flex; align-items: center; gap: 10px; background: #fff; border: 2px solid #e9edf5; border-radius: 12px; padding: 10px 13px; cursor: pointer; transition: all 0.15s; user-select: none; }
-.ngn-topic-card:hover { border-color: #004AAD; background: #f0f5ff; }
+.ngn-topic-card:hover { border-color: #007CBF; background: #f0f5ff; }
 .ngn-topic-card.selected { border-color: #02968A; background: #f0fdf9; }
 .ngn-topic-card .ngn-cb { width: 17px; height: 17px; accent-color: #02968A; pointer-events: none; }
 .ngn-topic-card .ngn-label { font-size: 0.82rem; color: #2d3748; font-weight: 500; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ngn-topic-card .ngn-count { background: linear-gradient(135deg,#004AAD,#02968A); color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+.ngn-topic-card .ngn-count { background: linear-gradient(135deg,#007CBF,#02968A); color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; }
 .ngn-steps { display:flex; align-items:center; gap:6px; }
 .ngn-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.35); transition:background 0.2s; }
 .ngn-dot.active { background:#fff; width:22px; border-radius:4px; }
-.ngn-btn-next { background:linear-gradient(135deg,#004AAD,#02968A); color:#fff; border:none; border-radius:10px; padding:9px 22px; font-weight:600; font-size:0.9rem; transition:opacity 0.2s,transform 0.15s; }
+.step-badge { background: rgba(255,255,255,0.2); color: #fff; font-size: 0.68rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.4px; display: inline-block; margin-bottom: 6px; }
+.ngn-btn-next { background:linear-gradient(135deg,#007CBF,#02968A); color:#fff; border:none; border-radius:10px; padding:9px 22px; font-weight:600; font-size:0.9rem; transition:opacity 0.2s,transform 0.15s; cursor:pointer; }
 .ngn-btn-next:disabled { opacity:.45; cursor:not-allowed; }
 .ngn-btn-next:not(:disabled):hover { opacity:.9; transform:translateY(-1px); }
-.ngn-btn-back { background:transparent; border:2px solid #cbd5e0; border-radius:10px; padding:8px 18px; font-weight:600; font-size:0.9rem; color:#4a5568; }
+.ngn-btn-back { background:transparent; border:2px solid #cbd5e0; border-radius:10px; padding:8px 18px; font-weight:600; font-size:0.9rem; color:#4a5568; cursor:pointer; }
 .ngn-btn-back:hover { background:#f7fafc; }
-.ngn-btn-cancel { background:transparent; border:none; color:#94a3b8; font-size:0.88rem; padding:8px 12px; }
+.ngn-btn-cancel { background:transparent; border:none; color:#94a3b8; font-size:0.88rem; padding:8px 12px; cursor:pointer; }
 .ngn-loading { text-align:center; padding:36px 0; color:#94a3b8; font-size:0.9rem; }
 .ngn-loading i { font-size:1.5rem; margin-bottom:8px; display:block; }
 </style>
 
-<!-- NGN Modal HTML -->
-<div class="modal fade" id="ngnModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable" style="margin-top:60px;">
-    <div class="modal-content">
-      <!-- STEP 1: Concepts -->
-      <div id="ngnStep1">
-        <div class="ngn-modal-header">
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="step-badge">Step 1 of 2</span></div>
-          <div class="d-flex align-items-center justify-content-between">
-            <h5><i class="bi bi-lightbulb-fill me-2"></i>Choose Subjects</h5>
-            <div class="d-flex align-items-center gap-2">
-              <div class="ngn-steps"><div class="ngn-dot active"></div><div class="ngn-dot"></div></div>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-          </div>
+<!-- NGN Modal HTML — custom modal system (Bootstrap-free) -->
+<div class="s-modal-backdrop" id="ngnModalBackdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="s-modal s-modal--lg">
+
+    <!-- STEP 1: Concepts -->
+    <div id="ngnStep1">
+      <div class="s-modal-header s-modal-header--gradient">
+        <div style="flex:1;">
+          <span class="step-badge">Step 1 of 2</span>
+          <h5 class="s-modal-title"><i class="bi bi-lightbulb-fill me-2"></i>Choose Subjects</h5>
         </div>
-        <div class="modal-body">
-          <div class="ngn-alert"><i class="bi bi-exclamation-circle-fill"></i>
-            <p><strong>Important:</strong> You must select at least one subject to proceed. Your exam will only include questions from the subjects and topics you choose.</p>
-          </div>
-          <div class="ngn-selectall-bar" onclick="toggleAllConcepts()">
-            <label for="selectAllConcepts"><i class="bi bi-check2-all me-2" style="color:#004AAD;"></i>Select All Subjects</label>
-            <input class="ngn-cb" type="checkbox" id="selectAllConcepts" onclick="event.stopPropagation();toggleAllConcepts()">
-          </div>
-          <div id="conceptLoadingMsg" class="ngn-loading"><i class="bi bi-arrow-repeat" style="display:inline-block;animation:spin .8s linear infinite;"></i>Loading subjects...</div>
-          <div id="conceptGrid" class="ngn-item-grid d-none"></div>
-        </div>
-        <div class="modal-footer justify-content-between">
-          <button class="ngn-btn-cancel" data-bs-dismiss="modal">Cancel</button>
-          <button class="ngn-btn-next" id="nextToTopicBtn" disabled>Next <i class="bi bi-arrow-right ms-1"></i></button>
+        <div class="d-flex align-items-center gap-2">
+          <div class="ngn-steps"><div class="ngn-dot active"></div><div class="ngn-dot"></div></div>
+          <button type="button" class="s-modal-close" data-s-dismiss="modal" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
         </div>
       </div>
-      <!-- STEP 2: Topics -->
-      <div id="ngnStep2" class="d-none">
-        <div class="ngn-modal-header">
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="step-badge">Step 2 of 2</span></div>
-          <div class="d-flex align-items-center justify-content-between">
-            <h5><i class="bi bi-list-check me-2"></i>Choose Topics</h5>
-            <div class="d-flex align-items-center gap-2">
-              <div class="ngn-steps"><div class="ngn-dot"></div><div class="ngn-dot active"></div></div>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-          </div>
+      <div class="s-modal-body">
+        <div class="ngn-alert"><i class="bi bi-exclamation-circle-fill"></i>
+          <p><strong>Important:</strong> You must select at least one subject to proceed. Your exam will only include questions from the subjects and topics you choose.</p>
         </div>
-        <div class="modal-body">
-          <div class="ngn-alert"><i class="bi bi-exclamation-circle-fill"></i>
-            <p><strong>Important:</strong> Only topics belonging to your selected subjects are shown. You must select at least one topic.</p>
-          </div>
-          <div class="ngn-selectall-bar" onclick="toggleAllTopics()">
-            <label for="selectAllTopics"><i class="bi bi-check2-all me-2" style="color:#004AAD;"></i>Select All Topics</label>
-            <input class="ngn-cb" type="checkbox" id="selectAllTopics" onclick="event.stopPropagation();toggleAllTopics()">
-          </div>
-          <div id="topicLoadingMsg" class="ngn-loading d-none"><i class="bi bi-arrow-repeat" style="display:inline-block;animation:spin .8s linear infinite;"></i>Loading topics...</div>
-          <div id="topicList" class="ngn-topic-list"></div>
+        <div class="ngn-selectall-bar" onclick="toggleAllConcepts()">
+          <label for="selectAllConcepts"><i class="bi bi-check2-all me-2" style="color:#007CBF;"></i>Select All Subjects</label>
+          <input class="ngn-cb" type="checkbox" id="selectAllConcepts" onclick="event.stopPropagation();toggleAllConcepts()">
         </div>
-        <div class="modal-footer justify-content-between">
-          <button class="ngn-btn-back" id="backToConceptBtn"><i class="bi bi-arrow-left me-1"></i>Back</button>
-          <form id="ngnStartForm" method="POST" action="ngn/start_filtered_exam.php" class="d-inline">
-            <input type="hidden" name="concepts" id="hiddenConcepts">
-            <input type="hidden" name="topics" id="hiddenTopics">
-            <button type="submit" class="ngn-btn-next" id="startExamBtn" disabled><i class="bi bi-play-fill me-1"></i>Start Exam</button>
-          </form>
-        </div>
+        <div id="conceptLoadingMsg" class="ngn-loading"><i class="bi bi-arrow-repeat" style="display:inline-block;animation:spin .8s linear infinite;"></i>Loading subjects...</div>
+        <div id="conceptGrid" class="ngn-item-grid d-none"></div>
+      </div>
+      <div class="s-modal-footer s-modal-footer--between">
+        <button class="ngn-btn-cancel" data-s-dismiss="modal">Cancel</button>
+        <button class="ngn-btn-next" id="nextToTopicBtn" disabled>Next <i class="bi bi-arrow-right ms-1"></i></button>
       </div>
     </div>
+
+    <!-- STEP 2: Topics -->
+    <div id="ngnStep2" class="d-none">
+      <div class="s-modal-header s-modal-header--gradient">
+        <div style="flex:1;">
+          <span class="step-badge">Step 2 of 2</span>
+          <h5 class="s-modal-title"><i class="bi bi-list-check me-2"></i>Choose Topics</h5>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <div class="ngn-steps"><div class="ngn-dot"></div><div class="ngn-dot active"></div></div>
+          <button type="button" class="s-modal-close" data-s-dismiss="modal" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+      <div class="s-modal-body">
+        <div class="ngn-alert"><i class="bi bi-exclamation-circle-fill"></i>
+          <p><strong>Important:</strong> Only topics belonging to your selected subjects are shown. You must select at least one topic.</p>
+        </div>
+        <div class="ngn-selectall-bar" onclick="toggleAllTopics()">
+          <label for="selectAllTopics"><i class="bi bi-check2-all me-2" style="color:#007CBF;"></i>Select All Topics</label>
+          <input class="ngn-cb" type="checkbox" id="selectAllTopics" onclick="event.stopPropagation();toggleAllTopics()">
+        </div>
+        <div id="topicLoadingMsg" class="ngn-loading d-none"><i class="bi bi-arrow-repeat" style="display:inline-block;animation:spin .8s linear infinite;"></i>Loading topics...</div>
+        <div id="topicList" class="ngn-topic-list"></div>
+      </div>
+      <div class="s-modal-footer s-modal-footer--between">
+        <button class="ngn-btn-back" id="backToConceptBtn"><i class="bi bi-arrow-left me-1"></i>Back</button>
+        <form id="ngnStartForm" method="POST" action="ngn/start_filtered_exam.php" style="display:inline;">
+          <input type="hidden" name="concepts" id="hiddenConcepts">
+          <input type="hidden" name="topics" id="hiddenTopics">
+          <button type="submit" class="ngn-btn-next" id="startExamBtn" disabled><i class="bi bi-play-fill me-1"></i>Start Exam</button>
+        </form>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -777,7 +1232,7 @@ function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&
 function openNGNModal() {
   document.getElementById('ngnStep1').classList.remove('d-none');
   document.getElementById('ngnStep2').classList.add('d-none');
-  new bootstrap.Modal(document.getElementById('ngnModal')).show();
+  SModal.open('ngnModalBackdrop');
   loadConcepts();
 }
 function loadConcepts() {

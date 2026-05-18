@@ -104,43 +104,37 @@ $pageTitle = 'My Notes — Studium';
 
 </main>
 
-<!-- Footer -->
-<div class="s-footer">
-  <span>© Studium 2025, All Right Reserved.</span>
-</div>
-
-<!-- Add Note Modal -->
-<div class="modal fade" id="addNoteModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
-    <div class="modal-content" style="border-radius:18px; border:none; box-shadow:0 20px 60px rgba(0,0,0,.15);">
-      <div class="modal-header" style="background:linear-gradient(135deg,#1B4965,#0D9488); border-radius:18px 18px 0 0; padding:18px 24px;">
-        <h5 class="modal-title" style="color:#fff; font-weight:700; margin:0;"><i class="bi bi-journal-plus me-2"></i>Add New Note</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="POST">
-        <div class="modal-body" style="padding:24px;">
-          <div class="mb-3">
-            <label class="s-label">Title</label>
-            <input type="text" name="note_title" class="s-input" placeholder="Note title..." required maxlength="255">
-          </div>
-          <div class="mb-0">
-            <label class="s-label">Content</label>
-            <textarea name="note_content" class="s-input" rows="6" placeholder="Write your note here..." style="resize:vertical;"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer" style="padding:14px 24px; border-top:1px solid var(--s-border); background:#fafafa; border-radius:0 0 18px 18px;">
-          <button type="button" class="s-btn s-btn-outline" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="s-btn s-btn-teal"><i class="bi bi-check2 me-1"></i>Save Note</button>
-        </div>
-      </form>
+<!-- Add Note Modal — custom modal system (Bootstrap-free) -->
+<div class="s-modal-backdrop" id="addNoteModalBackdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="s-modal s-modal--sm">
+    <div class="s-modal-header s-modal-header--gradient">
+      <h5 class="s-modal-title"><i class="bi bi-journal-plus me-2"></i>Add New Note</h5>
+      <button type="button" class="s-modal-close" data-s-dismiss="modal" aria-label="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
     </div>
+    <form method="POST">
+      <div class="s-modal-body">
+        <div class="mb-3">
+          <label class="s-label">Title</label>
+          <input type="text" name="note_title" class="s-input" placeholder="Note title..." required maxlength="255">
+        </div>
+        <div class="mb-0">
+          <label class="s-label">Content</label>
+          <textarea name="note_content" class="s-input" rows="6" placeholder="Write your note here..." style="resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="s-modal-footer">
+        <button type="button" class="s-btn s-btn-outline" data-s-dismiss="modal">Cancel</button>
+        <button type="submit" class="s-btn s-btn-teal"><i class="bi bi-check2 me-1"></i>Save Note</button>
+      </div>
+    </form>
   </div>
 </div>
 
-<script src="../ty/js/bootstrap.bundle.min.js"></script>
 <script>
 function openAddModal() {
-  new bootstrap.Modal(document.getElementById('addNoteModal')).show();
+  SModal.open('addNoteModalBackdrop');
 }
 
 function viewNote(title, content) {

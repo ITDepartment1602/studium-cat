@@ -1,28 +1,22 @@
 <?php
 /**
- * Studium Root Entry Point
- * 
- * Handles initial login check and basic branding logic.
- * config.php handles session management and database connection ($con/db).
+ * Studium Root Entry Point — Login Page
+ * Bootstrap-free redesign with premium split-screen layout.
  */
 
 require_once 'config.php';
 
-// Check if user is already logged in
+// Redirect already-authenticated users
 if (isset($_SESSION['user_id']) || isset($_SESSION['admin_id'])) {
-    
-    // User logic: fetch current bundle name for redirection
+
     if (isset($_SESSION['user_id'])) {
         $user_id = (int)$_SESSION['user_id'];
-        
-        // Use modern db() helper for cleaner and more secure logic
         $userRow = db()->fetchOne("SELECT bundle_name FROM login WHERE id = ?", [$user_id]);
         $bundle_name = $userRow['bundle_name'] ?? '';
     } else {
-        $bundle_name = ''; // Default for admins
+        $bundle_name = '';
     }
 
-    // Redirect to relevant dashboard
     header('Location: student/dashboard/index.php?bundle_name=' . urlencode($bundle_name));
     exit;
 }
@@ -30,123 +24,186 @@ if (isset($_SESSION['user_id']) || isset($_SESSION['admin_id'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="login/style.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-    <link rel="stylesheet" href="student/dashboard/css/footer.css">
-    <title>Studium Login</title>
-    <link rel="shortcut icon" type="image/svg+xml" href="img/logo1.svg">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Studium</title>
+  <link rel="shortcut icon" type="image/svg+xml" href="img/logo1.svg">
+
+  <!-- Google Fonts: Poppins -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap Icons (icon library only — not Bootstrap framework) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Login page styles -->
+  <link rel="stylesheet" href="login/style.css?v=3">
 </head>
-<body>
-    <header>
-        <nav>
-            <ul class='nav-bar' style="display: flex; justify-content: center; background-color: #1B4965;">
-                <li class='logo'>
-                    <a href='https://www.facebook.com/NCLEXAmplifiedReviewCenter' target="_blank">
-                        <img src='img/logo3.png' alt="Logo">
-                    </a>
-                </li>
-            </ul>
-        </nav>
-    </header>
+<body class="auth-body">
 
-    <main class="wrapper" style="margin-top: 50px;">
-        <div class="container main">
-            <div class="row">
-                <div class="col-md-6 side-image">
-                    <img src="login/logos/logo.png" alt="Logo" width="30%" style="display:block; margin:20px auto;">
-                    <div style="text-align: center;">
-                        <p style="font-size:28px"><b>Achieve your American Dream!</b></p>
-                    </div>
-                    <?php 
-                        // Only include if file actually exists
-                        if (file_exists("login/testi/Testimonial.php")) {
-                            include "login/testi/Testimonial.php";
-                        }
-                    ?>
-                </div>
+  <div class="auth-split">
 
-                <div class="col-md-6 right">
-                    <div class="input-box">
-                        <header style="font-size: 36px; color: #1B4965; text-align: center;">Login</header>
-                        <p style="font-size: 14px; text-align: center;">Sign in using your Studium Account</p>
-                        
-                        <form method="POST" action="login/validation.php" onsubmit="return validation()">
-                            <?php if (isset($_SESSION['flash_error'])): ?>
-                                <div class="alert alert-danger text-center" style="font-size: 13px;" role="alert">
-                                    <?php 
-                                        echo $_SESSION['flash_error']; 
-                                        unset($_SESSION['flash_error']); 
-                                    ?>
-                                </div>
-                            <?php elseif (isset($_SESSION['error'])): // Legacy support ?>
-                                <div class="alert alert-danger text-center" style="font-size: 13px;" role="alert">
-                                    <?php 
-                                        echo $_SESSION['error']; 
-                                        unset($_SESSION['error']); 
-                                    ?>
-                                </div>
-                            <?php endif; ?>
+    <!-- ══ LEFT PANEL — Brand identity ══ -->
+    <div class="auth-left">
+      <div class="auth-left-content">
 
-                            <div class="input-field mt-4">
-                                <input type="text" class="input" required name="email" id="email" autocomplete="email">
-                                <label for="email">Email</label>
-                            </div>
-
-                            <div class="input-field mt-4">
-                                <input type="password" class="input" name="password" id="password" required autocomplete="current-password">
-                                <i class="far fa-eye" id="togglePassword" style="position: absolute; right: 10px; top: 15px; cursor: pointer;"></i>
-                                <label for="password">Password</label>
-                            </div>
-
-                            <div class="mt-4 text-center">
-                                <p style="font-size: 12px; color: #1B4965; font-weight: 500;">
-                                    Are you an NCLEX Amplified student? <br>
-                                    <span style="font-weight: 400; color: #666;">Contact support to receive your email and password.</span>
-                                </p>
-                            </div>
-
-                            <div class="text-end">
-                                <button class="btn btn-primary px-4 py-2" type="submit" style="background-color: #1B4965; border: none; font-weight: bold;">
-                                    Login
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+        <!-- Logo -->
+        <div class="auth-logo">
+          <img src="assets/STUDIUM.svg" alt="Studium" class="auth-logo-img" style="height:34px;width:auto;display:block;">
         </div>
-    </main>
 
-    <footer class="mt-5">
-        <?php 
-            if (file_exists("student/dashboard/footer.php")) {
-                include "student/dashboard/footer.php"; 
-            }
-        ?>
-    </footer>
+        <!-- Headline -->
+        <h1 class="auth-headline">
+          Pass the NCLEX.<br>
+          Achieve your<br>
+          <span>American Dream.</span>
+        </h1>
 
-    <script>
-        // Password toggle logic
-        const togglePassword = document.querySelector('#togglePassword');
-        const passwordInput = document.querySelector('#password');
+        <p class="auth-subline">
+          The most advanced adaptive learning platform built for Filipino nurses preparing for NCLEX licensure.
+        </p>
 
-        togglePassword.addEventListener('click', function (e) {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            this.classList.toggle('fa-eye-slash');
-        });
+        <!-- Feature highlights -->
+        <div class="auth-features">
+          <div class="auth-feature">
+            <div class="auth-feature-icon">
+              <i class="bi bi-lightning-charge-fill"></i>
+            </div>
+            <div>
+              <div class="auth-feature-title">NGN-Ready Question Bank</div>
+              <div class="auth-feature-desc">Next Generation NCLEX clinical judgment scenarios</div>
+            </div>
+          </div>
+          <div class="auth-feature">
+            <div class="auth-feature-icon">
+              <i class="bi bi-activity"></i>
+            </div>
+            <div>
+              <div class="auth-feature-title">CAT Adaptive Engine</div>
+              <div class="auth-feature-desc">IRT-powered difficulty adjustment in real time</div>
+            </div>
+          </div>
+          <div class="auth-feature">
+            <div class="auth-feature-icon">
+              <i class="bi bi-bar-chart-line-fill"></i>
+            </div>
+            <div>
+              <div class="auth-feature-title">Performance Analytics</div>
+              <div class="auth-feature-desc">Track concept mastery with detailed visual insights</div>
+            </div>
+          </div>
+        </div>
 
-        // Basic front-end validation
-        function validation() {
-            var email = document.getElementById('email').value;
-            var password = document.getElementById('password').value;
-            if (email === "" || password === "") {
-                return false;
-            }
-        }
-    </script>
+      </div>
+
+      <!-- Left footer -->
+      <div class="auth-left-footer">
+        <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank" rel="noopener noreferrer" class="auth-support-link">
+          <i class="bi bi-facebook"></i> NCLEX Amplified Official
+        </a>
+      </div>
+    </div>
+
+    <!-- ══ RIGHT PANEL — Login form ══ -->
+    <div class="auth-right">
+      <div class="auth-form-container">
+
+        <div class="auth-form-header">
+          <h2 class="auth-form-title">Welcome back</h2>
+          <p class="auth-form-sub">Sign in to your Studium account to continue</p>
+        </div>
+
+        <?php if (isset($_SESSION['flash_error'])): ?>
+          <div class="auth-alert auth-alert--error">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span><?php echo htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['flash_error']); ?></span>
+          </div>
+        <?php elseif (isset($_SESSION['error'])): ?>
+          <div class="auth-alert auth-alert--error">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></span>
+          </div>
+        <?php endif; ?>
+
+        <form method="POST" action="login/validation.php" onsubmit="return validateLoginForm()" autocomplete="on">
+
+          <!-- Email -->
+          <div class="auth-field">
+            <label class="auth-label" for="email">Email address</label>
+            <div class="auth-input-wrap">
+              <i class="bi bi-envelope auth-input-icon"></i>
+              <input
+                type="text"
+                id="email"
+                name="email"
+                class="auth-input"
+                placeholder="your@email.com"
+                required
+                autocomplete="email"
+              >
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="auth-field">
+            <label class="auth-label" for="password">Password</label>
+            <div class="auth-input-wrap">
+              <i class="bi bi-lock auth-input-icon"></i>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="auth-input"
+                placeholder="••••••••"
+                required
+                autocomplete="current-password"
+              >
+              <button type="button" class="auth-eye-btn" id="togglePassword" aria-label="Toggle password visibility">
+                <i class="bi bi-eye" id="eyeIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Hint -->
+          <div class="auth-hint">
+            <i class="bi bi-info-circle" style="margin-right:5px;"></i>
+            NCLEX Amplified students receive their login credentials from support. Contact us if you need help accessing your account.
+          </div>
+
+          <button type="submit" class="auth-submit-btn">
+            <span>Sign In</span>
+            <i class="bi bi-arrow-right"></i>
+          </button>
+
+        </form>
+
+        <div class="auth-contact">
+          Need assistance? <a href="https://www.facebook.com/NCLEX.Amplified.Technical" target="_blank" rel="noopener noreferrer">Contact support</a>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Password visibility toggle
+    document.getElementById('togglePassword').addEventListener('click', function() {
+      var input = document.getElementById('password');
+      var icon  = document.getElementById('eyeIcon');
+      var isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      icon.className = isPassword ? 'bi bi-eye-slash' : 'bi bi-eye';
+    });
+
+    // Basic front-end validation
+    function validateLoginForm() {
+      var email    = document.getElementById('email').value.trim();
+      var password = document.getElementById('password').value.trim();
+      return email !== '' && password !== '';
+    }
+  </script>
+
 </body>
 </html>

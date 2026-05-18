@@ -42,8 +42,8 @@ $conn->begin_transaction();
 try {
     // Transfer data from temporary_exam_result to exam_results
     $ok = db()->execute(
-        "INSERT INTO exam_results (student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, omitted, changes_count, rationale, question_number, time_taken, totalTime, timestamp)
-         SELECT student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, omitted, changes_count, rationale, question_number, time_taken, totalTime, timestamp
+        "INSERT INTO exam_results (student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, omitted, changes_count, rationale, concept, question_number, time_taken, totalTime, timestamp)
+         SELECT student_id, examTaken, question_uid, question_type, topic, system, cnc, dlevel, user_answer, correct_answer, initial_answer, changes, isCorrect, score, earned_points, max_points, omitted, changes_count, rationale, concept, question_number, time_taken, totalTime, timestamp
          FROM temporary_exam_result
          WHERE student_id = ? AND examTaken = ?",
         [$student_id, $examTaken]

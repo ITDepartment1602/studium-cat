@@ -1,29 +1,38 @@
 <?php
-// dragndrop/index.php
 require_once '../../../../config.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id === 0) die("No question ID provided!");
 
-$q = mysqli_query($con, "SELECT * FROM dragndrop WHERE id = " . $id . " LIMIT 1");
-if (!$q) die("Database error: " . htmlspecialchars(mysqli_error($con)));
+$q = mysqli_query($con, "SELECT * FROM dragndrop WHERE id='$id'");
 $data = mysqli_fetch_assoc($q);
 if (!$data) die("Question not found!");
 
-$topic = $data['topic'];
-$question = $data['question'];
-$items = json_decode($data['items'], true);
+$topic     = $data['topic'];
+$question  = $data['question'];
+$items     = json_decode($data['items'], true);
 shuffle($items);
 $rationale = $data['rationale'];
-$system = $data['system'] ?? 'N/A';
-$cnc = $data['cnc'] ?? 'N/A';
-$dlevel = $data['dlevel'] ?? 'N/A';
-$correct = json_decode($data['correct'], true);
+$system    = $data['system'] ?? 'N/A';
+$cnc       = $data['cnc']    ?? 'N/A';
+$dlevel    = $data['dlevel'] ?? 'N/A';
+$correct   = json_decode($data['correct'], true);
 
-// Dynamic clinical reference tabs from `tabs` DB field (spec §1.2)
 $tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
-$hasTabs = !empty($tabs_data);
+$hasTabs   = !empty($tabs_data);
+
+$BLANK_MARKER = '/_{5,}/';
+$isCloze = (bool) preg_match($BLANK_MARKER, $question);
+
+function buildClozeHtml(string $question, int $blankCount): string {
+    $idx = 0;
+    return preg_replace_callback('/_{5,}/', function() use (&$idx) {
+        $html = '<span class="blank cloze-blank" data-idx="' . $idx . '">Drop Here</span>';
+        $idx++;
+        return $html;
+    }, htmlspecialchars($question));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -32,8 +41,8 @@ $hasTabs = !empty($tabs_data);
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Drag & Drop Question</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Mobile Drag & Drop Polyfill -->
 <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
 <style>
 :root {
@@ -48,18 +57,15 @@ $hasTabs = !empty($tabs_data);
 }
 
 html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-body {
-  font-family: 'Inter', sans-serif;
-  color: var(--text);
-  background: white;
-  overflow: hidden;
-}
+body { font-family: 'Inter', sans-serif; color: var(--text); background: white; overflow: hidden; }
 
-/* Two-panel layout */
 .two-panel { display: flex; height: 100%; overflow: hidden; }
 .left-panel { width: 40%; min-width: 260px; background: #fff; border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
 .panel-title { padding: 14px 20px; background: #f1f5f9; font-weight: 800; font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
-.tabs-row { display: flex; padding: 8px 12px 0; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
+.tabs-row { display: flex; padding: 8px 12px 0; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; flex-shrink: 0; scrollbar-width: none; }
+.tabs-row::-webkit-scrollbar { height: 3px; }
+.tabs-row::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; }
+.tabs-row:hover::-webkit-scrollbar-thumb { background: #cbd5e1; }
 .tab-btn { padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; color: #64748b; white-space: nowrap; }
 .tab-btn.active { background: #f8fafc; color: var(--accent); border: 1px solid var(--border); border-bottom-color: #f8fafc; margin-bottom: -1px; }
 .tab-content-area { flex: 1; overflow-y: auto; padding: 16px; }
@@ -72,18 +78,8 @@ body {
   .right-panel { width: 100% !important; overflow: visible; display: block; }
 }
 
-.card {
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 16px;
-  width: 100%;
-  max-width: 900px;
-  box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05);
-  border: 1px solid var(--border);
-  margin-bottom: 24px;
-}
+.card { background: var(--surface); border-radius: 12px; padding: 16px; width: 100%; max-width: 900px; box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 24px; }
 
-/* MOBILE SQUEEZE */
 @media (max-width: 600px) {
   .card { padding: 12px; border-radius: 8px; }
   .question-container { font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
@@ -94,144 +90,32 @@ body {
   .btn { padding: 8px 16px; font-size: 12px; width: 100%; }
 }
 
-/* RESPONSIVE */
-@media (max-width: 640px) {
-  .card { border-radius: 0; padding: 16px; }
-  .question-container { font-size: 16px; line-height: 1.8; }
-  .blank { min-width: 100px; font-size: 13px; height: 32px; }
-  .choices-bank { padding: 16px; gap: 8px; }
-  .choice-item { padding: 6px 12px; font-size: 13px; }
-  body { overflow-y: auto; }
-}
+.instruction { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent); letter-spacing: 1px; margin-bottom: 12px; display: block; }
+.question-container { font-size: 18px; font-weight: 600; line-height: 2; margin-bottom: 32px; color: var(--primary); }
 
-.instruction {
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--accent);
-    letter-spacing: 1px;
-    margin-bottom: 12px;
-    display: block;
-}
-
-.question-container {
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 2;
-  margin-bottom: 32px;
-  color: var(--primary);
-}
-
-.blank {
-  display: inline-flex;
-  min-width: 120px;
-  height: 36px;
-  background: #f1f5f9;
-  border: 2px dashed #cbd5e1;
-  border-radius: 8px;
-  margin: 0 4px;
-  vertical-align: middle;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--accent);
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
+.blank { display: inline-flex; min-width: 120px; height: 36px; background: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 8px; margin: 0 4px; vertical-align: middle; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--accent); transition: all 0.2s; cursor: pointer; }
 .blank.active { border-color: var(--accent); background: #eff6ff; }
-.blank.filled { border-style: solid; border-color: #3b82f6; background: white; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1); }
+.blank.filled { border-style: solid; border-color: #3b82f6; background: white; box-shadow: 0 2px 6px rgba(59,130,246,0.1); }
 
-/* Reveal Feedback */
-.blank.correct-reveal { border-color: var(--success); background: #f0fdf4; color: #15803d; }
-.blank.wrong-reveal { border-color: var(--danger); background: #fef2f2; color: #b91c1c; }
-.blank.omitted-reveal { border-color: #f59e0b; background: #fffbeb; color: #92400e; text-decoration: line-through; opacity: 0.75; }
-
-.choices-bank {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 24px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
-
-.choice-item {
-  background: white;
-  border: 1px solid var(--border);
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: grab;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  transition: all 0.2s;
-}
+.choices-bank { display: flex; flex-wrap: wrap; gap: 12px; padding: 24px; background: #f8fafc; border-radius: 12px; border: 1px solid var(--border); }
+.choice-item { background: white; border: 1px solid var(--border); padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: grab; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s; }
 .choice-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
-.actions { display: flex; gap: 12px; margin-top: 32px; }
-.btn { padding: 12px 32px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; transition: all 0.2s; }
-.btn-primary { background: var(--primary); color: white; }
-.btn-outline { background: transparent; border: 2px solid var(--border); color: #64748b; }
+.ordered-slots { margin-bottom: 24px; }
+.slots-label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 10px; }
+.slot-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.slot-num { width: 28px; height: 28px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+.slot-row .blank { flex: 1; min-width: 0; display: flex; }
 
-#result {
-  margin-top: 24px;
-  padding: 24px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border-left: 4px solid var(--accent);
-  display: none;
-}
+.cloze-blank { display: inline-flex; min-width: 160px; height: 38px; background: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 8px; margin: 0 6px; vertical-align: middle; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--accent); transition: all 0.2s; cursor: pointer; white-space: nowrap; padding: 0 10px; }
+.cloze-blank.active { border-color: var(--accent); background: #eff6ff; }
+.cloze-blank.filled { border-style: solid; border-color: #3b82f6; background: white; color: var(--text); box-shadow: 0 2px 6px rgba(59,130,246,0.1); }
 
-.previous-badge {
-    display: none;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border-left: 4px solid #cbd5e1;
-}
-
-.ordered-slots {
-  margin-bottom: 24px;
-}
-.slots-label {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
-}
-.slot-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.slot-num {
-  width: 28px;
-  height: 28px;
-  background: var(--accent);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-.slot-row .blank {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-}
+.actions { position: sticky; bottom: 0; background: #fff; padding: 16px 0 20px; margin-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: center; z-index: 10; }
+.btn { padding: 14px 40px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; border: none; transition: all .2s ease; min-width: 220px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; box-shadow: 0 4px 14px rgba(59,130,246,.4); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.5); }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none !important; box-shadow: none; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -259,30 +143,18 @@ body {
 <div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
 
 <div class="card">
-    <div class="previous-badge" id="prevBadge">
-        <i class="fas fa-lock"></i> Your ordering has been submitted and is now read-only.
+    <div style="margin-bottom: 24px;">
+        <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 8px;"><?php echo htmlspecialchars($topic); ?></div>
     </div>
 
-    <span class="instruction">Drag and Drop Ordered Response</span>
-    
+    <?php if ($isCloze): ?>
+    <div class="question-container" id="questionBox" style="line-height:2.2;">
+        <?php echo buildClozeHtml($question, count($correct)); ?>
+    </div>
+    <?php else: ?>
     <div class="question-container" id="questionBox">
-        <?php
-        // Check if question has inline blank placeholders (___).
-        // If not, we render the question as plain text and generate numbered
-        // drop-zones below it equal to the number of correct answer positions.
-        $hasPlaceholders = preg_match('/_{3,}/', $question);
-        if ($hasPlaceholders) {
-            echo preg_replace_callback('/_{3,}/', function() {
-                static $i = 0;
-                return '<div class="blank" data-idx="'.($i++).'">Drop Here</div>';
-            }, htmlspecialchars($question));
-        } else {
-            echo nl2br(htmlspecialchars($question));
-        }
-        ?>
+        <?php echo nl2br(htmlspecialchars($question)); ?>
     </div>
-
-    <?php if (!$hasPlaceholders): ?>
     <div class="ordered-slots" id="orderedSlots">
         <div class="slots-label">Arrange in correct order:</div>
         <?php for ($i = 0; $i < count($correct); $i++): ?>
@@ -301,13 +173,7 @@ body {
     </div>
 
     <div class="actions">
-        <button id="submitBtn" class="btn btn-primary">Submit Answer</button>
-    </div>
-
-    <div id="result">
-        <div style="font-weight:800; color:#64748b; font-size:12px; margin-bottom:8px; text-transform:uppercase;">Performance & Rationale</div>
-        <div id="resSummary" style="font-weight:700; margin-bottom:12px;"></div>
-        <div id="rationaleText" style="font-size:14px; line-height:1.6;"></div>
+        <button id="submitBtn" class="btn btn-primary"><i class="fas fa-check-circle"></i> Submit Answer</button>
     </div>
 </div>
 </div><!-- /.right-panel -->
@@ -324,140 +190,76 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 $(document).ready(function(){
-    const correct = <?= json_encode($correct) ?>;
+    const correct   = <?= json_encode($correct) ?>;
     const rationale = <?= json_encode($rationale) ?>;
+    const isCloze   = <?= $isCloze ? 'true' : 'false' ?>;
     let dragged = null;
-    let isReviewMode = false;
+    let locked  = false;
     let initialAnswers = [];
-    let hasInteracted = false; // Track if user has made first interaction
-    
-    // Drag and Drop Handles
-    $(document).on('dragstart', '.choice-item', function(e){
-        dragged = this;
-        $(this).css('opacity', '0.5');
+    let hasInteracted  = false;
+
+    const $blanks = () => isCloze ? $('.cloze-blank') : $('.blank');
+
+    // Timeout from parent (Pressure Mode)
+    window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'timeout') {
+            setReadOnlyState();
+            const ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(239,68,68,.08);display:flex;align-items:flex-start;justify-content:center;padding-top:20px;z-index:9999;pointer-events:none;';
+            ov.innerHTML = '<div style="background:#ef4444;color:#fff;padding:8px 22px;border-radius:100px;font-weight:800;font-size:13px;box-shadow:0 4px 16px rgba(239,68,68,.4);">⏰ Time Expired</div>';
+            document.body.appendChild(ov);
+        }
     });
 
-    $(document).on('dragend', '.choice-item', function(){
-        $(this).css('opacity', '1');
-    });
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 
-    $('.blank').on('dragover', function(e){ e.preventDefault(); $(this).addClass('active'); });
-    $('.blank').on('dragleave', function(){ $(this).removeClass('active'); });
-    
-    $('.blank').on('drop', function(e){
+    $(document).on('dragstart', '.choice-item', function(e){ dragged = this; $(this).css('opacity', '0.5'); });
+    $(document).on('dragend',   '.choice-item', function(){  $(this).css('opacity', '1'); });
+
+    $(document).on('dragover',  '.blank, .cloze-blank', function(e){ e.preventDefault(); $(this).addClass('active'); });
+    $(document).on('dragleave', '.blank, .cloze-blank', function(){ $(this).removeClass('active'); });
+    $(document).on('drop',      '.blank, .cloze-blank', function(e){
         e.preventDefault();
-        if(isReviewMode) return; // prevent changes in review mode
+        if(locked) return;
         $(this).removeClass('active');
         if(!dragged) return;
-
-        // CAPTURE INITIAL ANSWERS ON FIRST INTERACTION
         if(!hasInteracted) {
             hasInteracted = true;
-            $('.blank').each(function(i){
-                initialAnswers[i] = $(this).text().trim();
-            });
+            $blanks().each(function(i){ initialAnswers[i] = $(this).text().trim(); });
         }
-
-        let existing = $(this).contents().filter(function() { return this.nodeType === 3; }).text().trim();
         if($(this).hasClass('filled')) {
             $('#choicesBank').append(`<div class="choice-item" draggable="true">${$(this).text()}</div>`);
         }
-
-        $(this).text($(dragged).text().trim());
-        $(this).addClass('filled');
+        $(this).text($(dragged).text().trim()).addClass('filled');
         $(dragged).remove();
         dragged = null;
     });
 
-    // Return item on click
-    $('.blank').click(function(){
-        if(isReviewMode) return; // prevent changes in review mode
-        if(!$(this).hasClass('filled') || $(this).prop('disabled')) return;
-        
-        // Save initial on first interaction if not already done
+    $(document).on('click', '.blank, .cloze-blank', function(){
+        if(locked) return;
+        if(!$(this).hasClass('filled')) return;
         if(!hasInteracted) {
             hasInteracted = true;
-            $('.blank').each(function(i){
-                initialAnswers[i] = $(this).text().trim();
-            });
+            $blanks().each(function(i){ initialAnswers[i] = $(this).text().trim(); });
         }
-        
         $('#choicesBank').append(`<div class="choice-item" draggable="true">${$(this).text()}</div>`);
         $(this).text('Drop Here').removeClass('filled');
     });
 
-    function showResult(scoreHeader, userAnswers = [], prevInitial = []) {
-        $('.blank').removeClass('correct-reveal wrong-reveal omitted-reveal');
-        const displayInitial = prevInitial.length > 0 ? prevInitial : initialAnswers;
-        
-        $('.blank').each(function(i){
-            let txt = $(this).text().trim();
-            // Show omitted if was filled but now empty or different
-            if(displayInitial[i] && displayInitial[i] !== txt && txt !== 'Drop Here'){
-                $(this).addClass('omitted-reveal');
-            } else if(txt === correct[i]) {
-                $(this).addClass('correct-reveal');
-            } else {
-                $(this).addClass('wrong-reveal');
-            }
-        });
-
-        $('#resSummary').html(scoreHeader);
-        $('#rationaleText').html(rationale || "No rationale provided.");
-        $('#result').fadeIn();
-        $('.blank').css('cursor', 'default');
-        $('.choice-item').attr('draggable', false);
-        $('#submitBtn').hide();
+    function setReadOnlyState() {
+        $blanks().css('cursor', 'default');
+        $('.choice-item').attr('draggable', false).css('cursor', 'default');
+        $('#submitBtn').prop('disabled', true).hide();
+        locked = true;
     }
 
-
-
-    // Timeout from parent (Pressure Mode): lock UI
-    window.addEventListener('message', ev => {
-      if (ev.data?.type !== 'timeout') return;
-      $('.choice-item').attr('draggable', false).css('cursor', 'default');
-      $('.blank').css('cursor', 'default').off('dragover drop');
-      $('#submitBtn').hide();
-      const ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(239,68,68,.08);display:flex;align-items:flex-start;justify-content:center;padding-top:20px;z-index:9999;pointer-events:none;';
-      ov.innerHTML = '<div style="background:#ef4444;color:#fff;padding:8px 22px;border-radius:100px;font-weight:800;font-size:13px;box-shadow:0 4px 16px rgba(239,68,68,.4);">⏰ Time Expired</div>';
-      document.body.appendChild(ov);
-    });
-
-    window.addEventListener('message', (e) => {
-        if(e.data.type === 'prefill' || e.data.type === 'previous') {
-            isReviewMode = e.data.isReview ?? false;
-            const ans = e.data.answer || [];
-            const prevInitial = e.data.initial_answer || [];
-            
-            if(ans.length > 0) {
-                initialAnswers = prevInitial.length > 0 ? prevInitial : ans;
-                $('#prevBadge').show();
-                ans.forEach((val, i) => {
-                    if(val && val !== 'Drop Here') {
-                        let blank = $(`.blank:eq(${i})`);
-                        blank.text(val).addClass('filled');
-                        // Remove from bank if exists
-                        $('.choice-item').each(function(){
-                            if($(this).text().trim() === val) $(this).remove();
-                        });
-                    }
-                });
-                
-                if(e.data.showRationale) {
-                    let s = e.data.score || 0;
-                    showResult("Score: " + Math.round(s*100) + "%", ans, prevInitial);
-                }
-            }
-        }
-    });
-
     $('#submitBtn').click(function(){
-        if(isReviewMode) return; // Prevent resubmission in review mode
-        
+        if(locked) return;
+
         let userAnswers = [];
-        let incomplete = false;
-        $('.blank').each(function(){
+        let incomplete  = false;
+
+        $blanks().each(function(){
             let txt = $(this).text().trim();
             if(!$(this).hasClass('filled')) incomplete = true;
             userAnswers.push(txt);
@@ -467,22 +269,17 @@ $(document).ready(function(){
             Swal.fire({ icon:'warning', title:'Incomplete', text:'Please fill all blanks.' });
             return;
         }
-        
-        // Capture initial on submit if somehow not captured yet (safety net)
-        if(initialAnswers.length === 0){
-            initialAnswers = [...userAnswers];
-        }
+
+        if(initialAnswers.length === 0) initialAnswers = [...userAnswers];
 
         let earned = 0;
-        userAnswers.forEach((v, i) => { 
-            if(v.toString().trim().toLowerCase() === correct[i].toString().trim().toLowerCase()) earned++; 
+        userAnswers.forEach((v, i) => {
+            if(v.toString().trim().toLowerCase() === correct[i].toString().trim().toLowerCase()) earned++;
         });
 
-        const total = correct.length;
+        const total      = correct.length;
         const normalized = parseFloat((earned / total).toFixed(2));
-        showResult("Score: " + Math.round(normalized*100) + "% ("+earned+"/"+total+" pts)", userAnswers);
-        
-        // Calculate changes
+
         let changesData = null;
         if(JSON.stringify(initialAnswers) !== JSON.stringify(userAnswers)){
             changesData = {
@@ -491,86 +288,59 @@ $(document).ready(function(){
             };
         }
 
+        $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Submitting…');
+        setReadOnlyState();
+
         window.parent.postMessage({
-            type:'answered',
-            question_id: <?= json_encode($id) ?>,
-            answer: userAnswers,
+            type: 'answered',
+            question_id:   <?= json_encode($id) ?>,
+            answer:        userAnswers,
             initial_answer: initialAnswers.length > 0 ? initialAnswers : null,
-            correctAnswer: correct,
-            isCorrect: earned === total,
-            score: normalized,
-            max_points: total,
-            earned_points: earned,
-            changes: changesData,
-            rationale: rationale,
-            topic: <?= json_encode($topic) ?>,
+            correctAnswer:  correct,
+            correct:        earned === total,
+            score:          normalized,
+            max_points:     total,
+            earned_points:  earned,
+            changes:        changesData,
+            rationale:      rationale,
+            topic:   <?= json_encode($topic) ?>,
+            system:  <?= json_encode($system) ?>,
+            cnc:     <?= json_encode($cnc) ?>,
+            dlevel:  <?= json_encode($dlevel) ?>,
             question_type: 'dragndrop'
         }, '*');
     });
 
-    // ===== AUTO-SCROLL FOR DRAG & DROP ON MOBILE =====
+    // Auto-scroll for drag & drop on mobile
     let isDragging = false;
     let autoScrollInterval = null;
 
-    // Detect when dragging starts
-    $(document).on('dragstart', '.choice-item', function(e){
-        isDragging = true;
-    });
-
-    // Detect when dragging ends
-    $(document).on('dragend', '.choice-item', function(e){
+    $(document).on('dragstart', '.choice-item', function(){ isDragging = true; });
+    $(document).on('dragend',   '.choice-item', function(){
         isDragging = false;
         if (autoScrollInterval) clearInterval(autoScrollInterval);
     });
 
-    // Auto-scroll while dragging on desktop/mouse
     $(document).on('dragover', function(e){
         if (!isDragging) return;
-
         const mouseY = e.clientY;
-        const scrollThreshold = 100; // pixels from top/bottom
-        let scrollAmount = 0;
-
-        // Check if mouse is near top of viewport
-        if (mouseY < scrollThreshold) {
-            scrollAmount = -10; // scroll up
-        }
-        // Check if mouse is near bottom of viewport
-        else if (mouseY > window.innerHeight - scrollThreshold) {
-            scrollAmount = 10; // scroll down
-        }
-
-        if (scrollAmount !== 0) {
-            window.scrollBy(0, scrollAmount);
-        }
+        const scrollThreshold = 100;
+        if (mouseY < scrollThreshold) window.scrollBy(0, -10);
+        else if (mouseY > window.innerHeight - scrollThreshold) window.scrollBy(0, 10);
     });
 
-    // For touch/mobile drag - also monitor drag events on drop zones
     document.addEventListener('dragover', function(e){
         if (!isDragging) return;
-
-        // Get touch position if available (from DragDropTouch polyfill)
         let clientY = e.clientY;
-        if (clientY === 0 && e.touches && e.touches[0]) {
-            clientY = e.touches[0].clientY;
-        }
+        if (clientY === 0 && e.touches && e.touches[0]) clientY = e.touches[0].clientY;
+        if (clientY < 100) window.scrollBy(0, -10);
+        else if (clientY > window.innerHeight - 100) window.scrollBy(0, 10);
+    }, true);
 
-        const scrollThreshold = 100;
-        if (clientY < scrollThreshold) {
-            window.scrollBy(0, -10);
-        } else if (clientY > window.innerHeight - scrollThreshold) {
-            window.scrollBy(0, 10);
-        }
-    }, true); // Use capture phase for better responsiveness
-
-    // Final fallback for touch end
     $(document).on('touchend', function(){
         isDragging = false;
         if (autoScrollInterval) clearInterval(autoScrollInterval);
     });
-
-    // Signal parent that this iframe is ready to receive prefill data
-    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 });
 </script>
 </body>

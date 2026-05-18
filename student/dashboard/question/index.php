@@ -337,29 +337,219 @@ $answerUrl  = $answerBase . '?' . http_build_query([
   </div>
 </main>
 
-<script>
-// Per-question count-up timer
-let qSeconds = 0;
-const perTimerEl = document.getElementById('perTimer');
-setInterval(function () {
-  qSeconds++;
-  const m = Math.floor(qSeconds / 60);
-  const s = qSeconds % 60;
-  perTimerEl.textContent = m + ':' + (s < 10 ? '0' + s : s);
-}, 1000);
+<!-- ── Floating Tool Dock ── -->
+<div class="eq-tool-dock" id="toolDock">
+  <button class="eq-tool-btn" id="calcBtn" onclick="toggleTool('calc')" title="Calculator">
+    <i class="fa-solid fa-calculator"></i><span>Calc</span>
+  </button>
+  <button class="eq-tool-btn" id="noteBtn" onclick="toggleTool('note')" title="Notes">
+    <i class="fa-solid fa-note-sticky"></i><span>Notes</span>
+  </button>
+  <button class="eq-tool-btn" id="fsBtn" onclick="toggleFullscreen()" title="Fullscreen">
+    <i class="fa-solid fa-expand" id="fsIcon"></i><span>Full</span>
+  </button>
+</div>
 
-// Total session time — persisted in localStorage across pages
+<!-- ── Calculator Panel ── -->
+<div class="eq-tool-panel" id="calcPanel">
+  <div class="eq-tp-header"><span><i class="fa-solid fa-calculator me-2"></i>Calculator</span><button onclick="toggleTool('calc')">&times;</button></div>
+  <input class="eq-calc-display" id="calcDisplay" readonly value="0">
+  <div class="eq-calc-grid">
+    <button class="eq-calc-btn eq-cb-fn" onclick="calcClear()">C</button>
+    <button class="eq-calc-btn eq-cb-fn" onclick="calcDel()">⌫</button>
+    <button class="eq-calc-btn eq-cb-fn" onclick="calcInput('%')">%</button>
+    <button class="eq-calc-btn eq-cb-op" onclick="calcInput('/')">÷</button>
+    <button class="eq-calc-btn" onclick="calcInput('7')">7</button>
+    <button class="eq-calc-btn" onclick="calcInput('8')">8</button>
+    <button class="eq-calc-btn" onclick="calcInput('9')">9</button>
+    <button class="eq-calc-btn eq-cb-op" onclick="calcInput('*')">×</button>
+    <button class="eq-calc-btn" onclick="calcInput('4')">4</button>
+    <button class="eq-calc-btn" onclick="calcInput('5')">5</button>
+    <button class="eq-calc-btn" onclick="calcInput('6')">6</button>
+    <button class="eq-calc-btn eq-cb-op" onclick="calcInput('-')">−</button>
+    <button class="eq-calc-btn" onclick="calcInput('1')">1</button>
+    <button class="eq-calc-btn" onclick="calcInput('2')">2</button>
+    <button class="eq-calc-btn" onclick="calcInput('3')">3</button>
+    <button class="eq-calc-btn eq-cb-op" onclick="calcInput('+')">+</button>
+    <button class="eq-calc-btn" style="grid-column:span 2;" onclick="calcInput('0')">0</button>
+    <button class="eq-calc-btn" onclick="calcInput('.')">.</button>
+    <button class="eq-calc-btn eq-cb-eq" onclick="calcEval()">=</button>
+  </div>
+</div>
+
+<!-- ── Notes Panel ── -->
+<div class="eq-tool-panel" id="notePanel">
+  <div class="eq-tp-header"><span><i class="fa-solid fa-note-sticky me-2"></i>My Notes</span><button onclick="toggleTool('note')">&times;</button></div>
+  <textarea class="eq-note-area" id="noteArea" placeholder="Type your notes here…" oninput="saveNote()"></textarea>
+  <div class="eq-tp-footer">Auto-saved &nbsp;·&nbsp; <button onclick="clearNote()">Clear</button></div>
+</div>
+
+<style>
+/* ── Floating tool dock ── */
+.eq-tool-dock {
+  position: fixed;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 200;
+}
+.eq-tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 52px;
+  padding: 10px 4px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+.eq-tool-btn span { font-size: 0.6rem; font-weight: 600; }
+.eq-tool-btn:hover, .eq-tool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── Tool panels ── */
+.eq-tool-panel {
+  position: fixed;
+  right: 78px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 280px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.15);
+  border: 1px solid var(--border);
+  z-index: 199;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.eq-tool-panel.is-open { display: flex; }
+.eq-tp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.eq-tp-header button {
+  background: rgba(255,255,255,.15);
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  width: 24px; height: 24px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+/* Calculator */
+.eq-calc-display {
+  width: 100%;
+  background: #0a1628;
+  color: #5eead4;
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: right;
+  padding: 14px 16px;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 1px;
+}
+.eq-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+}
+.eq-calc-btn {
+  padding: 14px 0;
+  background: #fff;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  transition: background 0.1s;
+}
+.eq-calc-btn:hover { background: #f0fdf9; }
+.eq-cb-op  { color: var(--accent); }
+.eq-cb-fn  { color: #64748b; background: #f8fafc; }
+.eq-cb-eq  { background: var(--accent); color: #fff; }
+.eq-cb-eq:hover { background: #0b7e74; }
+/* Notes */
+.eq-note-area {
+  flex: 1;
+  resize: none;
+  border: none;
+  padding: 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text);
+  min-height: 200px;
+  outline: none;
+}
+.eq-tp-footer {
+  padding: 8px 14px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.eq-tp-footer button {
+  background: none; border: none;
+  color: #ef4444; font-size: 0.72rem;
+  cursor: pointer; padding: 0;
+  font-family: 'Inter', sans-serif;
+}
+@media (max-width: 640px) {
+  .eq-tool-dock { right: 10px; top: auto; bottom: 80px; transform: none; }
+  .eq-tool-panel { right: 0; left: 0; top: auto; bottom: 0; transform: none; width: 100%; border-radius: 16px 16px 0 0; }
+  .eq-note-area { min-height: 160px; }
+}
+</style>
+
+<script>
+// ── Timer setup — totalSeconds is the continuous session timer (shown in navbar) ──
+// qSeconds counts only this question's elapsed time, used only for time_taken DB field
 let totalSeconds = parseInt(localStorage.getItem('count')) || 0;
-setInterval(function () {
+let questionStartSeconds = totalSeconds; // snapshot at page load
+const perTimerEl = document.getElementById('perTimer');
+
+function fmtTime(s) { const m = Math.floor(s / 60), ss = s % 60; return m + ':' + (ss < 10 ? '0' + ss : ss); }
+
+// Show current session total immediately (no flash of 0:00)
+perTimerEl.textContent = fmtTime(totalSeconds);
+
+const totalTimerInterval = setInterval(function () {
   totalSeconds++;
+  perTimerEl.textContent = fmtTime(totalSeconds);
   localStorage.setItem('count', totalSeconds);
 }, 1000);
 
 function captureTime() {
-  document.getElementById('time_taken').value = qSeconds;
+  clearInterval(totalTimerInterval);
+  const timeTaken = totalSeconds - questionStartSeconds;
+  document.getElementById('time_taken').value = timeTaken;
   <?php if ($step === 150): ?>
   document.getElementById('totalTime').value = totalSeconds;
   <?php endif; ?>
+  localStorage.setItem('timer_paused', 'true');
+  localStorage.setItem('count', totalSeconds);
 }
 
 function selectChoice(val) {
@@ -379,10 +569,87 @@ function confirmEnd(bundleName) {
     cancelButtonText: 'Continue Studying'
   }).then(function (result) {
     if (result.isConfirmed) {
+      clearInterval(qTimerInterval);
+      clearInterval(totalTimerInterval);
       window.location.href = '../index.php?bundle_name=' + encodeURIComponent(bundleName);
     }
   });
 }
+
+// ── Tools ──
+let openPanel = null;
+function toggleTool(name) {
+  const panelId = name + 'Panel', btnId = name + 'Btn';
+  const panel = document.getElementById(panelId), btn = document.getElementById(btnId);
+  if (!panel) return;
+  if (panel.classList.contains('is-open')) {
+    panel.classList.remove('is-open'); btn.classList.remove('active');
+    openPanel = null;
+  } else {
+    if (openPanel) {
+      document.getElementById(openPanel + 'Panel')?.classList.remove('is-open');
+      document.getElementById(openPanel + 'Btn')?.classList.remove('active');
+    }
+    panel.classList.add('is-open'); btn.classList.add('active');
+    openPanel = name;
+    if (name === 'note') document.getElementById('noteArea').focus();
+  }
+}
+
+// Calculator logic
+let calcExpr = '', calcFresh = true;
+const calcDisplay = document.getElementById('calcDisplay');
+function calcInput(v) {
+  const ops = ['+','-','*','/','%'];
+  if (calcFresh && !ops.includes(v)) { calcExpr = ''; calcFresh = false; }
+  calcExpr += v;
+  calcDisplay.value = calcExpr;
+}
+function calcClear() { calcExpr = ''; calcDisplay.value = '0'; calcFresh = true; }
+function calcDel() {
+  calcExpr = calcExpr.slice(0, -1);
+  calcDisplay.value = calcExpr || '0';
+}
+function calcEval() {
+  try {
+    if (!/^[0-9+\-*/.() %]+$/.test(calcExpr)) { calcDisplay.value = 'Error'; return; }
+    const result = Function('"use strict"; return (' + calcExpr.replace(/%/g, '/100') + ')')();
+    calcDisplay.value = parseFloat(result.toFixed(10)).toString();
+    calcExpr = calcDisplay.value;
+    calcFresh = true;
+  } catch(e) { calcDisplay.value = 'Error'; calcExpr = ''; }
+}
+document.addEventListener('keydown', function(e) {
+  if (!document.getElementById('calcPanel').classList.contains('is-open')) return;
+  if (document.activeElement === document.getElementById('noteArea')) return;
+  if ('0123456789+-*/.'.includes(e.key)) { e.preventDefault(); calcInput(e.key); }
+  else if (e.key === 'Enter') { e.preventDefault(); calcEval(); }
+  else if (e.key === 'Backspace') { e.preventDefault(); calcDel(); }
+  else if (e.key === 'Escape') toggleTool('calc');
+});
+
+// Notes logic
+const NOTE_KEY = 'eq_notes_<?= intval($user_id) ?>';
+const noteArea = document.getElementById('noteArea');
+noteArea.value = localStorage.getItem(NOTE_KEY) || '';
+function saveNote() { localStorage.setItem(NOTE_KEY, noteArea.value); }
+function clearNote() {
+  if (confirm('Clear all notes?')) { noteArea.value = ''; localStorage.removeItem(NOTE_KEY); }
+}
+
+// Fullscreen
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    document.getElementById('fsIcon').className = 'fa-solid fa-compress';
+  } else {
+    document.exitFullscreen();
+    document.getElementById('fsIcon').className = 'fa-solid fa-expand';
+  }
+}
+document.addEventListener('fullscreenchange', function() {
+  document.getElementById('fsIcon').className = document.fullscreenElement ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+});
 </script>
 </body>
 </html>

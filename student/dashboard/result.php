@@ -242,12 +242,9 @@ $pageTitle = 'Test Results — Studium';
 
 </main>
 
-<div class="s-footer"><span>© Studium 2025, All Right Reserved.</span></div>
 
-<script src="../ty/js/bootstrap.bundle.min.js"></script>
 <script src="../ty/js/jquery-3.5.1.js"></script>
 <script src="../ty/js/jquery.dataTables.min.js"></script>
-<script src="../ty/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 $(document).ready(function () {

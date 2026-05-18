@@ -103,29 +103,28 @@ $narcan = $input['narcan'] ?? null;
 $concept = $input['concept'] ?? null;
 $questionDifficulty = 0.0; // default if column absent or metadata not fetched
 
+$tableMap = [
+    'highlight' => 'highlight',
+    'traditional' => 'traditional',
+    'mc' => 'traditional',
+    'bowtie' => 'btq',
+    'bt' => 'btq',
+    'mmr' => 'mmr',
+    'mpr' => 'mpr',
+    'sata' => 'sata',
+    'dropdown' => 'dropdown',
+    'ddl' => 'dropdown',
+    'dragndrop' => 'dragndrop',
+    'column' => 'column'
+];
+
 // If metadata not provided, try to fetch from appropriate table
 if (!isset($input['rationale']) && $question_id > 0) {
-    $tableMap = [
-        'highlight' => 'highlight',
-        'traditional' => 'traditional',
-        'mc' => 'traditional',
-        'bowtie' => 'btq',
-        'bt' => 'btq',
-        'mmr' => 'mmr',
-        'mpr' => 'mpr',
-        'sata' => 'sata',
-        'dropdown' => 'dropdown',
-        'ddl' => 'dropdown',
-        'dragndrop' => 'dragndrop',
-        'column' => 'column'
-    ];
-
-    if (!isset($tableMap[$question_type])) {
-        // Unknown type — skip metadata fetch, use defaults
-        $qData = null;
-    } else {
+    if (isset($tableMap[$question_type])) {
         $table = $tableMap[$question_type];
         $qData = db()->fetchOne("SELECT rationale, topic, system, cnc, dlevel, difficulty_logit, narcan, concept FROM `{$table}` WHERE id = ? LIMIT 1", [$question_id]);
+    } else {
+        $qData = null;
     }
     if ($qData) {
         $rationale = $qData['rationale'] ?? $rationale;
@@ -136,6 +135,19 @@ if (!isset($input['rationale']) && $question_id > 0) {
         $narcan = $qData['narcan'] ?? $narcan;
         $concept = $qData['concept'] ?? $concept;
         $questionDifficulty = isset($qData['difficulty_logit']) ? floatval($qData['difficulty_logit']) : 0.0;
+    }
+}
+
+// Always ensure concept is populated — fetch from question table when not in client payload
+if ($concept === null && isset($tableMap[$question_type])) {
+    // Resolve numeric ID: prefer explicit question_id, fall back to parsing question_uid (format: "type-NNN")
+    $resolvedId = $question_id > 0 ? $question_id : 0;
+    if ($resolvedId === 0 && preg_match('/-(\d+)$/', $question_uid, $m)) {
+        $resolvedId = (int)$m[1];
+    }
+    if ($resolvedId > 0) {
+        $cRow = db()->fetchOne("SELECT concept FROM `{$tableMap[$question_type]}` WHERE id = ? LIMIT 1", [$resolvedId]);
+        if ($cRow) $concept = $cRow['concept'] ?? null;
     }
 }
 

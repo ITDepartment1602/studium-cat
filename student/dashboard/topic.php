@@ -22,6 +22,18 @@ while ($row = mysqli_fetch_array($conceptQuery)) {
     $concepts[] = $row['title'];
 }
 
+// Pre-fetch ALL topics for ALL concepts at PHP time — eliminates AJAX latency on concept click
+$allConceptTopics = [];
+foreach ($concepts as $concept) {
+    $conceptEsc = mysqli_real_escape_string($con, $concept);
+    $tq = mysqli_query($con, "SELECT system, COUNT(*) as cnt FROM question WHERE topics1 = '$conceptEsc' AND system IS NOT NULL AND system != '' GROUP BY system ORDER BY system ASC");
+    $rows = [];
+    while ($tr = mysqli_fetch_assoc($tq)) {
+        $rows[] = ['system' => $tr['system'], 'count' => (int)$tr['cnt']];
+    }
+    $allConceptTopics[$concept] = $rows;
+}
+
 $conceptIcons = [
     'Adult Health'               => 'bi bi-person-fill',
     'Child Health'               => 'bi bi-emoji-smile-fill',
@@ -108,8 +120,7 @@ $pageTitle = 'Study Topics — Studium';
     }
     .s-topic-pill.disabled i { color: var(--s-muted); }
 
-    /* Topics card hidden until concept chosen */
-    #topicsCard { transition: opacity 0.3s; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .custom-confirm-button { background-color: #1e6091 !important; color: white !important; }
     .custom-cancel-button  { background-color: #ef4444 !important; color: white !important; }
@@ -150,32 +161,32 @@ $pageTitle = 'Study Topics — Studium';
     <?php endif; ?>
   </div>
 
-  <!-- Step 2: Topics (shown after concept selected) -->
-  <div class="s-card mb-4" id="topicsCard" style="display:none;">
+  <!-- Step 2: Topics (always visible) -->
+  <div class="s-card mb-4" id="topicsCard">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div class="s-card-title mb-0"><i class="bi bi-list-check"></i> Step 2 — Topics Included</div>
       <span id="topicsCount" style="font-size:0.72rem; color:var(--s-muted); font-weight:600;"></span>
     </div>
-    <p style="font-size:0.78rem; color:var(--s-muted); margin-bottom:16px;">
+    <p style="font-size:0.78rem; color:var(--s-muted); margin-bottom:16px;" id="topicsDesc">
       <i class="bi bi-info-circle me-1"></i>All topics below are automatically included. Your test will draw 150 random questions from this concept.
     </p>
-    <div id="topicsContainer" class="d-flex flex-wrap gap-2">
-      <div class="d-flex align-items-center gap-2" style="color:var(--s-muted); font-size:0.85rem;">
-        <span class="spinner-border spinner-border-sm" style="color:var(--s-accent);"></span> Loading topics…
+    <div id="topicsContainer" class="d-flex flex-wrap gap-2" style="min-height:72px; align-items:center;">
+      <div id="topics-placeholder" style="display:flex; align-items:center; gap:10px; color:var(--s-muted); font-size:0.84rem;">
+        <i class="bi bi-arrow-up-circle" style="font-size:1.3rem; color:var(--s-border-2);"></i>
+        <span>Select a concept above to see the topics included</span>
       </div>
     </div>
     <div id="topicsHidden"></div>
   </div>
 
-  <!-- Start Button -->
-  <div class="d-flex justify-content-end mb-4" id="startRow" style="display:none !important;">
-    <button class="s-btn s-btn-teal" id="startTestButton" style="padding:12px 36px; font-size:1rem;">
+  <!-- Start Button (always visible, disabled until concept chosen) -->
+  <div class="d-flex justify-content-end mb-4" id="startRow">
+    <button class="s-btn s-btn-teal" id="startTestButton" disabled style="padding:12px 36px; font-size:1rem; opacity:0.5; cursor:not-allowed;">
       <i class="bi bi-play-circle-fill me-2"></i> Start Study Session
     </button>
   </div>
 </main>
 
-<div class="s-footer"><span>© Studium 2025, All Right Reserved.</span></div>
 
 <!-- ── Study Session Instruction Overlay ── -->
 <div id="instrOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(10,22,40,0.97); align-items:center; justify-content:center; padding:20px;">
@@ -241,15 +252,15 @@ $pageTitle = 'Study Topics — Studium';
   </div>
 </div>
 
-<script src="../ty/js/bootstrap.bundle.min.js"></script>
 <script>
+// All topic data pre-computed server-side — zero AJAX latency on concept click
+const allTopics = <?= json_encode($allConceptTopics, JSON_UNESCAPED_UNICODE) ?>;
+
 document.addEventListener('DOMContentLoaded', function () {
-  const conceptLabels = document.querySelectorAll('.s-csel');
-  const topicsCard    = document.getElementById('topicsCard');
+  const conceptLabels  = document.querySelectorAll('.s-csel');
   const topicsContainer = document.getElementById('topicsContainer');
-  const topicsHidden  = document.getElementById('topicsHidden');
-  const topicsCount   = document.getElementById('topicsCount');
-  const startRow      = document.getElementById('startRow');
+  const topicsHidden   = document.getElementById('topicsHidden');
+  const topicsCount    = document.getElementById('topicsCount');
 
   let selectedConcept = null;
 
@@ -260,52 +271,38 @@ document.addEventListener('DOMContentLoaded', function () {
       this.querySelector('.conceptRadio').checked = true;
       selectedConcept = this.dataset.concept;
 
-      // Show topics card, show loading spinner
-      topicsCard.style.display = 'block';
-      topicsContainer.innerHTML = '<div class="d-flex align-items-center gap-2" style="color:var(--s-muted); font-size:0.85rem;"><span class="spinner-border spinner-border-sm" style="color:var(--s-accent);"></span> Loading topics…</div>';
-      topicsHidden.innerHTML = '';
-      topicsCount.textContent = '';
-      startRow.style.removeProperty('display');
+      const topics = allTopics[selectedConcept] || [];
+      if (topics.length === 0) {
+        topicsContainer.innerHTML = '<p style="color:var(--s-muted); font-size:0.85rem;">No topics found for this concept.</p>';
+        topicsHidden.innerHTML = '';
+        topicsCount.textContent = '';
+        return;
+      }
 
-      fetch(`get_topics.php?topics1=${encodeURIComponent(selectedConcept)}&format=pills`)
-        .then(r => r.json())
-        .then(data => {
-          if (!data.topics || data.topics.length === 0) {
-            topicsContainer.innerHTML = '<p style="color:var(--s-muted); font-size:0.85rem;">No topics found for this concept.</p>';
-            return;
-          }
+      let pillsHtml = '', hiddenHtml = '', total = 0;
+      topics.forEach(t => {
+        const disabled = t.count === 0 ? ' disabled' : '';
+        pillsHtml += `<div class="s-topic-pill${disabled}"><i class="bi bi-check-circle-fill"></i>${esc(t.system)}<span class="s-tp-count">(${t.count})</span></div>`;
+        if (t.count > 0) {
+          hiddenHtml += `<input type="hidden" class="topicHidden" value="${esc(encodeURIComponent(t.system)+'|'+encodeURIComponent(t.system))}" data-count="${t.count}">`;
+          total += t.count;
+        }
+      });
 
-          let pillsHtml = '';
-          let hiddenHtml = '';
-          let total = 0;
+      topicsContainer.innerHTML = pillsHtml;
+      topicsHidden.innerHTML = hiddenHtml;
+      topicsCount.textContent = `${topics.filter(t => t.count > 0).length} topics · ${total} questions`;
 
-          data.topics.forEach(t => {
-            const disabled = t.count === 0 ? ' disabled' : '';
-            pillsHtml += `
-              <div class="s-topic-pill${disabled}">
-                <i class="bi bi-check-circle-fill"></i>
-                ${escHtml(t.system)}
-                <span class="s-tp-count">(${t.count})</span>
-              </div>`;
-            if (t.count > 0) {
-              hiddenHtml += `<input type="hidden" class="topicHidden" value="${escHtml(t.value)}" data-count="${t.count}">`;
-              total += t.count;
-            }
-          });
-
-          topicsContainer.innerHTML = pillsHtml;
-          topicsHidden.innerHTML = hiddenHtml;
-          topicsCount.textContent = `${data.topics.filter(t => t.count > 0).length} topics · ${total} questions`;
-        })
-        .catch(() => {
-          topicsContainer.innerHTML = '<p style="color:#ef4444; font-size:0.85rem;">Failed to load topics. Please try again.</p>';
-        });
+      const btn = document.getElementById('startTestButton');
+      if (total >= 150) {
+        btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = '';
+      } else {
+        btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed';
+      }
     });
   });
 
-  function escHtml(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   document.getElementById('startTestButton').addEventListener('click', function (e) {
     e.preventDefault();

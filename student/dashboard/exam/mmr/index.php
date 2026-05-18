@@ -4,11 +4,10 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id > 0) {
-    $q = mysqli_query($con, "SELECT * FROM mmr WHERE id = " . $id . " LIMIT 1");
+    $q = mysqli_query($con, "SELECT * FROM mmr WHERE id = $id LIMIT 1");
 } else {
     $q = mysqli_query($con, "SELECT * FROM mmr ORDER BY RAND() LIMIT 1");
 }
-if (!$q) die('<div style="font-family: Arial; padding: 20px;">Database error: ' . htmlspecialchars(mysqli_error($con)) . '</div>');
 $data = mysqli_fetch_assoc($q);
 if (!$data) {
     die('<div style="font-family: Arial; padding: 20px;">No MMR question found.</div>');
@@ -19,11 +18,8 @@ $rows      = json_decode($data['rows']    ?: '[]', true) ?: [];
 $correct   = json_decode($data['correct'] ?: '{}', true) ?: [];
 $rationale = $data['rationale'] ?? '';
 
-// Tabs: spec §1.2 — JSON array of {title, content[]} objects from the `tabs` DB field.
-// Fall back to the legacy individual columns if `tabs` field is absent/empty.
 $tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
 if (empty($tabs_data)) {
-    // Legacy fallback: build tabs from old separate columns
     $nn = json_decode(($data['nurses_notes'] ?? '') ?: '[]', true) ?: [];
     $vs = json_decode(($data['vital_signs']  ?? '') ?: '[]', true) ?: [];
     $dx = json_decode(($data['diagnostics']  ?? '') ?: '[]', true) ?: [];
@@ -32,6 +28,11 @@ if (empty($tabs_data)) {
     if (!empty($dx))  $tabs_data[] = ['title' => 'Diagnostics',  'content' => $dx];
 }
 $hasTabs = !empty($tabs_data);
+
+$topic  = $data['topic']  ?? 'General';
+$system = $data['system'] ?? 'N/A';
+$cnc    = $data['cnc']    ?? 'N/A';
+$dlevel = $data['dlevel'] ?? 'N/A';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -40,6 +41,7 @@ $hasTabs = !empty($tabs_data);
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MMR Question</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <style>
@@ -56,222 +58,41 @@ $hasTabs = !empty($tabs_data);
 }
 
 html, body { height: 100%; margin: 0; padding: 0; overflow-x: hidden; }
-body {
-  font-family: 'Inter', sans-serif;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  max-width: 100vw;
-}
+body { font-family: 'Inter', sans-serif; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; max-width: 100vw; }
 
-.app-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-}
+.app-container { display: flex; flex-direction: column; height: 100%; max-width: 100%; overflow-x: hidden; }
+.main-content { display: flex; flex: 1; overflow: hidden; max-width: 100%; }
 
-.main-content {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  max-width: 100%;
-}
-
-
-/* RESPONSIVE */
-/* Moved responsive block to bottom of cascade */
-
-/* LEFT PANEL - CLINICAL DATA */
-.left-panel {
-  width: 45%;
-  background: var(--surface);
-  border-right: 2px solid var(--border);
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  padding: 16px 20px;
-  background: #f1f5f9;
-  border-bottom: 1px solid var(--border);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.tabs-nav {
-  display: flex;
-  padding: 12px 12px 0;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.tab-btn {
-  padding: 10px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 8px 8px 0 0;
-  transition: all 0.2s;
-  border: 1px solid transparent;
-}
-
+.left-panel { width: 45%; background: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; }
+.panel-header { padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.tabs-nav { display: flex; padding: 12px 12px 0; gap: 4px; border-bottom: 1px solid var(--border); }
+.tab-btn { padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; border: 1px solid transparent; }
 .tab-btn:hover { background: #f8fafc; color: var(--text); }
-.tab-btn.active {
-  background: var(--surface);
-  color: var(--accent);
-  border: 1px solid var(--border);
-  border-bottom-color: var(--surface);
-  margin-bottom: -1px;
-}
+.tab-btn.active { background: var(--surface); color: var(--accent); border: 1px solid var(--border); border-bottom-color: var(--surface); margin-bottom: -1px; }
+.tab-content-area { flex: 1; overflow-y: auto; padding: 24px; }
+.clinical-list { list-style: none; }
+.clinical-list li { padding: 12px 16px; background: #f8fafc; border-radius: 8px; margin-bottom: 10px; font-size: 14px; line-height: 1.5; border: 1px solid #f1f5f9; }
 
-.tab-content-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-}
+.right-panel { width: 55%; background: white; overflow-y: auto; padding: 32px; }
+.matrix-card { max-width: 100%; }
+.question-title { font-size: 18px; font-weight: 700; line-height: 1.6; margin-bottom: 24px; color: var(--primary); }
 
-.clinical-list {
-  list-style: none;
-}
-
-.clinical-list li {
-  padding: 12px 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  border: 1px solid #f1f5f9;
-}
-
-/* RIGHT PANEL - MATRIX */
-.right-panel {
-  width: 55%;
-  background: white;
-  overflow-y: auto;
-  padding: 32px;
-}
-
-.matrix-card {
-  max-width: 100%;
-}
-
-.question-title {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.6;
-  margin-bottom: 24px;
-  color: var(--primary);
-}
-
-.matrix-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.matrix-table th {
-  background: #f8fafc;
-  padding: 16px;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  text-align: center;
-}
-
-.matrix-table td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  text-align: center;
-}
-
-.matrix-table td:first-child {
-  text-align: left;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text);
-  background: #fcfcfd;
-  width: 40%;
-}
-
+.matrix-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.matrix-table th { background: #f8fafc; padding: 16px; font-size: 12px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); text-align: center; }
+.matrix-table td { padding: 12px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); text-align: center; }
+.matrix-table td:first-child { text-align: left; font-size: 14px; color: var(--text); background: #fcfcfd; width: 40%; }
 .matrix-table tr:last-child td { border-bottom: none; }
 .matrix-table th:last-child, .matrix-table td:last-child { border-right: none; }
+.matrix-checkbox { width: 22px; height: 22px; cursor: pointer; }
 
-.matrix-checkbox {
-  width: 22px;
-  height: 22px;
-  cursor: pointer;
-}
+.footer { position: sticky; bottom: 0; background: white; border-top: 1px solid var(--border); padding: 16px 0 20px; display: flex; justify-content: center; z-index: 10; }
+@media (max-width: 600px) { .footer { padding: 16px; } .footer .btn { min-width: 0; width: 100%; font-size: 15px; } }
 
-/* Reveal Colors */
-.cell-correct { background-color: #ecfdf5 !important; }
-.cell-wrong { background-color: #fef2f2 !important; }
-.cell-omitted { background-color: #fffbeb !important; text-decoration: line-through; opacity: 0.75; }
+.btn { padding: 14px 40px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; border: none; transition: all .2s ease; min-width: 220px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; box-shadow: 0 4px 14px rgba(59,130,246,.4); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.5); }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none !important; box-shadow: none; }
 
-/* FOOTER */
-.footer {
-  padding: 16px 32px;
-  background: white;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-@media (max-width: 600px) {
-  .footer { padding: 16px; justify-content: stretch; }
-  .footer .btn { width: 100%; font-size: 15px; padding: 14px; }
-}
-
-.btn {
-  padding: 12px 28px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary { background: var(--primary); color: white; }
-.btn-primary:hover { background: #1e293b; }
-.btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-muted); }
-
-#result {
-  margin-top: 24px;
-  padding: 20px;
-  background: #fafafa;
-  border-radius: 12px;
-  border-left: 4px solid var(--accent);
-  display: none;
-}
-
-.previous-badge {
-    display: none;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border-left: 4px solid #cbd5e1;
-}
-
-/* RESPONSIVE CSS MUST BE LAST IN CASCADE */
 @media (max-width: 900px) {
   .main-content { flex-direction: column; overflow: visible; display: block; height: auto; }
   .left-panel, .right-panel { width: 100%; height: auto; flex: none; border-right: none; overflow: visible; }
@@ -294,7 +115,6 @@ body {
 
 <div class="app-container">
     <div class="main-content">
-        <!-- Clinical Panel — shown only when the question has tabs data -->
         <?php if ($hasTabs): ?>
         <div class="left-panel">
             <div class="panel-header">Client Records</div>
@@ -317,15 +137,10 @@ body {
         </div>
         <?php endif; ?>
 
-        <!-- Question Panel — expands to full width when no tabs -->
         <div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
-            <div class="previous-badge" id="prevBadge">
-                <i class="fas fa-lock"></i> This matrix has been submitted and is now read-only.
-            </div>
-
             <div class="matrix-card">
                 <h2 class="question-title"><?= nl2br(htmlspecialchars($data['question'])) ?></h2>
-                
+
                 <form id="mmrForm">
                     <table class="matrix-table">
                         <thead>
@@ -348,18 +163,12 @@ body {
                         </tbody>
                     </table>
                 </form>
-
-                <div id="result">
-                    <div style="font-weight:800; color:var(--text-muted); font-size:12px; margin-bottom:8px; text-transform:uppercase;">Analysis & Rationale</div>
-                    <div id="resSummary" style="font-weight:700; color:var(--text); margin-bottom:12px;"></div>
-                    <div id="rationaleText" style="line-height:1.6; color:var(--text); font-size:14px;"></div>
-                </div>
             </div>
         </div>
     </div>
 
     <div class="footer">
-        <button id="submitBtn" class="btn btn-primary">Submit Matrix</button>
+        <button id="submitBtn" class="btn btn-primary"><i class="fas fa-check-circle"></i> Submit Matrix</button>
     </div>
 </div>
 
@@ -368,134 +177,50 @@ $(document).ready(function(){
     const columns = <?= json_encode($columns) ?>;
     const correct = <?= json_encode($correct) ?>;
     const rationale = <?= json_encode($rationale) ?>;
-    let isReviewMode = false;
+    let locked = false;
     let initialAnswers = {};
     let hasInteracted = false;
-    
-    // Capture initial state on page load (for fresh exams)
-    function captureInitialState() {
-        if(Object.keys(initialAnswers).length === 0) {
-            let init = {};
-            columns.forEach(col => {
-                init[col] = [];
-                $(`input[name="${col}[]"]:checked`).each(function(){
-                    init[col].push($(this).val());
-                });
-            });
-            initialAnswers = init;
+
+    // Timeout from parent (Pressure Mode)
+    window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'timeout') {
+            setReadOnlyState();
+            const ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(239,68,68,.08);display:flex;align-items:flex-start;justify-content:center;padding-top:20px;z-index:9999;pointer-events:none;';
+            ov.innerHTML = '<div style="background:#ef4444;color:#fff;padding:8px 22px;border-radius:100px;font-weight:800;font-size:13px;box-shadow:0 4px 16px rgba(239,68,68,.4);">⏰ Time Expired</div>';
+            document.body.appendChild(ov);
         }
-    }
-    setTimeout(captureInitialState, 50);
-    
-    // Tabs
+    });
+
+    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
+
     $('.tab-btn').click(function(){
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
         $('.tab-pane').hide();
         $('#' + $(this).data('tab')).show();
     });
-    
-    // Prevent checkbox changes in review mode
-    $('input.matrix-checkbox').click(function(e){
-        if(isReviewMode) {
-            e.preventDefault();
-            return false;
+
+    $('input.matrix-checkbox').click(function(){
+        if(locked) { return false; }
+        if(!hasInteracted) {
+            hasInteracted = true;
+            columns.forEach(col => {
+                initialAnswers[col] = [];
+                $(`input[name="${col}[]"]:checked`).each(function(){ initialAnswers[col].push($(this).val()); });
+            });
         }
-        
-        hasInteracted = true;  // Mark that user has interacted
     });
 
-    function showResult(scoreHeader, prevAnswers = {}) {
-        $('.matrix-table td').removeClass('cell-correct cell-wrong cell-omitted');
-        
-        const displayInitial = Object.keys(prevAnswers).length > 0 ? prevAnswers : initialAnswers;
-        
-        // Use the same robust key matching as in the scoring logic
-        const getCorrectList = (colName) => {
-            const key = Object.keys(correct).find(k => k.trim().toLowerCase() === colName.trim().toLowerCase());
-            return key ? correct[key] : [];
-        };
-
-        columns.forEach(col => {
-            const list = getCorrectList(col);
-            const listLower = list.map(s => s.toString().trim().toLowerCase());
-            const initialList = displayInitial[col] || [];
-            const initialLower = initialList.map(s => s.toString().trim().toLowerCase());
-
-            $(`input[name="${col}[]"]`).each(function(){
-                let val = $(this).val().trim().toLowerCase();
-                let parent = $(this).parent();
-                let isCorrect = listLower.includes(val);
-                let wasInitial = initialLower.includes(val);
-                let isNowChecked = $(this).is(':checked');
-                
-                // Show omitted if was checked initially but not now
-                if(wasInitial && !isNowChecked) {
-                    parent.addClass('cell-omitted');
-                } else if(isCorrect) {
-                    parent.addClass('cell-correct');
-                } else if(isNowChecked) {
-                    parent.addClass('cell-wrong');
-                }
-            });
-        });
-
-        $('#resSummary').html(scoreHeader);
-        $('#rationaleText').html(rationale || "No rationale provided.");
-        $('#result').fadeIn();
-        
+    function setReadOnlyState() {
         $('input.matrix-checkbox').prop('disabled', true);
-        $('#submitBtn').hide();
+        $('#submitBtn').prop('disabled', true).hide();
+        locked = true;
     }
 
-
-
-    // Timeout from parent (Pressure Mode): lock UI
-    window.addEventListener('message', e => {
-      if (e.data?.type !== 'timeout') return;
-      $('input.matrix-checkbox').prop('disabled', true);
-      $('#submitBtn').hide();
-      const ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(239,68,68,.08);display:flex;align-items:flex-start;justify-content:center;padding-top:20px;z-index:9999;pointer-events:none;';
-      ov.innerHTML = '<div style="background:#ef4444;color:#fff;padding:8px 22px;border-radius:100px;font-weight:800;font-size:13px;box-shadow:0 4px 16px rgba(239,68,68,.4);">⏰ Time Expired</div>';
-      document.body.appendChild(ov);
-    });
-
-    window.addEventListener('message', (event) => {
-        if(event.data.type === 'prefill' || event.data.type === 'previous'){
-            isReviewMode = event.data.isReview ?? false;
-            const prev = event.data.answer || {};
-            const prevInitial = event.data.initial_answer || {};
-            
-            let hasAnswers = false;
-            Object.keys(prev).forEach(col => {
-                if(prev[col].length > 0) hasAnswers = true;
-                prev[col].forEach(val => {
-                    $(`input[name="${col}[]"][value="${val}"]`).prop('checked', true);
-                });
-            });
-            
-            // Track initial answers
-            initialAnswers = Object.keys(prevInitial).length > 0 ? prevInitial : prev;
-
-            if(hasAnswers) {
-                $('#prevBadge').show();
-                if(event.data.showRationale) {
-                    let score = event.data.score || 0;
-                    let earned = event.data.earned_points || 0;
-                    let max = event.data.max_points || 0;
-                    showResult("Score: " + Math.round(score*100) + "% ("+earned+"/"+max+" pts)", prevInitial);
-                }
-            }
-        }
-    });
-
-    // Signal parent that this iframe is ready to receive prefill data
-    if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
-
     $('#submitBtn').click(function(){
-        if(isReviewMode) return; // Prevent resubmission in review mode
-        
+        if(locked) return;
+
         let valid = true;
         columns.forEach(col => {
             if($(`input[name="${col}[]"]:checked`).length === 0) valid = false;
@@ -511,48 +236,39 @@ $(document).ready(function(){
             userAns[col] = [];
             $(`input[name="${col}[]"]:checked`).each(function(){ userAns[col].push($(this).val()); });
         });
-        
-        // Capture initial if not done yet (safety net)
+
         if(Object.keys(initialAnswers).length === 0){
             initialAnswers = JSON.parse(JSON.stringify(userAns));
         }
 
-        let earned = 0;
-        let totalMax = 0;
-        
-        // Use a more robust case-insensitive key matching for columns
         const getCorrectList = (colName) => {
             const key = Object.keys(correct).find(k => k.trim().toLowerCase() === colName.trim().toLowerCase());
             return key ? correct[key] : [];
         };
 
+        let earned = 0, totalMax = 0;
         columns.forEach(col => {
             const list = getCorrectList(col);
             totalMax += list.length;
-            
             $(`input[name="${col}[]"]`).each(function(){
                 let val = $(this).val().trim().toLowerCase();
                 let checked = $(this).is(':checked');
-                let isCorrect = list.map(s => s.toString().trim().toLowerCase()).includes(val);
-                
-                if(isCorrect && checked) earned++;
-                else if(!isCorrect && checked) earned--;
+                let isCorr = list.map(s => s.toString().trim().toLowerCase()).includes(val);
+                if(isCorr && checked) earned++;
+                else if(!isCorr && checked) earned--;
             });
         });
 
         earned = Math.max(0, earned);
         let normalized = totalMax > 0 ? parseFloat((earned / totalMax).toFixed(2)) : 0;
 
-        showResult("Score: " + Math.round(normalized*100) + "% ("+earned+"/"+totalMax+" pts)");
-        
-        // Calculate changes
         let changesData = null;
         if(JSON.stringify(initialAnswers) !== JSON.stringify(userAns)){
-            changesData = {
-                modified_count: 1,
-                changed: true
-            };
+            changesData = { modified_count: 1, changed: true };
         }
+
+        $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Submitting…');
+        setReadOnlyState();
 
         window.parent.postMessage({
             type: 'answered',
@@ -565,11 +281,11 @@ $(document).ready(function(){
             earned_points: earned,
             changes: changesData,
             rationale: rationale,
-            topic: <?= json_encode($data['topic'] ?? 'General') ?>,
-            system: <?= json_encode($data['system'] ?? 'N/A') ?>,
-            cnc: <?= json_encode($data['cnc'] ?? 'N/A') ?>,
-            dlevel: <?= json_encode($data['dlevel'] ?? 'N/A') ?>,
-            question_id: <?= json_encode($data['id']) ?>,
+            topic:   <?= json_encode($data['topic']  ?? 'General') ?>,
+            system:  <?= json_encode($data['system'] ?? 'N/A') ?>,
+            cnc:     <?= json_encode($data['cnc']    ?? 'N/A') ?>,
+            dlevel:  <?= json_encode($data['dlevel'] ?? 'N/A') ?>,
+            question_id:   <?= json_encode($data['id']) ?>,
             question_type: 'mmr'
         }, '*');
     });

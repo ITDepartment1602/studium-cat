@@ -107,6 +107,14 @@ $examTakenJs   = json_encode($examTaken);
 $userIdJs      = json_encode($user_id);
 $fullnameJs    = json_encode($fullname);
 $targetTotalJs = json_encode($TARGET_TOTAL);
+
+// Build per-type quota map (sum quotas when multiple specs share a type)
+$typeQuotaMap = [];
+foreach ($examDistribution as $spec) {
+    $t = $spec['type'];
+    $typeQuotaMap[$t] = ($typeQuotaMap[$t] ?? 0) + $spec['quota'];
+}
+$typeQuotaMapJs = json_encode($typeQuotaMap);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -339,7 +347,7 @@ $targetTotalJs = json_encode($TARGET_TOTAL);
     <span class="diff-badge diff-moderate" id="diffBadge">MEDIUM</span>
     <span id="srcTableBadge" style="padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.12);color:#94a3b8;border:1px solid rgba(255,255,255,.15);">—</span>
     <span id="debugBadge" style="display:none;padding:3px 10px;border-radius:6px;font-size:9px;font-weight:700;font-family:monospace;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3);">θ=0.000</span>
-    <span id="debugAnswerBadge" style="padding:3px 10px;border-radius:6px;font-size:9px;font-weight:700;font-family:monospace;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);">Ans: —</span>
+    <span id="debugAnswerBadge" onclick="showAnswerModal()" style="padding:3px 10px;border-radius:6px;font-size:9px;font-weight:700;font-family:monospace;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);cursor:pointer;user-select:none;" title="Click to see full answer">Ans: —</span>
   </div>
 
   <div class="nav-center">
@@ -703,22 +711,25 @@ class IRTEngine {
     return 1.0 / Math.sqrt(info);
   }
 
-  // Select item maximising Fisher Information at θ̂ (b ≈ θ)
+  // Select from top-K items by Fisher Information (K=5 random tie-break prevents same Q1 every exam)
   selectNextItem(pool) {
-    let best = null, bestInfo = -Infinity;
-    for (const item of pool) {
-      const fi = this.information(this.theta, item.b);
-      if (fi > bestInfo) { bestInfo = fi; best = item; }
-    }
-    return best;
+    if (!pool.length) return null;
+    const K = Math.min(5, pool.length);
+    const ranked = pool
+      .map(item => ({ item, fi: this.information(this.theta, item.b) }))
+      .sort((a, b) => b.fi - a.fi)
+      .slice(0, K);
+    return ranked[Math.floor(Math.random() * ranked.length)].item;
   }
 
   // NCLEX-style 95% CI stopping rule
   checkIRTStopping(minItems) {
     if (this.history.length < minItems) return null;
-    const ci = 1.96 * this.sem;
-    if (this.theta - ci > this.passingLogit) return 'irt_pass';
-    if (this.theta + ci < this.passingLogit) return 'irt_fail';
+    const ci  = IRT_CONFIDENCE * this.sem;
+    const low  = this.theta - ci;
+    const high = this.theta + ci;
+    if (low  > PASSING_LOGIT) return 'irt_pass';
+    if (high < PASSING_LOGIT) return 'irt_fail';
     return null;
   }
 
@@ -726,16 +737,21 @@ class IRTEngine {
   restore(s)  { this.theta = s.theta; this.sem = s.sem; this.history = s.history; }
 }
 
+// Selected concepts filter (populated by concept selection UI — empty = all concepts)
+let selectedConceptFilter = [];
+
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 const DIFF_MAP = { easy: -1.5, moderate: 0.0, medium: 0.0, hard: 1.5 };
 const DIFF_WEIGHTS = {
   easy:     { correct: 1.0 }, moderate: { correct: 1.2 },
   medium:   { correct: 1.2 }, hard:     { correct: 1.5 },
 };
-const TARGET_TOTAL           = <?= $targetTotalJs ?>;
-const MIN_ITEMS_BEFORE_CHECK = Math.floor(TARGET_TOTAL / 2);
-const MAX_ITEMS              = TARGET_TOTAL;
-const PASS_THRESHOLD         = 85;
+const IS_DEV_MODE    = true;                        // flip to false in production
+const MIN_ITEMS      = IS_DEV_MODE ? 10  : 85;      // minimum before CI check (NCSBN: 85)
+const TARGET_TOTAL   = <?= $targetTotalJs ?>;
+const MAX_ITEMS      = TARGET_TOTAL;                 // max items (NCSBN: 150 in prod)
+const PASSING_LOGIT  = 0.0;                          // NCSBN logit passing standard (real NCLEX-RN 2023 = -0.37)
+const IRT_CONFIDENCE = 1.96;                         // 95% CI z-score
 const NORMAL_TIME_LIMIT      = 7200; // 2 hours in seconds
 const PRESSURE_TIMERS = {
   mc: 60, sata: 120, mmr: 180, mpr: 180,
@@ -744,6 +760,7 @@ const PRESSURE_TIMERS = {
 
 // ── PHP → JS BOOTSTRAP ───────────────────────────────────────────────────────
 const examPool      = <?= $examPoolJs ?>;
+const typeQuota     = <?= $typeQuotaMapJs ?>;   // max items per type (enforced in selection)
 let   questionIds   = [];
 const examTaken     = <?= $examTakenJs ?>;
 const authUserId    = <?= $userIdJs ?>;
@@ -775,6 +792,7 @@ let totalSeconds     = 0;
 let currentQuestion  = 0;
 let correctStreak    = 0;
 let wrongStreak      = 0;
+let lastAnswerFull   = '';
 
 // ── TIMER ─────────────────────────────────────────────────────────────────────
 let startTime = Date.now();
@@ -833,6 +851,12 @@ async function handleTimeExpired() {
   if (isExiting) return;
   isExiting = true;
   clearInterval(pressureTimerInterval);
+
+  const answered = Object.keys(userAnswers).length;
+  const termReason  = answered < MIN_ITEMS ? 'time_expired_insufficient' : 'time_expired';
+  // NCSBN ROT rule: < MIN_ITEMS = auto-FAIL; else final theta decision
+  const termResult  = (answered < MIN_ITEMS) ? 'FAILED' : (irt.theta > PASSING_LOGIT ? 'PASSED' : 'FAILED');
+
   try {
     await pendingSave;
     const pct = calculateCompetencyPercent();
@@ -840,12 +864,12 @@ async function handleTimeExpired() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         examTaken,
-        termination_reason: 'time_expired',
-        final_result:  pct >= PASS_THRESHOLD ? 'PASSED' : 'FAILED',
+        termination_reason: termReason,
+        final_result:  termResult,
         final_percent: pct,
         final_theta:   irt.theta,
         final_sem:     irt.sem,
-        total_items:   Object.keys(userAnswers).length,
+        total_items:   answered,
         exam_duration: totalSeconds,
         is_auto_terminate: true,
       })
@@ -854,13 +878,11 @@ async function handleTimeExpired() {
     if (data.ok) localStorage.removeItem(answerCacheKey);
   } catch(err) { console.error('time_expired submit:', err); }
 
-  const pct = calculateCompetencyPercent();
   await Swal.fire({
     icon: 'warning', title: '⏰ Time Expired',
-    html: `<div style="font-size:26px;font-weight:900;margin-bottom:6px;">${Math.round(pct)}%</div>
-           <div style="font-size:13px;color:#64748b;">Your 2-hour exam time has elapsed. Exam auto-submitted.</div>`,
+    html: `<div style="font-size:13px;color:#64748b;">Your 2-hour exam time has elapsed. Exam auto-submitted.</div>`,
     confirmButtonText: 'View Results',
-    confirmButtonColor: pct >= PASS_THRESHOLD ? '#10b981' : '#ef4444',
+    confirmButtonColor: '#64748b',
     allowOutsideClick: false, allowEscapeKey: false,
   });
   window.location.href = `result.php?examTaken=${examTaken}&finish=1`;
@@ -946,45 +968,60 @@ async function handleQuestionTimeout() {
   setTimeout(advanceQuestion, 600);
 }
 
-// ── STOPPING RULES ────────────────────────────────────────────────────────────
+// ── STOPPING RULES (NCSBN NCLEX CAT) ─────────────────────────────────────────
 function checkExamTermination() {
   const answered = Object.keys(userAnswers).length;
-  if (answered < MIN_ITEMS_BEFORE_CHECK) return null;
+
+  // Gate: minimum items not yet met
+  if (answered < MIN_ITEMS) return null;
 
   const pct = calculateCompetencyPercent();
 
-  // Rule 1 — Pass at 85%
-  if (pct >= PASS_THRESHOLD) return { result:'PASSED', reason:'pass_85', percent: pct };
+  // Rule 1 (PRIMARY) — IRT 95% Confidence Interval
+  const ciHalf    = IRT_CONFIDENCE * irt.sem;
+  const thetaLow  = irt.theta - ciHalf;
+  const thetaHigh = irt.theta + ciHalf;
 
-  // Rule 2 — Mathematically impossible to reach 85%
-  const remaining = MAX_ITEMS - answered;
-  const we = getTotalWeightedEarned(), wp = getTotalWeightedPossible();
-  const maxFuture = remaining * 1.5; // best case: all hard, all correct
-  const maxPct = ((we + maxFuture) / (wp + maxFuture)) * 100;
-  if (maxPct < PASS_THRESHOLD) return { result:'FAILED', reason:'fail_impossible', percent: pct };
+  if (thetaLow > PASSING_LOGIT) {
+    return { result: 'PASSED', reason: 'irt_pass', percent: pct };
+  }
+  if (thetaHigh < PASSING_LOGIT) {
+    return { result: 'FAILED', reason: 'irt_fail', percent: pct };
+  }
 
-  // Rule 3 — Max items
+  // Rule 2 — Mercy rule: if even perfect performance on remaining items can't recover
+  if (answered >= 20) {
+    const remaining = MAX_ITEMS - answered;
+    const maxThetaGain = remaining * 0.15; // conservative per-item gain estimate
+    if (irt.theta + maxThetaGain < PASSING_LOGIT - 0.5) {
+      return { result: 'FAILED', reason: 'mercy_rule', percent: pct };
+    }
+  }
+
+  // Rule 3 (SECONDARY) — Maximum items exhausted, use ROTC rule
   if (answered >= MAX_ITEMS) {
-    return { result: pct >= PASS_THRESHOLD ? 'PASSED' : 'FAILED', reason:'completed_max', percent: pct };
+    const recentCount   = Math.ceil(answered * 0.6);
+    const recentItems   = irt.history.slice(-recentCount);
+    const recentCorrect = recentItems.filter(h => h.x >= 0.5).length;
+    const recentRatio   = recentCorrect / Math.max(recentCount, 1);
+    // If CI still straddles the passing standard, use recent-item ratio as tiebreaker
+    const result = (irt.theta > PASSING_LOGIT || recentRatio >= 0.5) ? 'PASSED' : 'FAILED';
+    return { result, reason: 'completed_max', percent: pct };
   }
 
-  // Rule 4 — IRT 95% CI
-  const irtStop = irt.checkIRTStopping(MIN_ITEMS_BEFORE_CHECK);
-  if (irtStop) {
-    return { result: irtStop === 'irt_pass' ? 'PASSED' : 'FAILED', reason: irtStop, percent: pct };
-  }
-
-  return null;
+  return null; // CI unresolved — continue
 }
 
 // ── AUTO-TERMINATION ──────────────────────────────────────────────────────────
 const TERM_REASONS = {
-  pass_85:        'You achieved 85% competency!',
-  fail_impossible:'It is mathematically impossible to reach 85% with remaining questions.',
-  completed_max:  `All ${MAX_ITEMS} questions answered.`,
-  irt_pass:       'IRT analysis confirms competency at 95% confidence.',
-  irt_fail:       'IRT analysis confirms insufficient competency at 95% confidence.',
-  time_expired:   'Examination time limit (2 hours) reached.',
+  irt_pass:                  'IRT 95% CI confirms ability above the passing standard.',
+  irt_fail:                  'IRT 95% CI confirms ability below the passing standard.',
+  mercy_rule:                'Performance trajectory indicates inability to reach passing standard.',
+  completed_max:             `All ${MAX_ITEMS} questions answered.`,
+  time_expired:              'Examination time limit reached — exam auto-submitted.',
+  time_expired_insufficient: 'Time limit reached before minimum items — exam auto-failed.',
+  pool_exhausted:            'Question pool exhausted.',
+  manual_finish:             'Exam manually submitted.',
 };
 async function handleAutoTermination(term) {
   isExiting = true;
@@ -1002,6 +1039,7 @@ async function handleAutoTermination(term) {
         total_items:    Object.keys(userAnswers).length,
         exam_duration:  totalSeconds,
         is_auto_terminate: true,
+        selected_concepts: typeof selectedConceptFilter !== 'undefined' ? selectedConceptFilter : [],
       })
     });
     const data = await res.json();
@@ -1034,10 +1072,51 @@ async function handleAutoTermination(term) {
   window.location.href = `result.php?examTaken=${examTaken}&finish=1`;
 }
 
-// ── ADAPTIVE SELECTION ────────────────────────────────────────────────────────
+// ── ADAPTIVE SELECTION (content-balanced) ────────────────────────────────────
 function getNextAdaptiveQuestion() {
   if (remainingPool.length === 0) return null;
-  const selected = irt.selectNextItem(remainingPool);
+
+  const answeredCount  = Object.keys(userAnswers).length;
+  const remainingSlots = MAX_ITEMS - answeredCount;
+
+  // Tally how many times each type has been answered
+  const typeSeen = {};
+  for (const uid in userAnswers) {
+    const t = userAnswers[uid].question_type;
+    typeSeen[t] = (typeSeen[t] || 0) + 1;
+  }
+
+  // Enforce quota: exclude types that have already hit their max count
+  const quotaPool = remainingPool.filter(i => (typeSeen[i.type] || 0) < (typeQuota[i.type] ?? MAX_ITEMS));
+  // If quota enforcement empties the pool (shouldn't happen), fall back to full pool
+  const activePool = quotaPool.length > 0 ? quotaPool : remainingPool;
+
+  // Types still available after quota enforcement
+  const poolTypeSet = new Set(activePool.map(i => i.type));
+
+  // Types that have never appeared (and still have quota-eligible pool items)
+  const allUnseen = [...poolTypeSet].filter(t => !typeSeen[t]);
+
+  // Interleave types evenly: introduce a new type every (MAX_ITEMS / totalTypes) questions.
+  const uniqueTypes   = new Set([...poolTypeSet, ...Object.keys(typeSeen)]).size;
+  const introInterval = Math.max(2, Math.floor(MAX_ITEMS / uniqueTypes)); // e.g. 30/9 ≈ 3
+  const seenTypeCount  = Object.keys(typeSeen).length;
+  const expectedSeen   = Math.min(uniqueTypes, Math.floor(answeredCount / introInterval) + 1);
+  const overdue = allUnseen.filter(() => seenTypeCount < expectedSeen);
+
+  let selectionPool = activePool;
+
+  if (allUnseen.length > 0 && remainingSlots <= allUnseen.length + 2) {
+    // Crunch time — must fill remaining slots with unseen types
+    const filtered = activePool.filter(i => allUnseen.includes(i.type));
+    if (filtered.length > 0) selectionPool = filtered;
+  } else if (overdue.length > 0) {
+    // Scheduled introduction — interleave unseen types throughout the exam
+    const filtered = activePool.filter(i => overdue.includes(i.type));
+    if (filtered.length > 0) selectionPool = filtered;
+  }
+
+  const selected = irt.selectNextItem(selectionPool);
   if (!selected) return null;
   remainingPool = remainingPool.filter(
     i => !(i.id === selected.id && i.type === selected.type)
@@ -1101,6 +1180,18 @@ function updateDebugBadge() {
   el.textContent = `θ=${irt.theta.toFixed(3)} | SEM=${irt.sem.toFixed(3)} | ${Object.keys(userAnswers).length}/${remainingPool.length+questionIds.length}`;
 }
 
+function showAnswerModal() {
+  if (!lastAnswerFull) return;
+  Swal.fire({
+    title: 'Correct Answer',
+    html: '<div style="text-align:left;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow-y:auto;">' + lastAnswerFull.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>',
+    icon: 'info',
+    confirmButtonText: 'Close',
+    confirmButtonColor: '#3b82f6',
+    width: '480px',
+  });
+}
+
 // ── LOAD QUESTION ─────────────────────────────────────────────────────────────
 function loadQuestion(index) {
   if (index >= questionIds.length) return;
@@ -1117,8 +1208,9 @@ function loadQuestion(index) {
   fetch('debug_answer.php?id=' + q.id + '&table=' + q.table)
     .then(r => r.text())
     .then(t => {
+      lastAnswerFull = t;
       const b = document.getElementById('debugAnswerBadge');
-      if (b) b.textContent = 'Ans: ' + (t.length > 50 ? t.substring(0,50)+'...' : t);
+      if (b) b.textContent = 'Ans: ' + (t.length > 40 ? t.substring(0,40)+'…' : t);
     }).catch(e => console.error(e));
 
   const iframe   = document.getElementById('questionFrame');
@@ -1245,8 +1337,9 @@ function advanceQuestion() {
       loadQuestion(currentQuestion);
     } else {
       // Pool returned null unexpectedly — treat as exhausted
-      const pct = calculateCompetencyPercent();
-      handleAutoTermination({ result: pct >= PASS_THRESHOLD ? 'PASSED' : 'FAILED', reason: 'pool_exhausted', percent: pct });
+      const _answered = Object.keys(userAnswers).length;
+      const _result   = (_answered >= MIN_ITEMS && irt.theta > PASSING_LOGIT) ? 'PASSED' : 'FAILED';
+      handleAutoTermination({ result: _result, reason: 'pool_exhausted', percent: calculateCompetencyPercent() });
     }
   } else if (remainingPool.length === 0) {
     // Pool exhausted before MAX_ITEMS — check stopping rules first
@@ -1254,8 +1347,9 @@ function advanceQuestion() {
     if (term) {
       handleAutoTermination(term);
     } else {
-      const pct = calculateCompetencyPercent();
-      handleAutoTermination({ result: pct >= PASS_THRESHOLD ? 'PASSED' : 'FAILED', reason: 'pool_exhausted', percent: pct });
+      const _answered = Object.keys(userAnswers).length;
+      const _result   = (_answered >= MIN_ITEMS && irt.theta > PASSING_LOGIT) ? 'PASSED' : 'FAILED';
+      handleAutoTermination({ result: _result, reason: 'pool_exhausted', percent: calculateCompetencyPercent() });
     }
   } else {
     handleManualFinish();
@@ -1273,13 +1367,14 @@ async function handleManualFinish() {
       body: JSON.stringify({
         examTaken,
         termination_reason: 'manual_finish',
-        final_result:  pct >= PASS_THRESHOLD ? 'PASSED' : 'FAILED',
+        final_result:  irt.theta > PASSING_LOGIT ? 'PASSED' : 'FAILED',
         final_percent: pct,
         final_theta:   irt.theta,
         final_sem:     irt.sem,
         total_items:   Object.keys(userAnswers).length,
         exam_duration: totalSeconds,
         is_auto_terminate: false,
+        selected_concepts: typeof selectedConceptFilter !== 'undefined' ? selectedConceptFilter : [],
       })
     });
     const result = await res.json();
@@ -1316,10 +1411,10 @@ function showRulesStep() {
 
   const params = isNormal
     ? [['📋','Total Items',`<?= $TARGET_TOTAL ?> items`],['⏱️','Time Limit','2 hours (120 min)'],
-       ['🎯','Passing Rate','85% Competency'],['🏁','Stop Rule','Auto at ≥<?= floor($TARGET_TOTAL/2) ?> items'],
-       ['📊','Scoring','Partial credit'],['🔢','Difficulty','Adaptive (IRT)']]
+       ['🎯','Stop Rule','IRT 95% Confidence Interval'],['🏁','Min Items',`${MIN_ITEMS} items`],
+       ['📊','Scoring','Partial credit (NCSBN NGN)'],['🔢','Difficulty','Adaptive (IRT)']]
     : [['📋','Total Items',`<?= $TARGET_TOTAL ?> items`],['⚡','MC Timer','60 sec / question'],
-       ['🎯','Passing Rate','85% Competency'],['⏰','Complex Types','2–3 min / question'],
+       ['🎯','Stop Rule','IRT 95% Confidence Interval'],['⏰','Complex Types','2–3 min / question'],
        ['📊','Timeout Rule','Auto-skip → Omitted'],['🔢','Difficulty','Adaptive (IRT)']];
 
   document.getElementById('examParams').innerHTML = params.map(([icon, label, value]) =>

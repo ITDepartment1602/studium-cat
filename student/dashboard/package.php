@@ -288,7 +288,6 @@ $pageTitle = 'Packages — Studium';
 
 </main>
 
-<div class="s-footer"><span>© Studium 2025, All Right Reserved.</span></div>
 
 <script src="../ty/js/bootstrap.bundle.min.js"></script>
 <script>

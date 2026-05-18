@@ -91,4 +91,23 @@ if ($type === 'topic') {
     exit;
 }
 
+// ── NGN stats from exam_results ──
+if ($type === 'ngn_concept') {
+    $db  = db()->getConnection();
+    $val = $db->real_escape_string($value);
+    $uid = intval($user_id);
+    $row = $db->query("SELECT COUNT(DISTINCT question_uid) as used, SUM(isCorrect) as correct, COUNT(*) - SUM(isCorrect) as wrong FROM exam_results WHERE student_id = $uid AND concept = '$val'")->fetch_assoc();
+    echo json_encode(['total' => intval($row['used']), 'used' => intval($row['used']), 'correct' => intval($row['correct']), 'wrong' => intval($row['wrong'])]);
+    exit;
+}
+
+if ($type === 'ngn_topic') {
+    $db  = db()->getConnection();
+    $val = $db->real_escape_string($value);
+    $uid = intval($user_id);
+    $row = $db->query("SELECT COUNT(DISTINCT question_uid) as used, SUM(isCorrect) as correct, COUNT(*) - SUM(isCorrect) as wrong FROM exam_results WHERE student_id = $uid AND topic = '$val'")->fetch_assoc();
+    echo json_encode(['total' => intval($row['used']), 'used' => intval($row['used']), 'correct' => intval($row['correct']), 'wrong' => intval($row['wrong'])]);
+    exit;
+}
+
 echo json_encode(['error' => 'Invalid type']);

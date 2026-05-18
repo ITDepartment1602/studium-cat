@@ -32,9 +32,12 @@ $final_sem           = isset($body['final_sem'])          ? floatval($body['fina
 $total_items         = isset($body['total_items'])        ? intval($body['total_items'])       : null;
 $exam_duration       = isset($body['exam_duration'])      ? intval($body['exam_duration'])     : null;
 $is_auto             = isset($body['is_auto_terminate'])  ? (bool)$body['is_auto_terminate']   : false;
+$selected_concepts   = isset($body['selected_concepts']) && is_array($body['selected_concepts'])
+                       ? json_encode(array_values(array_map('strval', $body['selected_concepts'])))
+                       : null;
 
 // Validate allowed termination reasons (whitelist)
-$allowed_reasons = ['pass_85','fail_impossible','completed_max','irt_pass','irt_fail','manual_finish','pool_exhausted','time_expired'];
+$allowed_reasons = ['irt_pass','irt_fail','mercy_rule','completed_max','time_expired','time_expired_insufficient','pool_exhausted','manual_finish'];
 if (!in_array($termination_reason, $allowed_reasons, true)) $termination_reason = 'manual_finish';
 
 // Ownership: ensure this examTaken belongs to this student
@@ -69,7 +72,8 @@ try {
                 final_theta = %s,
                 final_sem = %s,
                 total_items_answered = %s,
-                exam_duration_sec = %s
+                exam_duration_sec = %s,
+                selected_concepts = %s
              WHERE id = %d",
             $conn->real_escape_string("'" . $termination_reason . "'"),
             $final_result ? "'" . $conn->real_escape_string($final_result) . "'" : 'NULL',
@@ -78,6 +82,7 @@ try {
             $final_sem !== null ? $final_sem : 'NULL',
             $total_items !== null ? $total_items : 'NULL',
             $exam_duration !== null ? $exam_duration : 'NULL',
+            $selected_concepts ? "'" . $conn->real_escape_string($selected_concepts) . "'" : 'NULL',
             intval($lastRow['id'])
         ));
         if ($conn->error) throw new Exception("Update terminal row failed: " . $conn->error);

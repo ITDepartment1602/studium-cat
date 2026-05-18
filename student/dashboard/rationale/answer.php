@@ -393,7 +393,12 @@ $userData = mysqli_fetch_assoc($userRow);
   <div class="ra-progress-wrap">
     <div class="ra-progress-label">
       <span>Rationale — Question <?= $step ?> of 150</span>
-      <span><?= $progress ?>%</span>
+      <span style="display:flex;align-items:center;gap:5px;">
+        <span id="ra-timer-paused" style="font-size:0.7rem;color:rgba(255,255,255,0.45);display:inline-flex;align-items:center;gap:3px;">
+          <i class="fa-solid fa-pause" style="font-size:0.6rem;"></i> <span id="ra-timer-value">--:--</span> paused
+        </span>
+        <?= $progress ?>%
+      </span>
     </div>
     <div class="ra-progress-bar">
       <div class="ra-progress-fill" style="width:<?= $progress ?>%"></div>
@@ -484,7 +489,7 @@ $userData = mysqli_fetch_assoc($userRow);
   <div class="ra-score-label">
     Progress: <strong><?= $newCc ?> correct</strong> · <strong><?= $newWc ?> incorrect</strong> · <?= $step ?> of 150 answered
   </div>
-  <a href="<?= htmlspecialchars($nextUrl) ?>" class="ra-next-btn">
+  <a href="<?= htmlspecialchars($nextUrl) ?>" class="ra-next-btn" onclick="resumeTimer()">
     <?= $step === 150 ? '<i class="fa-solid fa-trophy"></i>' : '' ?>
     <?= $nextLabel ?>
     <?= $step < 150 ? '<i class="fa-solid fa-arrow-right"></i>' : '' ?>
@@ -492,6 +497,17 @@ $userData = mysqli_fetch_assoc($userRow);
 </div>
 
 <script>
+// Show the frozen session timer value that was captured when student submitted
+(function () {
+  const s = parseInt(localStorage.getItem('count')) || 0;
+  const m = Math.floor(s / 60), ss = s % 60;
+  const el = document.getElementById('ra-timer-value');
+  if (el) el.textContent = m + ':' + (ss < 10 ? '0' + ss : ss);
+})();
+
+function resumeTimer() {
+  localStorage.removeItem('timer_paused');
+}
 function confirmEnd(bundleName) {
   Swal.fire({
     title: 'End Study Session?',

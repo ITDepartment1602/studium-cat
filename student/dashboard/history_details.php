@@ -145,12 +145,9 @@ $pageTitle = 'Exam Details — Studium';
 
 </main>
 
-<div class="s-footer"><span>© Studium 2025, All Right Reserved.</span></div>
 
-<script src="../ty/js/bootstrap.bundle.min.js"></script>
 <script src="../ty/js/jquery-3.5.1.js"></script>
 <script src="../ty/js/jquery.dataTables.min.js"></script>
-<script src="../ty/js/dataTables.bootstrap5.min.js"></script>
 <script>
 $(document).ready(function() {
   $('#reviewTable').DataTable({ paging:true, lengthChange:true, searching:true, ordering:true, info:true, autoWidth:false, responsive:true });
