@@ -148,8 +148,13 @@ function resolveQuestionTable($questionType) {
                     <span class="text-xs font-bold opacity-60 uppercase tracking-widest block mb-1">Student No</span>
                     <span class="text-lg font-mono font-bold"><?php echo htmlspecialchars($display_student_no); ?></span>
                 </div>
-                <a href="result.php" class="bg-blue-600 hover:bg-blue-700 p-3 rounded-xl transition-all shadow-lg shadow-blue-900/40">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                <a href="../history.php" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all border border-white/20 text-sm font-semibold flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Back
+                </a>
+                <a href="../index.php" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all border border-white/20 text-sm font-semibold flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    Home
                 </a>
             </div>
         </div>

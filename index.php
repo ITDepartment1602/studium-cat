@@ -7,16 +7,15 @@
 require_once 'config.php';
 
 // Redirect already-authenticated users
-if (isset($_SESSION['user_id']) || isset($_SESSION['admin_id'])) {
+if (isset($_SESSION['admin_id']) || isset($_SESSION['admin_login'])) {
+    header('Location: admin/');
+    exit;
+}
 
-    if (isset($_SESSION['user_id'])) {
-        $user_id = (int)$_SESSION['user_id'];
-        $userRow = db()->fetchOne("SELECT bundle_name FROM login WHERE id = ?", [$user_id]);
-        $bundle_name = $userRow['bundle_name'] ?? '';
-    } else {
-        $bundle_name = '';
-    }
-
+if (isset($_SESSION['user_id'])) {
+    $user_id = (int)$_SESSION['user_id'];
+    $userRow = db()->fetchOne("SELECT bundle_name FROM login WHERE id = ?", [$user_id]);
+    $bundle_name = $userRow['bundle_name'] ?? '';
     header('Location: student/dashboard/index.php?bundle_name=' . urlencode($bundle_name));
     exit;
 }

@@ -188,7 +188,7 @@ function getAverageScore($con, $eid, $student_id)
 
     .navbar,
     .card-header {
-        background-color: #1B4965;
+        background-color: #007CBF;
         color: white;
         /* Change text color to white for better contrast */
     }
@@ -290,7 +290,7 @@ function getAverageScore($con, $eid, $student_id)
                                         </h5>
                                         <div class="progress">
                                             <div class="progress-bar" role="progressbar"
-                                                style="width: <?php echo $averageScore; ?>%; background-color: #1B4965;"
+                                                style="width: <?php echo $averageScore; ?>%; background-color: #007CBF;"
                                                 aria-valuenow="<?php echo $averageScore; ?>" aria-valuemin="0"
                                                 aria-valuemax="100"></div>
                                         </div>

@@ -50,7 +50,7 @@ class count
             $this->course_count++;
         }
     }
-    print_r($this->course_count);
+    return $this->course_count;
 }
 
 
@@ -68,8 +68,7 @@ class count
 			// $this->user_details[]=
 			$this->video_count++;
 		}
-		// return $this->user_details;
-		print_r($this->video_count);
+		return $this->video_count;
 
 	}
 
@@ -86,8 +85,7 @@ class count
 			// $this->user_details[]=
 			$this->packege_count++;
 		}
-		// return $this->user_details;
-		print_r($this->packege_count);
+		return $this->packege_count;
 
 	}
 
@@ -104,7 +102,7 @@ public function bundles() {//TOTAL NOT ACTIVATED
     $row = $result->fetch_assoc();
 
     $this->books_count = $row['count'];
-    print_r($this->books_count);
+    return $this->books_count;
 }
 
 
@@ -124,7 +122,7 @@ public function expired() { //EXPIRED
             $this->expire_count++;
         }
     }
-    print_r($this->expire_count);
+    return $this->expire_count;
 }
 
 
@@ -149,8 +147,7 @@ public function countActiveStudents()
 			$this->active_count = 0; // Set to 0 if the query fails
 		}
 
-		// Output the count of active students
-		print_r($this->active_count);
+		return $this->active_count;
 	}
 
 }

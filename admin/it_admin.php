@@ -1,602 +1,619 @@
 <?php
+date_default_timezone_set('Asia/Manila');
+include_once '../config.php';
 include("count.php");
 $count = new count;
-$userd = $count->show_users();
 
+// ── Counts ──────────────────────────────────────────────────
+$all_res   = $con->query("SELECT COUNT(*) as cnt FROM login WHERE dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR)");
+$all_count = (int)$all_res->fetch_assoc()['cnt'];
+
+$not_sent_res   = $con->query("SELECT COUNT(*) as cnt FROM login l WHERE l.dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR) AND NOT EXISTS (SELECT 1 FROM email_sent_status e WHERE e.student_id = l.id)");
+$not_sent_count = (int)$not_sent_res->fetch_assoc()['cnt'];
+
+// ── Students data ────────────────────────────────────────────
+$rows_data = [];
+$res = $con->query("
+    SELECT l.id, l.studentnumber, l.fullname, l.dateenrolled, l.subMonth, l.dateexpired,
+           CASE WHEN e.student_id IS NOT NULL THEN 1 ELSE 0 END as email_sent
+    FROM login l
+    LEFT JOIN email_sent_status e ON e.student_id = l.id
+    WHERE l.dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    ORDER BY l.id DESC
+");
+while ($r = $res->fetch_assoc()) $rows_data[] = $r;
+
+// ── Flash messages ───────────────────────────────────────────
+$flash = '';
+if (isset($_GET['import'])) {
+    if ($_GET['import'] === 'success') {
+        $n = (int)($_GET['rows'] ?? 0);
+        $flash = "success|Successfully imported {$n} student(s).";
+    } else {
+        $flash = "error|Import failed. Please check your CSV file and try again.";
+    }
+}
+if (isset($_GET['sent'])) {
+    $s = (int)$_GET['sent'];
+    $f = (int)($_GET['failed'] ?? 0);
+    $flash = "success|Sent {$s} email(s)" . ($f ? ", {$f} failed." : ".");
+}
+
+$ap_base    = '';
+$active_nav = 'add_student';
+$ap_title   = 'Add Student';
+$ap_extra_head = '
+<link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>';
+require_once 'partials/sidebar.php';
 ?>
 
+<style>
+/* ── Filter tabs ──────────────────────────────────────────── */
+.as-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.as-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 50px;
+  font-size: .78rem;
+  font-weight: 600;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all .16s;
+  text-decoration: none;
+}
+.as-tab:hover { border-color: var(--ap-accent); color: var(--ap-accent); }
+.as-tab.active {
+  background: linear-gradient(135deg, var(--ap-accent), var(--ap-primary));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(13,148,136,.25);
+}
+.as-tab-count {
+  background: rgba(255,255,255,.28);
+  border-radius: 50px;
+  padding: 1px 8px;
+  font-size: .7rem;
+  font-weight: 700;
+}
+.as-tab:not(.active) .as-tab-count {
+  background: rgba(13,148,136,.1);
+  color: var(--ap-accent);
+}
 
+/* ── Search bar ───────────────────────────────────────────── */
+.as-search-wrap {
+  position: relative;
+  margin-left: auto;
+}
+.as-search-wrap i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: .9rem;
+  pointer-events: none;
+}
+.as-search-input {
+  padding: 7px 14px 7px 34px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 50px;
+  font-family: Inter, sans-serif;
+  font-size: .8rem;
+  color: #0f172a;
+  outline: none;
+  width: 240px;
+  background: #fff;
+  transition: border-color .18s, box-shadow .18s;
+}
+.as-search-input:focus {
+  border-color: var(--ap-accent);
+  box-shadow: 0 0 0 3px rgba(13,148,136,.1);
+}
 
+/* ── Panel ────────────────────────────────────────────────── */
+.as-panel {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(15,23,42,.05);
+  overflow: hidden;
+}
+.as-panel-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.as-panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.as-panel-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--ap-accent), var(--ap-primary));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: .88rem; flex-shrink: 0;
+}
+.as-panel-title { font-size: .92rem; font-weight: 700; color: #0f172a; }
+.as-total-badge {
+  font-size: .72rem; font-weight: 600; color: #64748b;
+  background: #f1f5f9; padding: 3px 12px; border-radius: 50px;
+}
 
-<!DOCTYPE html>
-<!-- Website - www.codingnepalweb.com -->
-<html lang="en" dir="ltr">
+/* Select all row */
+.as-select-row {
+  padding: 10px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.as-select-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .8rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  margin: 0;
+}
+.as-select-row label input[type=checkbox] {
+  width: 16px; height: 16px;
+  accent-color: var(--ap-accent);
+  cursor: pointer;
+}
+.as-selected-count {
+  font-size: .75rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
 
-<head>
-  <meta charset="UTF-8" />
-  <title>Studium Admin</title>
-  <link rel="shortcut icon" type="text/css" href="../img/logo1.svg">
-  <link rel="stylesheet" href="adminstyles.css" />
-  <!-- Boxicons CDN Link -->
-  <link href="https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet" />
+/* ── Table ────────────────────────────────────────────────── */
+.as-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.as-table thead th {
+  background: var(--ap-primary) !important;
+  color: #fff !important;
+  font-size: .67rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .8px !important;
+  padding: 11px 14px !important;
+  border: none !important;
+  white-space: nowrap;
+}
+.as-table thead th:first-child { width: 40px; text-align: center; }
+.as-table tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #334155;
+}
+.as-table tbody tr:last-child td { border-bottom: none; }
+.as-table tbody tr:hover td { background: #f8fafc; }
+.as-table td:first-child { text-align: center; }
+.as-table td input[type=checkbox] {
+  width: 15px; height: 15px;
+  accent-color: var(--ap-accent);
+  cursor: pointer;
+}
+.as-serial { color: #94a3b8; font-size: .74rem; font-weight: 600; }
+.as-student-id { color: var(--ap-primary); font-weight: 600; font-size: .82rem; }
+.as-name { font-weight: 600; color: #0f172a; }
+.as-date { font-size: .76rem; color: #64748b; white-space: nowrap; }
+.as-badge-sent {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 50px;
+  font-size: .72rem; font-weight: 600;
+  background: #dcfce7; color: #16a34a;
+  white-space: nowrap;
+}
+.as-btn-send {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 13px; border-radius: 50px;
+  font-size: .72rem; font-weight: 600;
+  background: linear-gradient(135deg, var(--ap-accent), var(--ap-primary));
+  color: #fff; border: none; cursor: pointer;
+  transition: opacity .15s, transform .15s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.as-btn-send:hover { opacity: .88; transform: translateY(-1px); color: #fff; }
 
-  <link rel="stylesheet" href="../table css/dataTables.bootstrap5.min.css" />
-  <link rel="stylesheet" type="text/css"
-    href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
-    integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" 
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" 
-        crossorigin="anonymous"></script>
-        <link rel="stylesheet" 
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</head>
-<style type="text/css">
-  /* Full-width input fields */
-  input[type=text],
-  input[type=number],
-  input[type=email] {
-    width: 100%;
-    padding: 12px 20px;
-    margin: 8px 0;
-    display: inline-block;
-    border: 1px solid #ccc;
-    box-sizing: border-box;
-  }
+/* ── Table footer ─────────────────────────────────────────── */
+.as-table-footer {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+.as-table-info { font-size: .75rem; color: #94a3b8; }
 
-  /* Set a style for all buttons */
-  button {
-    background-color: #04AA6D;
-    color: white;
-    padding: 14px 20px;
-    margin: 8px 0;
-    border: none;
-    cursor: pointer;
-    width: 100%;
-  }
+/* ── Flash alert ──────────────────────────────────────────── */
+.as-alert {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px; border-radius: 12px;
+  font-size: .82rem; font-weight: 500;
+  margin-bottom: 18px; border: 1.5px solid;
+}
+.as-alert-success { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.as-alert-error   { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
 
-  button:hover {
-    opacity: 0.8;
-  }
-
-  /* Extra styles for the cancel button */
-  .cancelbtn {
-    width: auto;
-    padding: 10px 18px;
-    background-color: #f44336;
-  }
-
-  /* Center the image and position the close button */
-  .imgcontainer {
-    text-align: center;
-    margin: 24px 0 12px 0;
-    position: relative;
-  }
-
-  .container {
-    padding: 16px;
-  }
-
-
-  /* The Modal (background) */
-  .modal {
-    display: none;
-    /* Hidden by default */
-    position: fixed;
-    /* Stay in place */
-    z-index: 1;
-    /* Sit on top */
-    left: 0;
-    top: 0;
-    width: 100%;
-    /* Full width */
-    height: 100%;
-    /* Full height */
-    overflow: auto;
-    /* Enable scroll if needed */
-    background-color: rgb(0, 0, 0);
-    /* Fallback color */
-    background-color: rgba(0, 0, 0, 0.4);
-    /* Black w/ opacity */
-    padding-top: 60px;
-  }
-
-  /* Modal Content/Box */
-  .modal-content {
-    background-color: #fefefe;
-    margin: 5% auto 15% auto;
-    /* 5% from the top, 15% from the bottom and centered */
-    border: 1px solid #888;
-    width: 30%;
-    /* Could be more or less, depending on screen size */
-  }
-
-  /* The Close Button (x) */
-  .close {
-    position: absolute;
-    right: 25px;
-    top: 0;
-    color: #000;
-    font-size: 35px;
-    font-weight: bold;
-  }
-
-  .close:hover,
-  .close:focus {
-    color: red;
-    cursor: pointer;
-  }
-
-  /* Add Zoom Animation */
-  .animate {
-    -webkit-animation: animatezoom 0.6s;
-    animation: animatezoom 0.6s
-  }
-
-  @-webkit-keyframes animatezoom {
-    from {
-      -webkit-transform: scale(0)
-    }
-
-    to {
-      -webkit-transform: scale(1)
-    }
-  }
-
-  @keyframes animatezoom {
-    from {
-      transform: scale(0)
-    }
-
-    to {
-      transform: scale(1)
-    }
-  }
-
-  /* Change styles for span and cancel button on extra small screens */
-  @media screen and (max-width: 300px) {
-    .cancelbtn {
-      width: 100%;
-    }
-  }
+/* ── Import modal file input ──────────────────────────────── */
+.as-file-zone {
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: border-color .18s, background .18s;
+  position: relative;
+}
+.as-file-zone:hover, .as-file-zone.drag-over {
+  border-color: var(--ap-accent);
+  background: rgba(13,148,136,.04);
+}
+.as-file-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+}
+.as-file-zone-icon { font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px; }
+.as-file-zone-text { font-size: .8rem; color: #64748b; line-height: 1.5; }
+.as-file-zone-name { font-size: .8rem; font-weight: 600; color: var(--ap-accent); margin-top: 6px; }
+.as-format-note {
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 10px; padding: 12px 16px;
+  font-size: .75rem; color: #475569; line-height: 1.8;
+}
 </style>
-<!--==================== Side Bar ====================-->
 
-<body>
-  <div class="sidebar">
-    <div class="logo-details">
-      <center><img src="../img/logo1.svg" width="30%"></center>
+<?php if ($flash): ?>
+  <?php [$type, $msg] = explode('|', $flash, 2); ?>
+  <div class="as-alert as-alert-<?= $type ?>">
+    <i class="bi bi-<?= $type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill' ?>"></i>
+    <?= htmlspecialchars($msg) ?>
+    <button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:1rem;color:inherit;opacity:.6;">×</button>
+  </div>
+<?php endif; ?>
+
+<!-- Top Actions -->
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+  <button class="ap-btn ap-btn-primary" onclick="document.getElementById('importModal').classList.add('open')">
+    <i class="bi bi-file-earmark-arrow-up-fill"></i> Import CSV
+  </button>
+</div>
+
+<!-- Filter Tabs + Search -->
+<div class="as-filter-bar">
+  <button class="as-tab active" id="tabAll" onclick="setFilter('all')">
+    All <span class="as-tab-count" id="cntAll"><?= $all_count ?></span>
+  </button>
+  <button class="as-tab" id="tabNotSent" onclick="setFilter('not_sent')">
+    <i class="bi bi-envelope-x-fill"></i> Email Not Sent
+    <span class="as-tab-count" id="cntNotSent"><?= $not_sent_count ?></span>
+  </button>
+
+  <div class="as-search-wrap">
+    <i class="bi bi-search"></i>
+    <input type="text" id="searchInput" class="as-search-input" placeholder="Search name, ID, date…">
+  </div>
+</div>
+
+<!-- Access History Panel -->
+<div class="as-panel">
+  <div class="as-panel-header">
+    <div class="as-panel-title-row">
+      <div class="as-panel-icon"><i class="bi bi-clock-history"></i></div>
+      <span class="as-panel-title">Access History</span>
+      <span class="as-total-badge" id="totalBadge"><?= $all_count ?> students</span>
     </div>
-    <ul class="nav-links">
-      <li>
-        <a href="#" class="active">
-          <i class="bx bx-grid-alt"></i>
-          <span class="links_name">Dashboard</span>
-        </a>
-      </li>
-      <li>
-        <a href="manage topics/">
-          <i class="bx bx-box"></i>
-          <span class="links_name">Manage Topics</span>
-        </a>
-      </li>
-      <li>
-        <a href="manage question/">
-          <i class="bx bx-list-ul"></i>
-          <span class="links_name">Manage Question</span>
-        </a>
-      </li>
-      <li>
-        <a href="manage bundle/">
-          <i class="bx bx-pie-chart-alt-2"></i>
-          <span class="links_name">Manage Bundle</span>
-        </a>
-      </li>
-      <li>
-        <a href="manage group/">
-          <i class="bx bx-user"></i>
-          <span class="links_name">Manage Group</span>
-        </a>
-      </li>
-      <li>
-        <a href="manage result/">
-          <i class="bx bx-coin-stack"></i>
-          <span class="links_name">Manage Result</span>
-        </a>
-      </li>
 
-
-      <li>
-        <a href="manage feedback">
-          <i class="bx bx-heart"></i>
-          <span class="links_name">Feedback</span>
-        </a>
-      </li>
-
-      <li class="log_out">
-        <a href="../index.php">
-          <i class="bx bx-log-out"></i>
-          <span class="links_name">Log out</span>
-        </a>
-      </li>
-    </ul>
+    <form id="bulkForm" method="POST" action="send_email_bulk.php" style="display:inline;">
+      <button type="button" onclick="sendSelected()"
+        class="ap-btn ap-btn-primary ap-btn-sm" id="sendSelectedBtn" disabled>
+        <i class="bi bi-send-fill"></i> Send Selected
+      </button>
+    </form>
   </div>
 
-  <!--==================== Counts ====================-->
-  <section class="home-section">
-    <nav>
-      <div class="sidebar-button">
-        <i class="bx bx-menu sidebarBtn"></i>
-        <span class="dashboard">Dashboard</span>
-      </div>
-    </nav>
+  <!-- Select all row -->
+  <div class="as-select-row">
+    <label>
+      <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+      Select all on this page
+    </label>
+    <span class="as-selected-count" id="selectedCount">0 selected</span>
+  </div>
 
-    <div class="home-content">
+  <!-- Table -->
+  <div style="overflow-x:auto;">
+    <table class="as-table" id="accessTable">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Serial</th>
+          <th>Student ID</th>
+          <th>Full Name</th>
+          <th>Date Enrolled</th>
+          <th>Subscription</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($rows_data as $row):
+          $emailSent  = (bool)$row['email_sent'];
+          $subMonth   = $row['subMonth'] ?? null;
+          $dateExpired = $row['dateexpired'] ?? null;
+          $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
 
-      <div>
-
-        <div class=" mt-4">
-          <div class="row" style="margin: auto; width: 100%;">
-            <div class="col-md-2 mb-3">
-              <div class="card   bg-primary text-white h-100">
-                <div class="card-body py-5" style="font-size: 40px;">
-                  <center><?php echo $count->questions(); ?></center>
-                </div>
-                <div class="card-footer text-center">Total of Questions</div>
-              </div>
-            </div>
-
-            <div class="col-md-2 mb-3">
-              <div class="card bg-success text-white h-100">
-                <div class="card-body py-5" style="font-size: 40px;">
-                  <center><?php echo $count->concept(); ?></center>
-                </div>
-                <div class="card-footer text-center">Total Students</div>
-              </div>
-            </div>
-
-            <div class="col-md-2 mb-3">
-              <div class="card bg-warning text-dark h-100">
-                <div class="card-body py-5" style="font-size: 40px;">
-                  <center><?php echo $count->user(); ?></center>
-                </div>
-                <div class="card-footer text-center">Activated Students</div>
-              </div>
-            </div>
-
-            <div class="col-md-2 mb-3">
-              <div class="card bg-danger text-white h-100">
-                <div class="card-body py-5" style="font-size: 40px;">
-                  <center><?php echo $count->expired(); ?></center>
-                </div>
-                <div class="card-footer text-center">
-                  <a href="admin_expired.php" target="_blank" rel="noopener noreferrer" style="color: white;">Expired
-                    Students</a>
-
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-2 mb-3">
-              <div class="card bg-info text-white h-100">
-                <div class="card-body py-5" style="font-size: 40px;">
-                  <center><?php echo $count->bundles(); ?></center>
-                </div>
-                <div class="card-footer text-center">
-                 <a href="admin_not_activated.php" target="_blank" rel="noopener noreferrer" style="color: white;">Total of Not Activated</a>
-                </div>
-               
-            
-              </div>
-            </div>
-
-            <div class="col-md-2 mb-3">
-              <div class="card bg-secondary text-white h-100">
-                <div class="card-body py-5" style="font-size: 40px;">
-                  <center><?php echo $count->countActiveStudents(); ?></center>
-                </div>
-                <div class="card-footer text-center">Active Now</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-
-      <!--==================== Modal Start ====================-->
-      <div class="sales-boxes">
-        <div class="recent-sales box">
-          <div class="title">Student List</div>
-          <div class="d-flex justify-content-end gap-2 pb-2 align-items-center">
-              <h4 class="fw-bold text-dark">
-                
-              </h4>
-
-      
-
-              
-              <a href="import_csv.php" class="float-add-btn text-decoration-none">
-                <div class="btn btn-custom btn-sm rounded-pill shadow-sm" style="display: flex; align-items: center;">
-            <i class="bi bi-file-earmark-arrow-up me-1"></i>
-
-                  <span style="font-weight: 600;">Import CSV</span>
-                </div>
-              </a>
-              
-               <a href="access_history.php" class="float-add-btn text-decoration-none">
-                <div class="btn btn-custom btn-sm rounded-pill shadow-sm" style="display: flex; align-items: center;">
-                  <i class="bi bi-people"></i> 
-                  <span style="font-weight: 600;">Access History</span>
-                </div>
-              </a>
-            </div>
-        
-
-          <div id="id01" class="modal">
-            <form class="modal-content animate" action="action.php" method="post" enctype="multipart/form-data">
-              <div class="imgcontainer">
-                <span onclick="document.getElementById('id01').style.display='none'" class="close"
-                  title="Close Modal">&times;</span>
-              </div>
-
-              <div class="container">
-                <label><b>Student Number:</b></label>
-                <input type="number" class="form-control" placeholder="Input Student Number" name="studentnumber">
-
-                <label><b>Full Name:</b></label>
-                <input type="text" class="form-control" placeholder="Input Full Name" name="fullname">
-
-                <label><b>Bundle:</b></label>
-                <select name="bundle_name" class="form-control multiple-select" style="width: 100%; height: auto;">
-                  <option value="">Select one. . .</option>
-                  <?php
-                  include("../config.php");
-                  $query = "SELECT * FROM bundle";
-                  $query_run = mysqli_query($con, $query);
-                  if (mysqli_num_rows($query_run) > 0) {
-                    foreach ($query_run as $rowhob) {
-                      ?>
-
-                      <option value="<?php echo $rowhob['bundle_name']; ?>"><?php echo $rowhob['bundle_name']; ?></option>
-                      <?php
-                    }
-                  } else {
-                    echo "No Record Found";
-                  }
-
-                  ?>
-
-                </select>
-
-                <label><b>Group:</b></label>
-                <select name="groupname" class="form-control multiple-select" style="width: 100%; height: auto;">
-                  <option value="">Select one. . .</option>
-                  <?php
-                  include("../config.php");
-                  $query = "SELECT * FROM grouplist";
-                  $query_run = mysqli_query($con, $query);
-                  if (mysqli_num_rows($query_run) > 0) {
-                    foreach ($query_run as $rowhob) {
-                      ?>
-
-                      <option value="<?php echo $rowhob['groupname']; ?>"><?php echo $rowhob['groupname']; ?></option>
-                      <?php
-                    }
-                  } else {
-                    echo "No Record Found";
-                  }
-
-                  ?>
-
-                </select>
-
-                <label><b>Date Enrolled:</b></label>
-                <input type="datetime-local" class="form-control" placeholder="Input Fullname" name="dateenrolled">
-
-                <label><b>Date Expired:</b></label>
-                <input type="datetime-local" class="form-control" placeholder="Input Fullname" name="dateexpired">
-
-                <label><b>Gmail:</b></label>
-                <input type="email" class="form-control" placeholder="Input Gmail" name="email">
-
-                <label><b>Password:</b></label>
-                <input type="text" class="form-control" placeholder="Input Password" name="password">
-                <input type="hidden" name="status" value="user" name="status">
-
-                <button type="submit" name="submit">Submit</button>
-              </div>
-
-              <div class="container" style="background-color:#f1f1f1">
-                <button type="button" onclick="document.getElementById('id01').style.display='none'"
-                  class="cancelbtn">Cancel</button>
-              </div>
-            </form>
-          </div>
-          <!--==================== Modal End ====================-->
-
-          <table class="table table-striped data-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Student Number</th>
-                <th>Full Name</th>
-                <th>Bundle</th>
-                <th>Group</th>
-                <th>Date Expired</th>
-                <th>Type</th>
-                <th>Gmail</th>
-                <th>Password</th>
-                <th>Update</th>
-                <th>Delete</th>
-                <th>Last Active</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php
-              include('../config.php');
-
-              // Set the timezone to the Philippines
-              date_default_timezone_set('Asia/Manila');
-
-              // Get the current date
-              $current_date = date('Y-m-d H:i:s'); // Adjust the date format if necessary
-              
-              // Modify the query to exclude expired users
-              $query = "SELECT * FROM `login` WHERE status = 'user' AND groupname != 'Admin' AND dateexpired > '$current_date'";
-              $data = mysqli_query($con, $query);
-
-              while ($rows = mysqli_fetch_array($data)) {
-                ?>
-                <tr>
-                  <td>
-                    <?php
-                    $lastLogin = strtotime($rows['lastlogin']);
-                    $time_difference = time() - $lastLogin;
-
-                    if (empty($rows['lastlogin'])) {
-                      // Display blue circle for new account
-                      echo '<span style="display: inline-block; width: 10px; height: 10px; background-color: blue; border-radius: 50%;"></span>';
-                    } elseif ($time_difference < 600) { // Less than 10 minutes
-                      // Display green circle for active now
-                      echo '<span style="display: inline-block; width: 10px; height: 10px; background-color: green; border-radius: 50%;"></span>';
-                    } else {
-                      // Display red circle for inactive
-                      echo '<span style="display: inline-block; width: 10px; height: 10px; background-color: red; border-radius: 50%;"></span>';
-                    }
-                    ?>
-                  </td>
-                  <td><?php echo $rows['studentnumber']; ?></td>
-                  <td><?php echo $rows['fullname']; ?></td>
-                  <td><?php echo str_replace('Packege', 'Package', $rows['bundle_name']); ?></td>
-                  <td><?php echo $rows['groupname']; ?></td>
-                  <td><?php echo $rows['dateexpired']; ?></td>
-                  <td>
-                    <?php
-                    if ($rows['type'] == 0) {
-                      echo '<p><a href="#" class="no-gutters text-success" onclick="confirmAction(\'disable\', \'' . $rows['fullname'] . '\', \'' . $rows['id'] . '\')">Enable<i class="fa fa-check" aria-hidden="true"></i></a></p>';
-                    } else {
-                      echo '<p><a href="#" class="no-gutters text-danger" onclick="confirmAction(\'enable\', \'' . $rows['fullname'] . '\', \'' . $rows['id'] . '\')">Disable<i class="fa fa-times" aria-hidden="true"></i></a></p>';
-                    }
-                    ?>
-                  </td>
-                  <td><?php echo $rows['email']; ?></td>
-                  <td><?php echo $rows['password']; ?></td>
-                  <td><a href="#"
-                      onclick="confirmAction('update', '<?php echo $rows['fullname']; ?>', '<?php echo $rows['id']; ?>')"
-                      class='no-gutters text-primary'>Update<i class='fa fa-pencil-square' aria-hidden='true'></i></a>
-                  </td>
-                  <td><a href="#"
-                      onclick="confirmAction('delete', '<?php echo $rows['fullname']; ?>', '<?php echo $rows['id']; ?>')"
-                      class='no-gutters text-danger'>Delete<i class='fa fa-trash-o' aria-hidden='true'></i></a></td>
-                  <td>
-                    <?php
-                    if (function_exists("get_time_ago") === FALSE) {
-                      function get_time_ago($time)
-                      {
-                        // Check if $time is null or empty
-                        if (empty($time)) {
-                          return '
-                       
-                     
-                          <span style="color: blue; font-weight: light;  text-align: center; margin: auto; width: 100%;">Never</span>
-                          ';
-                        }
-
-                        $time_difference = time() - $time;
-                        if ($time_difference < 600) { // Less than 10 minutes
-                          return '<span style="color: green; ">Active Now</span>';
-                        }
-                        $condition = array(
-                          12 * 30 * 24 * 60 * 60 => 'year',
-                          30 * 24 * 60 * 60 => 'month',
-                          24 * 60 * 60 => 'day',
-                          60 * 60 => 'hour',
-                          60 => 'minute',
-                          1 => 'second'
-                        );
-                        foreach ($condition as $sec => $str) {
-                          $d = $time_difference / $sec;
-                          if ($d >= 1) {
-                            $t = round($d);
-                            return '' . $t . ' ' . $str . ($t > 1 ? 's ' : ' ') . 'ago';
-                          }
-                        }
-                      }
-                    }
-                    echo get_time_ago(strtotime($rows['lastlogin']));
-                    ?>
-                  </td>
-                </tr>
-
-
-                <?php
+          // Subscription badge
+          if (!empty($subMonth)) {
+              $subBadge = '<span class="ap-badge ap-badge-info">' . htmlspecialchars($subMonth) . ' Month/s</span>';
+          } elseif (!empty($dateExpired) && $dateExpired !== '0000-00-00 00:00:00') {
+              $exp = new DateTime($dateExpired, new DateTimeZone('Asia/Manila'));
+              if ($exp < $now) {
+                  $subBadge = '<span class="ap-badge ap-badge-danger">Expired</span>';
+              } else {
+                  $diff = $now->diff($exp);
+                  $left = ($diff->y * 12 + $diff->m) . 'm ' . $diff->d . 'd left';
+                  $subBadge = '<span class="ap-badge ap-badge-success">Active — ' . $left . '</span>';
               }
-              ?>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <script>
-
-    function confirmAction(action, name, id) {
-      let actionText = action.charAt(0).toUpperCase() + action.slice(1);
-      let message = `Are you sure you want to ${action} ${name}?`;
-
-      Swal.fire({
-        title: actionText + " Confirmation",
-        text: message,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'Cancel',
-        customClass: {
-          confirmButton: 'swal-confirm-button', // Custom class for confirm button
-        },
-        dangerMode: true,
-      }).then((result) => {
-        if (result.isConfirmed) {
-          if (action === 'delete') {
-            window.location.href = `admin_delete.php?id=${id}`;
-          } else if (action === 'update') {
-            window.location.href = `admin_update.php?id=${id}`;
-          } else if (action === 'enable' || action === 'disable') {
-            const typeValue = action === 'enable' ? 0 : 1; // Enable sets to 0, Disable sets to 1
-            console.log(`Redirecting to type.php?id=${id}&type=${typeValue}`); // Debugging line
-            window.location.href = `type.php?id=${id}&type=${typeValue}`;
+          } else {
+              $subBadge = '<span class="ap-badge ap-badge-gray">No Data</span>';
           }
-        }
-      });
-    }
+        ?>
+        <tr data-email-sent="<?= $emailSent ? '1' : '0' ?>">
+          <td>
+            <?php if (!$emailSent): ?>
+              <input type="checkbox" class="row-check" value="<?= $row['id'] ?>" onchange="updateSelection()">
+            <?php endif; ?>
+          </td>
+          <td><span class="as-serial">E<?= $row['id'] ?></span></td>
+          <td><span class="as-student-id"><?= htmlspecialchars($row['studentnumber']) ?></span></td>
+          <td><span class="as-name"><?= htmlspecialchars($row['fullname']) ?></span></td>
+          <td><span class="as-date"><?= date('M d, Y | h:i A', strtotime($row['dateenrolled'])) ?></span></td>
+          <td><?= $subBadge ?></td>
+          <td>
+            <?php if ($emailSent): ?>
+              <span class="as-badge-sent"><i class="bi bi-check-circle-fill"></i> Email Sent</span>
+            <?php else: ?>
+              <a href="send_email.php?id=<?= $row['id'] ?>" class="as-btn-send"
+                onclick="return confirm('Send email to <?= htmlspecialchars(addslashes($row['fullname'])) ?>?')">
+                <i class="bi bi-envelope-fill"></i> Send Email
+              </a>
+            <?php endif; ?>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-    // Add this CSS to style the button
-    const style = document.createElement('style');
-    style.innerHTML = `
-    .swal-confirm-button {
-        background-color: #1B4965 !important; /* Button background color */
-        color: white !important; /* Button text color */
-    }
-`;
-    document.head.appendChild(style);
-    let sidebar = document.querySelector(".sidebar");
-    let sidebarBtn = document.querySelector(".sidebarBtn");
-    sidebarBtn.onclick = function () {
-      sidebar.classList.toggle("active");
-      if (sidebar.classList.contains("active")) {
-        sidebarBtn.classList.replace("bx-menu", "bx-menu-alt-right");
-      } else sidebarBtn.classList.replace("bx-menu-alt-right", "bx-menu");
-    };
-  </script>
-  <script src=".././table js/jquery-3.5.1.js"></script>
-  <script src=".././table js/jquery.dataTables.min.js"></script>
-  <script src=".././table js/dataTables.bootstrap5.min.js"></script>
-  <script src=".././table js/script.js"></script>
-</body>
+<!-- ── Import CSV Modal ──────────────────────────────────── -->
+<div class="ap-modal-overlay" id="importModal">
+  <div class="ap-modal" style="max-width:500px;">
+    <div class="ap-modal-header">
+      <span class="ap-modal-title">
+        <i class="bi bi-file-earmark-arrow-up-fill me-2" style="color:var(--ap-accent);"></i>
+        Import CSV
+      </span>
+      <button class="ap-modal-close" onclick="closeImport()">×</button>
+    </div>
+    <form action="import_action.php" method="POST" enctype="multipart/form-data">
+      <div class="ap-modal-body" style="display:flex;flex-direction:column;gap:16px;">
 
-</html>
+        <div>
+          <label class="ap-form-label">CSV File(s)</label>
+          <div class="as-file-zone" id="fileZone">
+            <input type="file" name="csvFile" id="csvFileInput" accept=".csv" required onchange="showFileName(this)">
+            <div class="as-file-zone-icon"><i class="bi bi-file-earmark-spreadsheet"></i></div>
+            <div class="as-file-zone-text">
+              Click to choose a CSV file<br>
+              <span style="font-size:.72rem;color:#94a3b8;">Supports .csv format</span>
+            </div>
+            <div class="as-file-zone-name" id="fileNameDisplay" style="display:none;"></div>
+          </div>
+        </div>
+
+        <div class="as-format-note">
+          <div style="font-weight:700;color:var(--ap-primary);margin-bottom:5px;">
+            <i class="bi bi-info-circle me-1"></i> CSV Format Notes
+          </div>
+          <div>• <strong>dateenrolled</strong> — leave blank, auto-set to Manila time</div>
+          <div>• <strong>dateexpired</strong> — leave NULL</div>
+          <div>• <strong style="color:#dc2626;">subMonth</strong> — use <code>1</code>, <code>3</code>, <code>6</code>, or <code>12</code> for paid; <code>1</code> or <code>2</code> for FREE groups</div>
+        </div>
+
+      </div>
+      <div class="ap-modal-footer">
+        <button type="button" class="ap-btn ap-btn-ghost ap-btn-sm" onclick="closeImport()">Cancel</button>
+        <button type="submit" class="ap-btn ap-btn-primary ap-btn-sm">
+          <i class="bi bi-upload"></i> Upload &amp; Import
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── DataTables init ──────────────────────────────────────────
+var table = $('#accessTable').DataTable({
+  order: [],
+  pageLength: 10,
+  dom: 'tip',  // no built-in search/length — we use our own
+  language: {
+    info:     "Showing _START_–_END_ of _TOTAL_ students",
+    infoEmpty: "No students found",
+    paginate: { previous: '← Prev', next: 'Next →' }
+  },
+  columnDefs: [
+    { orderable: false, targets: [0, 6] }
+  ]
+});
+
+// ── Custom search ────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('keyup', function () {
+  table.search(this.value).draw();
+  updateInfo();
+});
+
+// ── Filter tabs ──────────────────────────────────────────────
+var currentFilter = 'all';
+function setFilter(filter) {
+  currentFilter = filter;
+  document.getElementById('tabAll').classList.toggle('active', filter === 'all');
+  document.getElementById('tabNotSent').classList.toggle('active', filter === 'not_sent');
+
+  // Use DataTables column search on the hidden data-email-sent attribute
+  // We search column index 6 (action) — instead, we use a custom filter fn
+  $.fn.dataTable.ext.search = [];
+  if (filter === 'not_sent') {
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+      return $(table.row(dataIndex).node()).data('email-sent') === 0 ||
+             $(table.row(dataIndex).node()).data('emailSent') === '0' ||
+             $(table.row(dataIndex).node()).attr('data-email-sent') === '0';
+    });
+  }
+  table.draw();
+  updateInfo();
+  deselectAll();
+}
+
+// ── Selection ────────────────────────────────────────────────
+function toggleSelectAll(cb) {
+  var checks = getVisibleChecks();
+  checks.forEach(function(c) { c.checked = cb.checked; });
+  updateSelection();
+}
+
+function getVisibleChecks() {
+  var checks = [];
+  table.rows({ search: 'applied', page: 'current' }).nodes().each(function(node) {
+    var cb = node.querySelector('.row-check');
+    if (cb) checks.push(cb);
+  });
+  return checks;
+}
+
+function updateSelection() {
+  var total   = getVisibleChecks().length;
+  var checked = getVisibleChecks().filter(function(c){ return c.checked; }).length;
+  document.getElementById('selectedCount').textContent = checked + ' selected';
+  document.getElementById('sendSelectedBtn').disabled = checked === 0;
+  document.getElementById('selectAll').checked = total > 0 && checked === total;
+  document.getElementById('selectAll').indeterminate = checked > 0 && checked < total;
+}
+
+function deselectAll() {
+  document.querySelectorAll('.row-check').forEach(function(c){ c.checked = false; });
+  document.getElementById('selectAll').checked = false;
+  updateSelection();
+}
+
+function updateInfo() {
+  // re-sync selection on draw
+  updateSelection();
+}
+
+// Re-sync checkboxes after pagination
+table.on('draw', function() {
+  updateSelection();
+});
+
+// ── Send selected ────────────────────────────────────────────
+function sendSelected() {
+  var ids = getVisibleChecks()
+    .filter(function(c){ return c.checked; })
+    .map(function(c){ return c.value; });
+
+  if (ids.length === 0) return;
+
+  Swal.fire({
+    title: 'Send Emails?',
+    html: 'Send welcome emails to <strong>' + ids.length + '</strong> selected student(s)?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#0d9488',
+    confirmButtonText: '<i class="bi bi-send-fill"></i> Yes, Send',
+    cancelButtonText: 'Cancel',
+  }).then(function(result) {
+    if (!result.isConfirmed) return;
+
+    // Build and submit form
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'send_email_bulk.php';
+    ids.forEach(function(id) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = id;
+      form.appendChild(inp);
+    });
+    document.body.appendChild(form);
+
+    // Show loading
+    Swal.fire({ title: 'Sending...', text: 'Please wait while emails are being sent.', allowOutsideClick: false, didOpen: function(){ Swal.showLoading(); } });
+    form.submit();
+  });
+}
+
+// ── Import modal ─────────────────────────────────────────────
+function closeImport() {
+  document.getElementById('importModal').classList.remove('open');
+}
+document.getElementById('importModal').addEventListener('click', function(e) {
+  if (e.target === this) closeImport();
+});
+
+function showFileName(input) {
+  var display = document.getElementById('fileNameDisplay');
+  var zone    = document.getElementById('fileZone');
+  if (input.files && input.files[0]) {
+    display.textContent = '📄 ' + input.files[0].name;
+    display.style.display = 'block';
+    zone.querySelector('.as-file-zone-text').style.display = 'none';
+    zone.style.borderColor = '#0d9488';
+    zone.style.background  = 'rgba(13,148,136,.04)';
+  }
+}
+
+// Drag & drop
+var zone = document.getElementById('fileZone');
+zone.addEventListener('dragover',  function(e){ e.preventDefault(); this.classList.add('drag-over'); });
+zone.addEventListener('dragleave', function(){ this.classList.remove('drag-over'); });
+zone.addEventListener('drop', function(e) {
+  e.preventDefault(); this.classList.remove('drag-over');
+  var fileInput = document.getElementById('csvFileInput');
+  fileInput.files = e.dataTransfer.files;
+  showFileName(fileInput);
+});
+</script>
+
+<?php require_once 'partials/footer.php'; ?>

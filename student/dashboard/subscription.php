@@ -207,7 +207,7 @@ $plans = [
           <li><i class="bi bi-check-circle-fill"></i> Study Notes</li>
         </ul>
 
-        <a href="https://www.facebook.com/NCLEXAmplifiedTechSupport/" target="_blank"
+        <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank"
            class="s-plan-enroll">
           <i class="bi bi-facebook me-1"></i> Enroll Now
         </a>

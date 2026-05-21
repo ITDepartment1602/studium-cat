@@ -45,7 +45,12 @@ if ($num == 1) {
     $updateLoginTime = "UPDATE login SET lastlogin = '$currentDate', loginstatus = 'Active now' WHERE id = {$res['id']}";
     mysqli_query($con, $updateLoginTime);
 
-    if ($res['status'] == 'admin') {
+    if ($res['status'] == 'coffee') {
+        $_SESSION['admin_login'] = $res['id'];
+        header('Location: ../admin/');
+        exit;
+
+    } else if ($res['status'] == 'admin') {
         // Generate 6-digit code
         $code = rand(100000, 999999);
 

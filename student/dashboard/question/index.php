@@ -342,7 +342,7 @@ $answerUrl  = $answerBase . '?' . http_build_query([
   <button class="eq-tool-btn" id="calcBtn" onclick="toggleTool('calc')" title="Calculator">
     <i class="fa-solid fa-calculator"></i><span>Calc</span>
   </button>
-  <button class="eq-tool-btn" id="noteBtn" onclick="toggleTool('note')" title="Notes">
+  <button class="eq-tool-btn" id="noteBtn" onclick="toggleNoteModal()" title="Notes">
     <i class="fa-solid fa-note-sticky"></i><span>Notes</span>
   </button>
   <button class="eq-tool-btn" id="fsBtn" onclick="toggleFullscreen()" title="Fullscreen">
@@ -377,11 +377,25 @@ $answerUrl  = $answerBase . '?' . http_build_query([
   </div>
 </div>
 
-<!-- ── Notes Panel ── -->
-<div class="eq-tool-panel" id="notePanel">
-  <div class="eq-tp-header"><span><i class="fa-solid fa-note-sticky me-2"></i>My Notes</span><button onclick="toggleTool('note')">&times;</button></div>
-  <textarea class="eq-note-area" id="noteArea" placeholder="Type your notes here…" oninput="saveNote()"></textarea>
-  <div class="eq-tp-footer">Auto-saved &nbsp;·&nbsp; <button onclick="clearNote()">Clear</button></div>
+<!-- ── Notes Modal ── -->
+<div class="modal-overlay" id="notePanel" style="background:transparent;pointer-events:none;z-index:1300;display:none;">
+  <div class="modal-box" style="pointer-events:auto;width:370px;padding:20px;border:1px solid var(--border);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="font-weight:800;font-size:12px;text-transform:uppercase;color:var(--text-muted);">
+        <i class="fa-solid fa-note-sticky me-1"></i> Quick Note
+      </span>
+      <i class="fas fa-times" style="cursor:pointer;" onclick="toggleNoteModal()"></i>
+    </div>
+    <input id="examNoteTitle" type="text"
+      style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:10px;background:var(--card-bg,#fff);color:var(--text);"
+      placeholder="Note title (required to save)..." />
+    <textarea id="examNote"
+      style="width:100%;height:180px;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;resize:none;background:var(--card-bg,#fff);color:var(--text);"
+      placeholder="Type your clinical notes here..."></textarea>
+    <div style="margin-top:10px;font-size:10px;color:var(--text-muted);">
+      <i class="fas fa-info-circle me-1"></i> This note will automatically save to <strong>My Notes</strong> after the exam ends.
+    </div>
+  </div>
 </div>
 
 <style>
@@ -488,33 +502,22 @@ $answerUrl  = $answerBase . '?' . http_build_query([
 .eq-cb-fn  { color: #64748b; background: #f8fafc; }
 .eq-cb-eq  { background: var(--accent); color: #fff; }
 .eq-cb-eq:hover { background: #0b7e74; }
-/* Notes */
-.eq-note-area {
-  flex: 1;
-  resize: none;
-  border: none;
-  padding: 14px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  line-height: 1.6;
-  color: var(--text);
-  min-height: 200px;
-  outline: none;
+/* Note modal — same as NGN */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.45); backdrop-filter: blur(3px);
+  display: none; align-items: center; justify-content: center;
+  z-index: 1300;
 }
-.eq-tp-footer {
-  padding: 8px 14px;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.modal-box {
+  background: var(--card-bg, #fff);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  animation: slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1);
 }
-.eq-tp-footer button {
-  background: none; border: none;
-  color: #ef4444; font-size: 0.72rem;
-  cursor: pointer; padding: 0;
-  font-family: 'Inter', sans-serif;
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 @media (max-width: 640px) {
   .eq-tool-dock { right: 10px; top: auto; bottom: 80px; transform: none; }
@@ -592,7 +595,6 @@ function toggleTool(name) {
     }
     panel.classList.add('is-open'); btn.classList.add('active');
     openPanel = name;
-    if (name === 'note') document.getElementById('noteArea').focus();
   }
 }
 
@@ -628,14 +630,28 @@ document.addEventListener('keydown', function(e) {
   else if (e.key === 'Escape') toggleTool('calc');
 });
 
-// Notes logic
-const NOTE_KEY = 'eq_notes_<?= intval($user_id) ?>';
-const noteArea = document.getElementById('noteArea');
-noteArea.value = localStorage.getItem(NOTE_KEY) || '';
-function saveNote() { localStorage.setItem(NOTE_KEY, noteArea.value); }
-function clearNote() {
-  if (confirm('Clear all notes?')) { noteArea.value = ''; localStorage.removeItem(NOTE_KEY); }
+// Note modal toggle — matches NGN style
+function toggleNoteModal() {
+  const modal = document.getElementById('notePanel');
+  const isHidden = modal.style.display === 'none' || modal.style.display === '';
+  modal.style.display = isHidden ? 'flex' : 'none';
+  modal.style.pointerEvents = isHidden ? 'auto' : 'none';
+  if (isHidden) document.getElementById('examNoteTitle').focus();
 }
+
+// Save note to My Notes on form submit
+document.getElementById('questionForm').addEventListener('submit', async function(e) {
+  const title   = (document.getElementById('examNoteTitle')?.value || '').trim();
+  const content = (document.getElementById('examNote')?.value || '').trim();
+  if (title && content) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append('note_title',   title);
+    fd.append('note_content', content);
+    await fetch('../mynotes.php', { method: 'POST', body: fd }).catch(() => {});
+    this.submit();
+  }
+});
 
 // Fullscreen
 function toggleFullscreen() {

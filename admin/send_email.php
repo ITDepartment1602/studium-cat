@@ -210,7 +210,7 @@ exit();
 
     <p><?php echo $message; ?></p>
 
-    <a href="bookhistory.php" class="btn">Back</a>
+    <a href="access_history.php" class="btn">Back</a>
 </div>
 
 </body>

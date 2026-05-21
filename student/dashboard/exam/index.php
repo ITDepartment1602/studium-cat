@@ -548,13 +548,22 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
 </div>
 
 <div class="modal-overlay" id="noteModal" style="background:transparent;pointer-events:none;z-index:1300;">
-  <div class="modal-box" style="pointer-events:auto;width:350px;padding:20px;border:1px solid var(--border);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <span style="font-weight:800;font-size:11px;text-transform:uppercase;color:var(--text-muted);">Quick Note</span>
+  <div class="modal-box" style="pointer-events:auto;width:370px;padding:20px;border:1px solid var(--border);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="font-weight:800;font-size:12px;text-transform:uppercase;color:var(--text-muted);">
+        <i class="fas fa-sticky-note me-1"></i> Quick Note
+      </span>
       <i class="fas fa-times" style="cursor:pointer;" onclick="document.getElementById('noteModal').style.display='none'"></i>
     </div>
-    <textarea id="examNote" style="width:100%;height:200px;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;resize:none;" placeholder="Type your clinical notes here..."></textarea>
-    <div style="margin-top:10px;font-size:10px;color:var(--text-muted);">Notes are local and not saved on refresh.</div>
+    <input id="examNoteTitle" type="text"
+      style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:10px;background:var(--card-bg,#fff);color:var(--text);"
+      placeholder="Note title (required to save)..." />
+    <textarea id="examNote"
+      style="width:100%;height:180px;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;resize:none;background:var(--card-bg,#fff);color:var(--text);"
+      placeholder="Type your clinical notes here..."></textarea>
+    <div style="margin-top:10px;font-size:10px;color:var(--text-muted);">
+      <i class="fas fa-info-circle me-1"></i> This note will automatically save to <strong>My Notes</strong> after the exam ends.
+    </div>
   </div>
 </div>
 
@@ -749,6 +758,17 @@ const DIFF_WEIGHTS = {
 const IS_DEV_MODE    = true;                        // flip to false in production
 const MIN_ITEMS      = IS_DEV_MODE ? 10  : 85;      // minimum before CI check (NCSBN: 85)
 const TARGET_TOTAL   = <?= $targetTotalJs ?>;
+
+async function saveExamNote() {
+  const title   = (document.getElementById('examNoteTitle')?.value || '').trim();
+  const content = (document.getElementById('examNote')?.value || '').trim();
+  if (title && content) {
+    const fd = new FormData();
+    fd.append('note_title',   title);
+    fd.append('note_content', content);
+    await fetch('../mynotes.php', { method: 'POST', body: fd }).catch(() => {});
+  }
+}
 const MAX_ITEMS      = TARGET_TOTAL;                 // max items (NCSBN: 150 in prod)
 const PASSING_LOGIT  = 0.0;                          // NCSBN logit passing standard (real NCLEX-RN 2023 = -0.37)
 const IRT_CONFIDENCE = 1.96;                         // 95% CI z-score
@@ -885,6 +905,7 @@ async function handleTimeExpired() {
     confirmButtonColor: '#64748b',
     allowOutsideClick: false, allowEscapeKey: false,
   });
+  await saveExamNote();
   window.location.href = `result.php?examTaken=${examTaken}&finish=1`;
 }
 
@@ -1069,6 +1090,7 @@ async function handleAutoTermination(term) {
     confirmButtonColor: isPassed ? '#10b981' : '#ef4444',
     allowOutsideClick: false, allowEscapeKey: false,
   });
+  await saveExamNote();
   window.location.href = `result.php?examTaken=${examTaken}&finish=1`;
 }
 
@@ -1380,7 +1402,8 @@ async function handleManualFinish() {
     const result = await res.json();
     if (!result.ok) throw new Error(result.error || 'Submit failed');
     localStorage.removeItem(answerCacheKey);
-    window.location.href = `result.php?examTaken=${examTaken}&finish=1`;
+    await saveExamNote();
+  window.location.href = `result.php?examTaken=${examTaken}&finish=1`;
   } catch(err) {
     console.error('Submit error:', err);
     Swal.fire('Error', 'Failed to submit: ' + err.message, 'error');
