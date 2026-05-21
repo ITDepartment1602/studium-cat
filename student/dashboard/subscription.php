@@ -143,6 +143,16 @@ $plans = [
       transition: opacity 0.2s, transform 0.2s;
     }
     .s-plan-enroll:hover { opacity: 0.9; transform: scale(1.02); color: #fff; }
+    .s-plan-features {
+      list-style: none; padding: 0; margin: 12px 0 20px;
+      text-align: left; font-size: 0.82rem; color: var(--s-muted);
+    }
+    .s-plan-features li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 0; border-bottom: 1px solid var(--s-border);
+    }
+    .s-plan-features li:last-child { border-bottom: none; }
+    .s-plan-features li i { color: var(--s-accent); flex-shrink: 0; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -190,14 +200,14 @@ $plans = [
 
         <div class="s-plan-duration">/ <?php echo $plan['duration']; ?></div>
 
-        <div class="mt-2 mb-4" style="font-size:0.8rem; color:var(--s-muted); line-height:1.6;">
-          <i class="bi bi-check-circle-fill me-1" style="color:var(--s-accent);"></i> Full QBank Access<br>
-          <i class="bi bi-check-circle-fill me-1" style="color:var(--s-accent);"></i> NGN Practice Questions<br>
-          <i class="bi bi-check-circle-fill me-1" style="color:var(--s-accent);"></i> Performance Analytics<br>
-          <i class="bi bi-check-circle-fill me-1" style="color:var(--s-accent);"></i> Study Notes<br>
-        </div>
+        <ul class="s-plan-features">
+          <li><i class="bi bi-check-circle-fill"></i> Full QBank Access</li>
+          <li><i class="bi bi-check-circle-fill"></i> NGN Practice Questions</li>
+          <li><i class="bi bi-check-circle-fill"></i> Performance Analytics</li>
+          <li><i class="bi bi-check-circle-fill"></i> Study Notes</li>
+        </ul>
 
-        <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank"
+        <a href="https://www.facebook.com/NCLEXAmplifiedTechSupport/" target="_blank"
            class="s-plan-enroll">
           <i class="bi bi-facebook me-1"></i> Enroll Now
         </a>
@@ -215,7 +225,7 @@ $plans = [
         Click "Enroll Now" to message our Facebook page and complete your enrollment. Our team will process your subscription and activate your account within 24 hours.
         <br><br>
         <strong style="color:var(--s-primary);">Need help?</strong>
-        Contact us at <a href="https://www.facebook.com/NCLEX.Amplified.Technical" target="_blank" style="color:var(--s-accent);">@NCLEX.Amplified.Technical</a>
+        Contact us at <a href="https://www.facebook.com/NCLEXAmplifiedTechSupport/" target="_blank" style="color:var(--s-accent);">@NCLEXAmplifiedTechSupport</a>
       </div>
     </div>
   </div>

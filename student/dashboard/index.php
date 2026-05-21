@@ -515,7 +515,7 @@ $pageTitle = 'Dashboard — Studium';
 
     <!-- Traditional QBanks -->
     <?php
-    $tq = mysqli_query($con, "SELECT * FROM bundlelist ORDER BY id ASC");
+    $tq = mysqli_query($con, "SELECT * FROM bundlelist GROUP BY name ORDER BY id ASC");
     while ($brow = mysqli_fetch_array($tq)) {
       if (stripos($brow['name'], 'NGN') !== false) continue; // skip all NGN rows, handled above
       $cleanName = str_replace('(Soon)', '', $brow['name']);
