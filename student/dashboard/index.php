@@ -226,6 +226,67 @@ foreach (array_keys($readinessConceptMap) as $concept) {
     $tradChartAvgs[$concept] = $rt && $rt['avg'] !== null ? round($rt['avg']) : 0;
 }
 
+// ── Overall merged readiness (Trad + NGN combined) ──
+$overallConceptIconMap = array_merge($ngnConceptMap, $readinessConceptMap); // trad wins overlap
+
+// Raw correct/total from history per trad concept
+$tradRaw = [];
+foreach (array_keys($readinessConceptMap) as $concept) {
+    $_ce = mysqli_real_escape_string($quizCon, $concept);
+    $rr  = mysqli_fetch_assoc(mysqli_query($quizCon,
+        "SELECT SUM(sahi) as correct, SUM(sahi+wrong) as total FROM history
+         WHERE email='$user_id' AND eid='$_ce' AND kilanlan='NARC Intermediate and Advance QBanks'"
+    ));
+    $tradRaw[$concept] = ['correct' => (int)($rr['correct'] ?? 0), 'total' => (int)($rr['total'] ?? 0)];
+}
+
+// Build overall concept readiness — trad concepts first (weighted with NGN if shared)
+$overallConceptReadiness = [];
+foreach ($readinessConceptMap as $concept => $icon) {
+    $tC = $tradRaw[$concept]['correct']; $tT = $tradRaw[$concept]['total'];
+    $nC = 0; $nT = 0;
+    if (isset($ngnConceptReadiness[$concept])) {
+        $nRow = db()->fetchOne("SELECT SUM(isCorrect) as correct, COUNT(*) as total FROM exam_results WHERE student_id = ? AND concept = ?", [$user_id, $concept]);
+        $nC = (int)($nRow['correct'] ?? 0); $nT = (int)($nRow['total'] ?? 0);
+    }
+    $cTotal = $tT + $nT; $cCorrect = $tC + $nC;
+    $avg    = $cTotal > 0 ? round($cCorrect / $cTotal * 100) : 0;
+    $status = $cTotal > 0 ? ($avg >= 75 ? 'ready' : ($avg >= 60 ? 'ontrack' : 'needs')) : 'none';
+    $scores = count($conceptReadiness[$concept]['scores']) > 0
+        ? $conceptReadiness[$concept]['scores']
+        : (isset($ngnConceptReadiness[$concept]) ? $ngnConceptReadiness[$concept]['scores'] : []);
+    $overallConceptReadiness[$concept] = [
+        'scores'   => $scores,
+        'avg'      => $avg,
+        'status'   => $status,
+        'attempts' => $conceptReadiness[$concept]['attempts'] + (isset($ngnConceptReadiness[$concept]) ? $ngnConceptReadiness[$concept]['attempts'] : 0),
+    ];
+}
+// Append NGN-only concepts
+foreach ($ngnConceptReadiness as $concept => $data) {
+    if (!isset($overallConceptReadiness[$concept])) $overallConceptReadiness[$concept] = $data;
+}
+
+$overallReadyCount        = count(array_filter($overallConceptReadiness, fn($c) => $c['status'] === 'ready'));
+$overallTotalCount        = count($overallConceptReadiness);
+$overallAttempted         = count(array_filter($overallConceptReadiness, fn($c) => $c['attempts'] > 0));
+$overallCombinedReadiness = $overallAttempted === 0 ? 'none'
+    : ($overallReadyCount === $overallTotalCount ? 'ready'
+    : ($overallReadyCount >= 5 ? 'ontrack' : 'needs'));
+
+// ── Overall chart averages: trad concepts weighted with NGN, then NGN-only appended ──
+$overallChartAvgs = [];
+foreach (array_keys($readinessConceptMap) as $concept) {
+    $tC2  = $tradRaw[$concept]['correct']; $tT2 = $tradRaw[$concept]['total'];
+    $nRow2 = db()->fetchOne("SELECT SUM(isCorrect) as correct, COUNT(*) as total FROM exam_results WHERE student_id = ? AND concept = ?", [$user_id, $concept]);
+    $nC2  = (int)($nRow2['correct'] ?? 0); $nT2 = (int)($nRow2['total'] ?? 0);
+    $ct2  = $tT2 + $nT2;
+    $overallChartAvgs[$concept] = $ct2 > 0 ? round(($tC2 + $nC2) / $ct2 * 100) : 0;
+}
+foreach (array_keys($ngnConceptMap) as $concept) {
+    if (!isset($overallChartAvgs[$concept])) $overallChartAvgs[$concept] = $ngnConceptAvgs[$concept] ?? 0;
+}
+
 // Update last login
 $result = mysqli_query($con, "UPDATE login SET lastlogin = NOW(), loginstatus = 'Active now' WHERE id = " . intval($user_id));
 
@@ -239,8 +300,8 @@ $pageTitle = 'Dashboard — Studium';
 <html lang="en">
 <head>
   <?php include '_layout/head.php'; ?>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- ECharts — single charting library for donuts + line chart -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 </head>
 <body>
 
@@ -483,7 +544,7 @@ $pageTitle = 'Dashboard — Studium';
   <div class="row g-3 mb-4">
 
     <!-- NGN QBanks -->
-    <div class="col-lg-4 col-md-6 col-12">
+    <div class="col-lg-4 col-md-6 col-12" id="tut-ngn-card">
       <div class="s-mode-hero-card" style="--mhc-color:#0D9488; --mhc-bg:rgba(13,148,136,.06);">
         <div class="s-mhc-icon" style="background:rgba(13,148,136,.12);">
           <i class="bi bi-lightbulb-fill" style="color:#0D9488;"></i>
@@ -516,11 +577,12 @@ $pageTitle = 'Dashboard — Studium';
     <!-- Traditional QBanks -->
     <?php
     $tq = mysqli_query($con, "SELECT * FROM bundlelist GROUP BY name ORDER BY id ASC");
+    $_tut_trad_first = true;
     while ($brow = mysqli_fetch_array($tq)) {
       if (stripos($brow['name'], 'NGN') !== false) continue; // skip all NGN rows, handled above
       $cleanName = str_replace('(Soon)', '', $brow['name']);
     ?>
-    <div class="col-lg-4 col-md-6 col-12">
+    <div class="col-lg-4 col-md-6 col-12"<?= $_tut_trad_first ? ' id="tut-trad-card"' : '' ?><?php $_tut_trad_first = false; ?>>
       <div class="s-mode-hero-card" style="--mhc-color:var(--s-primary); --mhc-bg:rgba(0,124,191,.05);">
         <div class="s-mhc-icon" style="background:rgba(0,124,191,.1);">
           <i class="bi bi-journals" style="color:var(--s-primary);"></i>
@@ -541,7 +603,7 @@ $pageTitle = 'Dashboard — Studium';
     <?php } ?>
 
     <!-- CAT Exam Mode -->
-    <div class="col-lg-4 col-md-6 col-12">
+    <div class="col-lg-4 col-md-6 col-12" id="tut-cat-card">
       <div class="s-mode-hero-card" style="--mhc-color:#6366f1; --mhc-bg:rgba(99,102,241,.05);">
         <div class="s-mhc-icon" style="background:rgba(99,102,241,.1);">
           <i class="bi bi-activity" style="color:#6366f1;"></i>
@@ -569,7 +631,7 @@ $pageTitle = 'Dashboard — Studium';
 
 
   <!-- ── Statistics ── -->
-  <div class="s-section-header mt-2 mb-3">
+  <div class="s-section-header mt-2 mb-3" id="tut-stats-hdr">
     <div class="d-flex align-items-center gap-2">
       <h5 class="s-section-title mb-0"><i class="bi bi-bar-chart-line-fill me-2"></i>Statistics</h5>
       <button class="s-info-btn" data-tip="Accuracy = correct answers ÷ total attempted × 100. Switch filters to view Overall, Traditional, or NGN performance separately.">i</button>
@@ -634,7 +696,7 @@ $pageTitle = 'Dashboard — Studium';
         </div>
         <div class="s-chart-body">
           <div class="s-donut-wrap flex-shrink-0">
-            <canvas id="questionsCircle"></canvas>
+            <div id="questionsCircle" style="width:100%;height:100%;"></div>
             <div class="s-donut-label">Usage</div>
           </div>
           <div class="s-chart-legend">
@@ -660,7 +722,7 @@ $pageTitle = 'Dashboard — Studium';
         </div>
         <div class="s-chart-body">
           <div class="s-donut-wrap flex-shrink-0">
-            <canvas id="performanceCircle"></canvas>
+            <div id="performanceCircle" style="width:100%;height:100%;"></div>
             <div class="s-donut-label">Score</div>
           </div>
           <div class="s-chart-legend">
@@ -684,7 +746,7 @@ $pageTitle = 'Dashboard — Studium';
 
 
   <!-- ── Topics & Concepts ── -->
-  <div class="s-section-header mt-2 mb-4">
+  <div class="s-section-header mt-2 mb-4" id="tut-topics-hdr">
     <div class="d-flex align-items-center gap-2">
       <h5 class="s-section-title mb-0"><i class="bi bi-grid-fill me-2"></i>Topics & Concepts Statistics</h5>
       <button class="s-info-btn" data-tip="See how many questions you've attempted and your accuracy per concept and topic. Select from the dropdowns to explore any area.">i</button>
@@ -714,7 +776,7 @@ $pageTitle = 'Dashboard — Studium';
         </div>
         <div class="s-chart-body">
           <div class="s-donut-wrap flex-shrink-0" style="position:relative;">
-            <canvas id="topicChart"></canvas>
+            <div id="topicChart" style="width:100%;height:100%;"></div>
             <div class="s-donut-label">Score</div>
           </div>
           <div class="s-chart-legend">
@@ -744,7 +806,7 @@ $pageTitle = 'Dashboard — Studium';
         </div>
         <div class="s-chart-body">
           <div class="s-donut-wrap flex-shrink-0" style="position:relative;">
-            <canvas id="conceptChart"></canvas>
+            <div id="conceptChart" style="width:100%;height:100%;"></div>
             <div class="s-donut-label">Score</div>
           </div>
           <div class="s-chart-legend">
@@ -763,27 +825,27 @@ $pageTitle = 'Dashboard — Studium';
     <div class="s-chart-card-header">
       <span class="s-chart-card-title"><i class="bi bi-graph-up-arrow"></i> Average Scores per Concept</span>
     </div>
-    <canvas id="scoresChart" style="max-height:260px;"></canvas>
+    <div id="scoresChart" style="height:260px; width:100%;"></div>
   </div>
 
   </div><!-- /topics-section-body -->
 
 
   <!-- ── NCLEX Readiness ── -->
-  <div class="s-readiness-header mb-3 mt-2">
+  <div class="s-readiness-header mb-3 mt-2" id="tut-readiness-hdr">
     <div class="d-flex align-items-center gap-2">
       <h5 class="s-section-title mb-0"><i class="bi bi-patch-check-fill me-2"></i>NCLEX Readiness</h5>
       <button class="s-info-btn" data-tip="Based on your last 3 exam scores per concept. ≥75% = Ready, ≥60% = Almost, <60% = Needs Work. Switch the filter above to see Traditional or NGN readiness.">i</button>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
       <div id="readiness-banner-wrap">
-        <div class="s-readiness-banner s-rb-<?= $overallReadiness ?>" id="readiness-banner-overall">
-          <?php if ($overallReadiness === 'ready'): ?>
-            <i class="bi bi-patch-check-fill"></i>&nbsp; <strong>NCLEX Ready!</strong>&nbsp; All <?= $totalConceptCount ?> concepts passing.
-          <?php elseif ($overallReadiness === 'ontrack'): ?>
-            <i class="bi bi-arrow-up-circle-fill"></i>&nbsp; <strong>On Track</strong>&nbsp; — <?= $readyCount ?>/<?= $totalConceptCount ?> concepts passing.
-          <?php elseif ($overallReadiness === 'needs'): ?>
-            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; <strong>Needs Work</strong>&nbsp; — <?= $readyCount ?>/<?= $totalConceptCount ?> concepts passing. Focus on the red concepts below.
+        <div class="s-readiness-banner s-rb-<?= $overallCombinedReadiness ?>" id="readiness-banner-overall">
+          <?php if ($overallCombinedReadiness === 'ready'): ?>
+            <i class="bi bi-patch-check-fill"></i>&nbsp; <strong>NCLEX Ready!</strong>&nbsp; All <?= $overallTotalCount ?> concepts passing.
+          <?php elseif ($overallCombinedReadiness === 'ontrack'): ?>
+            <i class="bi bi-arrow-up-circle-fill"></i>&nbsp; <strong>On Track</strong>&nbsp; — <?= $overallReadyCount ?>/<?= $overallTotalCount ?> concepts passing.
+          <?php elseif ($overallCombinedReadiness === 'needs'): ?>
+            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; <strong>Needs Work</strong>&nbsp; — <?= $overallReadyCount ?>/<?= $overallTotalCount ?> concepts passing. Focus on the red concepts below.
           <?php else: ?>
             <i class="bi bi-hourglass-split"></i>&nbsp; <strong>No Data Yet</strong>&nbsp; — Complete at least one exam to see readiness.
           <?php endif; ?>
@@ -820,7 +882,8 @@ $pageTitle = 'Dashboard — Studium';
 
   <div class="s-collapsible" id="readiness-section-body">
 
-  <p class="s-readiness-note mb-3" id="readiness-note-trad">Based on your <strong>last 3 exam attempts</strong> per concept (150 questions each). A concept is <span style="color:#0D9488;font-weight:600;">Ready</span> when its recent average is ≥ 75%.</p>
+  <p class="s-readiness-note mb-3" id="readiness-note-overall">Based on your combined <strong>Traditional + NGN</strong> performance. A concept is <span style="color:#0D9488;font-weight:600;">Ready</span> when its weighted accuracy is ≥ 75%.</p>
+  <p class="s-readiness-note mb-3" id="readiness-note-trad" style="display:none;">Based on your <strong>last 3 exam attempts</strong> per concept (150 questions each). A concept is <span style="color:#0D9488;font-weight:600;">Ready</span> when its recent average is ≥ 75%.</p>
   <p class="s-readiness-note mb-3" id="readiness-note-ngn" style="display:none;">Based on your <strong>last 3 NGN exam attempts</strong> per concept. A concept is <span style="color:#0D9488;font-weight:600;">Ready</span> when its recent accuracy is ≥ 75%.</p>
 
   <?php
@@ -870,8 +933,13 @@ $pageTitle = 'Dashboard — Studium';
   <?php endforeach; }
   ?>
 
-  <!-- Traditional readiness cards -->
-  <div class="row g-3 mb-4" id="readiness-cards-trad">
+  <!-- Overall readiness cards (default visible) -->
+  <div class="row g-3 mb-4" id="readiness-cards-overall">
+    <?php renderReadinessCards($overallConceptIconMap, $overallConceptReadiness, $rcColors); ?>
+  </div>
+
+  <!-- Traditional readiness cards (hidden by default) -->
+  <div class="row g-3 mb-4" id="readiness-cards-trad" style="display:none;">
     <?php renderReadinessCards($readinessConceptMap, $conceptReadiness, $rcColors); ?>
   </div>
 
@@ -894,12 +962,8 @@ $pageTitle = 'Dashboard — Studium';
 <script src="../ty/js/jquery-3.5.1.js"></script>
 
 <script>
-// ── Chart.js defaults ──
-Chart.defaults.font.family = "'Inter', sans-serif";
-Chart.defaults.font.size = 12;
-Chart.defaults.plugins.tooltip.padding = 10;
-Chart.defaults.plugins.tooltip.cornerRadius = 8;
-Chart.defaults.plugins.tooltip.boxPadding = 4;
+// ── ECharts global defaults (clean Inter font everywhere) ──
+const ECHART_FONT = "'Inter', sans-serif";
 
 // ── All stats data pre-encoded from PHP ──
 const allStats = {
@@ -910,8 +974,8 @@ const allStats = {
     qUsed: <?= $overallUsedQ ?>, qUnused: <?= $overallUnusedQ ?>, qTotal: <?= $overallTotalQ ?>, qUsedPct: <?= $overallUsedPct ?>,
     correct: <?= $overallCorrect ?>, wrong: <?= $overallWrong ?>, accuracy: <?= $overallAccuracy ?>,
     accLabel: 'Overall Accuracy (Traditional + NGN)',
-    chartLabels: <?= json_encode(array_keys($tradChartAvgs)) ?>,
-    chartData:   <?= json_encode(array_values($tradChartAvgs)) ?>
+    chartLabels: <?= json_encode(array_keys($overallChartAvgs)) ?>,
+    chartData:   <?= json_encode(array_values($overallChartAvgs)) ?>
   },
   trad: {
     qUsed: <?= $usedQ ?>, qUnused: <?= $unusedQ ?>, qTotal: <?= $totalQ ?>, qUsedPct: <?= $usedPercent ?>,
@@ -929,71 +993,164 @@ const allStats = {
   }
 };
 
-// ── Donut chart factory ──
-function makeDonut(canvasId, data, colors) {
-  return new Chart(document.getElementById(canvasId), {
-    type: 'doughnut',
-    data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: colors, borderWidth: 0 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '80%',
-      animation: { animateRotate: true, duration: 900 },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.parsed } }
-      }
-    }
-  });
+// ── Premium ECharts donut factory ──
+//  - 72→92% radius for an elegant thin ring
+//  - Rounded segment ends with white separator for a polished look
+//  - Smooth hover lift with soft shadow
+//  - Empty state (all zeros) renders a neutral gray ring
+function makeDonut(elId, data, colors) {
+  const el = document.getElementById(elId);
+  if (!el) return null;
+  const chart = echarts.init(el);
+  chart.setOption(buildDonutOption(data, colors));
+  return chart;
+}
+
+function buildDonutOption(data, colors) {
+  const keys   = Object.keys(data);
+  const values = Object.values(data);
+  const total  = values.reduce((a, b) => a + b, 0);
+
+  // Empty state → flat gray ring
+  const pieData = (total === 0)
+    ? [{ value: 1, name: 'No data', itemStyle: { color: '#e2e8f0' }, tooltip: { show: false } }]
+    : keys.map((k, i) => ({ value: values[i], name: k, itemStyle: { color: colors[i] } }));
+
+  return {
+    animation: true,
+    animationDuration: 900,
+    animationEasing: 'cubicOut',
+    textStyle: { fontFamily: ECHART_FONT },
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: '#0f172a',
+      borderColor: '#0f172a',
+      borderWidth: 0,
+      padding: [8, 12],
+      textStyle: { color: '#fff', fontSize: 12, fontFamily: ECHART_FONT },
+      formatter: p => p.name === 'No data'
+        ? `<span style="color:#94a3b8;font-size:11px">No data yet</span>`
+        : `<span style="color:#94a3b8;font-size:10px">${p.name}</span><br/><b style="font-size:14px">${p.value}</b> <span style="color:#94a3b8;font-size:10px">(${p.percent}%)</span>`
+    },
+    series: [{
+      type: 'pie',
+      radius: ['72%', '92%'],
+      avoidLabelOverlap: false,
+      itemStyle: {
+        borderRadius: 6,
+        borderColor: '#fff',
+        borderWidth: total === 0 ? 0 : 2
+      },
+      label: { show: false },
+      labelLine: { show: false },
+      emphasis: {
+        scale: true,
+        scaleSize: 4,
+        itemStyle: { shadowBlur: 12, shadowColor: 'rgba(15,23,42,0.18)' }
+      },
+      data: pieData
+    }]
+  };
 }
 
 // ── Global chart instances (initialised with Overall combined data) ──
 let qChart    = makeDonut('questionsCircle',  { Used: <?= $overallUsedQ ?>,  Unused: <?= $overallUnusedQ ?>  }, ['#007CBF','#e2e8f0']);
-let perfChart = makeDonut('performanceCircle', { Correct: <?= $overallCorrect ?>, Wrong: <?= $overallWrong ?>  }, ['#0D9488','#ef4444']);
+let perfChart = makeDonut('performanceCircle', { Correct: <?= $overallCorrect ?>, Wrong: <?= $overallWrong ?>  }, ['#0D9488','#d72638']);
+window.addEventListener('resize', () => { qChart && qChart.resize(); perfChart && perfChart.resize(); });
 
 // ── Line Chart: Average Scores per Concept ──
-let scoresChart = new Chart(document.getElementById('scoresChart'), {
-  type: 'line',
-  data: {
-    labels: <?= json_encode(array_keys($tradChartAvgs)) ?>,
-    datasets: [{
-      label: 'Average %',
-      data: <?= json_encode(array_values($tradChartAvgs)) ?>,
-      fill: true,
-      tension: 0.42,
-      borderColor: '#007CBF',
-      borderWidth: 2.5,
-      backgroundColor: (ctx) => {
-        const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 220);
-        g.addColorStop(0, 'rgba(0,124,191,0.18)');
-        g.addColorStop(1, 'rgba(13,148,136,0.02)');
-        return g;
+const scoresChart = echarts.init(document.getElementById('scoresChart'));
+
+function buildScoresOption(labels, data) {
+  const abbrevMap = {
+    'Leadership and Management': 'Leadership & Mgmt',
+    'Maternal and Newborn Health': 'Maternal & Newborn',
+    'Fluid and Electrolytes': 'Fluid & Electrolytes',
+  };
+  const shortLabels = labels.map(l => abbrevMap[l] || l);
+  return {
+    animation: true,
+    animationDuration: 900,
+    animationEasing: 'cubicOut',
+    textStyle: { fontFamily: ECHART_FONT },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#0f172a',
+      borderColor: '#0f172a',
+      borderWidth: 0,
+      padding: [8, 12],
+      textStyle: { color: '#fff', fontSize: 12, fontFamily: ECHART_FONT },
+      axisPointer: {
+        type: 'line',
+        lineStyle: { color: 'rgba(100,116,139,0.45)', type: 'dashed', width: 1 }
       },
-      pointBackgroundColor: '#0D9488',
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-      pointRadius: 5,
-      pointHoverRadius: 7
-    }]
-  },
-  options: {
-    responsive: true,
-    animation: { duration: 900, easing: 'easeInOutQuart' },
-    scales: {
-      y: {
-        beginAtZero: true, max: 100,
-        grid: { color: 'rgba(0,0,0,0.04)' },
-        ticks: { callback: v => v + '%', color: '#94a3b8', font: { size: 11 } }
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 35 }
-      }
+      formatter: p => `<span style="color:#94a3b8;font-size:10px">${labels[p[0].dataIndex]}</span><br/><b style="font-size:14px">${p[0].value}%</b>`
     },
-    plugins: {
-      legend: { display: false },
-      tooltip: { callbacks: { label: ctx => ' Average: ' + ctx.parsed.y + '%' } }
-    }
-  }
-});
+    grid: { top: 18, right: 18, bottom: 84, left: 48 },
+    xAxis: {
+      type: 'category',
+      data: shortLabels,
+      boundaryGap: false,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 40, interval: 0, fontFamily: ECHART_FONT }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0, max: 100,
+      splitLine: { lineStyle: { color: 'rgba(15,23,42,0.06)' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#94a3b8', fontSize: 11, formatter: '{value}%', fontFamily: ECHART_FONT }
+    },
+    series: [{
+      type: 'line',
+      showSymbol: false,
+      symbol: 'circle',
+      symbolSize: 8,
+      smooth: true,
+      data: data,
+      lineStyle: {
+        width: 3,
+        color: {
+          type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+          colorStops: [
+            { offset: 0, color: '#007CBF' },
+            { offset: 1, color: '#0D9488' }
+          ]
+        }
+      },
+      itemStyle: {
+        color: '#0D9488',
+        borderColor: '#fff',
+        borderWidth: 2,
+        shadowBlur: 8,
+        shadowColor: 'rgba(13,148,136,0.35)'
+      },
+      areaStyle: {
+        opacity: 0.18,
+        color: {
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(13,148,136,0.55)' },
+            { offset: 1, color: 'rgba(0,124,191,0)' }
+          ]
+        }
+      },
+      emphasis: {
+        focus: 'series',
+        scale: true
+      }
+    }]
+  };
+}
+
+scoresChart.setOption(buildScoresOption(
+  <?= json_encode(array_keys($overallChartAvgs)) ?>,
+  <?= json_encode(array_values($overallChartAvgs)) ?>
+));
+
+window.addEventListener('resize', () => scoresChart.resize());
 
 // ── setStatsFilter — wires ALL sections to the filter tabs ──
 function setStatsFilter(mode) {
@@ -1017,8 +1174,7 @@ function setStatsFilter(mode) {
   }
 
   // ── Questions Usage donut ──
-  qChart.data.datasets[0].data = [d.qUsed, d.qUnused];
-  qChart.update();
+  qChart.setOption(buildDonutOption({ Used: d.qUsed, Unused: d.qUnused }, ['#007CBF', '#e2e8f0']));
   document.getElementById('badge-q-total').textContent    = d.qTotal + ' Total';
   document.getElementById('legend-used-count').textContent   = d.qUsed;
   document.getElementById('legend-unused-count').textContent = d.qUnused;
@@ -1026,8 +1182,7 @@ function setStatsFilter(mode) {
   document.getElementById('legend-unused-pct').textContent   = (100 - d.qUsedPct) + '%';
 
   // ── Performance donut ──
-  perfChart.data.datasets[0].data = [d.correct, d.wrong];
-  perfChart.update();
+  perfChart.setOption(buildDonutOption({ Correct: d.correct, Wrong: d.wrong }, ['#0D9488', '#d72638']));
   document.getElementById('badge-perf-pct').textContent          = d.accuracy + '% Accuracy';
   document.getElementById('legend-perf-correct').textContent     = d.correct;
   document.getElementById('legend-perf-wrong').textContent       = d.wrong;
@@ -1035,9 +1190,7 @@ function setStatsFilter(mode) {
   document.getElementById('legend-perf-wrong-pct').textContent   = wrongPct + '%';
 
   // ── Average Scores line chart ──
-  scoresChart.data.labels                 = d.chartLabels;
-  scoresChart.data.datasets[0].data       = d.chartData;
-  scoresChart.update();
+  scoresChart.setOption(buildScoresOption(d.chartLabels, d.chartData));
 
   // ── Readiness banners ──
   const rb = id => document.getElementById(id);
@@ -1047,16 +1200,18 @@ function setStatsFilter(mode) {
   show(rb('readiness-banner-ngn'),     mode === 'ngn');
 
   // ── Readiness cards + notes ──
-  show(rb('readiness-cards-trad'), mode !== 'ngn');
-  show(rb('readiness-cards-ngn'),  mode === 'ngn');
-  show(rb('readiness-note-trad'),  mode !== 'ngn');
-  show(rb('readiness-note-ngn'),   mode === 'ngn');
+  show(rb('readiness-cards-overall'), mode === 'overall');
+  show(rb('readiness-cards-trad'),    mode === 'trad');
+  show(rb('readiness-cards-ngn'),     mode === 'ngn');
+  show(rb('readiness-note-overall'),  mode === 'overall');
+  show(rb('readiness-note-trad'),     mode === 'trad');
+  show(rb('readiness-note-ngn'),      mode === 'ngn');
 
   // Re-animate readiness bars for newly visible cards
-  const targetCards = mode === 'ngn'
-    ? document.querySelectorAll('#readiness-cards-ngn .s-rc-bar-fill[data-w]')
-    : document.querySelectorAll('#readiness-cards-trad .s-rc-bar-fill[data-w]');
-  targetCards.forEach((b, i) => {
+  const cardGroupId = mode === 'ngn' ? '#readiness-cards-ngn'
+                    : mode === 'trad' ? '#readiness-cards-trad'
+                    : '#readiness-cards-overall';
+  document.querySelectorAll(cardGroupId + ' .s-rc-bar-fill[data-w]').forEach((b, i) => {
     b.style.width = '0%';
     requestAnimationFrame(() => { setTimeout(() => { b.style.width = b.dataset.w + '%'; }, 80 + i * 30); });
   });
@@ -1091,7 +1246,7 @@ function toggleSection(sectionId, btnId) {
 (function initAnimations() {
   const accBar = document.getElementById('acc-bar');
   if (accBar) { requestAnimationFrame(() => { setTimeout(() => { accBar.style.width = accBar.dataset.w + '%'; }, 150); }); }
-  document.querySelectorAll('.s-rc-bar-fill[data-w]').forEach((bar, i) => {
+  document.querySelectorAll('#readiness-cards-overall .s-rc-bar-fill[data-w]').forEach((bar, i) => {
     bar.style.width = '0%';
     requestAnimationFrame(() => { setTimeout(() => { bar.style.width = bar.dataset.w + '%'; }, 200 + i * 40); });
   });
@@ -1100,7 +1255,8 @@ function toggleSection(sectionId, btnId) {
 
 <!-- Concept + Topic chart JS -->
 <script>
-let conceptChart, topicChart;
+// ECharts donut instances (created lazily on first use)
+let conceptChart = null, topicChart = null;
 let currentMode = 'overall';
 
 // Dropdown option lists
@@ -1109,6 +1265,17 @@ const NGN_CONCEPTS        = <?= json_encode(array_keys($ngnConceptMap)) ?>;
 const NGN_TOPICS          = <?= json_encode(array_keys($ngnBankTopic)) ?>;
 const NGN_CONCEPT_TOPICS  = <?= json_encode($ngnConceptTopics, JSON_UNESCAPED_UNICODE) ?>;
 const TRAD_CONCEPT_TOPICS = <?= json_encode($tradConceptTopics, JSON_UNESCAPED_UNICODE) ?>;
+
+// Overall = union of trad + ngn concepts (no duplicates, trad order first)
+const OVERALL_CONCEPTS = [...new Set([...TRAD_CONCEPTS, ...NGN_CONCEPTS])];
+const OVERALL_CONCEPT_TOPICS = (() => {
+  const map = {};
+  OVERALL_CONCEPTS.forEach(c => {
+    const t = [...(TRAD_CONCEPT_TOPICS[c] || []), ...(NGN_CONCEPT_TOPICS[c] || [])];
+    map[c] = [...new Set(t)].sort();
+  });
+  return map;
+})();
 
 const _TRAD_TOPICS = [
   'Pain Meds','Antepartum','Assignment/Delegation','Cardiovascular','Oncology',
@@ -1128,35 +1295,25 @@ function swapDropdown(selectEl, options) {
 }
 
 function updateConceptChart(correct, wrong) {
-  if (conceptChart) conceptChart.destroy();
-  const data   = (correct + wrong === 0) ? [100] : [correct, wrong];
-  const colors = (correct + wrong === 0) ? ['#e2e8f0'] : ['#0D9488', '#d72638'];
-  conceptChart = new Chart(document.getElementById('conceptChart'), {
-    type: 'doughnut',
-    data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-    options: { cutout: '80%', plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }
-  });
+  if (!conceptChart) conceptChart = echarts.init(document.getElementById('conceptChart'));
+  conceptChart.setOption(buildDonutOption({ Correct: correct, Wrong: wrong }, ['#0D9488', '#d72638']));
 }
 
 function updateTopicChart(correct, wrong) {
-  if (topicChart) topicChart.destroy();
-  const data   = (correct + wrong === 0) ? [100] : [correct, wrong];
-  const colors = (correct + wrong === 0) ? ['#e2e8f0'] : ['#0D9488', '#d72638'];
-  topicChart = new Chart(document.getElementById('topicChart'), {
-    type: 'doughnut',
-    data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-    options: { cutout: '80%', plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }
-  });
+  if (!topicChart) topicChart = echarts.init(document.getElementById('topicChart'));
+  topicChart.setOption(buildDonutOption({ Correct: correct, Wrong: wrong }, ['#0D9488', '#d72638']));
 }
 
-// type → which DOM prefix to update (concept = right card, topic = left card)
-// conceptSelect (Topics label) → type concept/ngn_topic → prefix concept
-// topicSelect   (Concepts label) → type topic/ngn_concept → prefix topic
+window.addEventListener('resize', () => {
+  if (conceptChart) conceptChart.resize();
+  if (topicChart)   topicChart.resize();
+});
+
 function fetchStats(type, value) {
   fetch(`get_stats.php?type=${type}&value=${encodeURIComponent(value)}`)
     .then(res => res.json())
     .then(data => {
-      const isConcept = (type === 'concept' || type === 'ngn_topic');
+      const isConcept = (type === 'concept' || type === 'ngn_topic' || type === 'overall_topic');
       const prefix    = isConcept ? 'concept' : 'topic';
       document.getElementById(prefix + 'Total').innerText   = data.total ?? 0;
       document.getElementById(prefix + 'Used').innerText    = data.used  ?? 0;
@@ -1184,17 +1341,27 @@ function syncTradTopics(conceptName) {
   swapDropdown(topicSel, topics);
   fetchStats('concept', topicSel.value);
 }
+function syncOverallTopics(conceptName) {
+  const topicSel = document.getElementById('conceptSelect');
+  const topics = OVERALL_CONCEPT_TOPICS[conceptName] || [...new Set([..._TRAD_TOPICS, ...NGN_TOPICS])].sort();
+  swapDropdown(topicSel, topics);
+  fetchStats('overall_topic', topicSel.value);
+}
 
 // ── Swap dropdowns when filter mode changes ──
 function syncTopicConceptDropdowns(mode) {
-  const conceptSel = document.getElementById('topicSelect');   // Concepts card dropdown
-  const topicSel   = document.getElementById('conceptSelect'); // Topics card dropdown
-  const isNGN = mode === 'ngn';
-  swapDropdown(conceptSel, isNGN ? NGN_CONCEPTS : TRAD_CONCEPTS);
-  if (isNGN) {
+  const conceptSel = document.getElementById('topicSelect');
+  const topicSel   = document.getElementById('conceptSelect');
+  if (mode === 'ngn') {
+    swapDropdown(conceptSel, NGN_CONCEPTS);
     syncNGNTopics(conceptSel.value);
     fetchStats('ngn_concept', conceptSel.value);
+  } else if (mode === 'overall') {
+    swapDropdown(conceptSel, OVERALL_CONCEPTS);
+    syncOverallTopics(conceptSel.value);
+    fetchStats('overall_concept', conceptSel.value);
   } else {
+    swapDropdown(conceptSel, TRAD_CONCEPTS);
     syncTradTopics(conceptSel.value);
     fetchStats('topic', conceptSel.value);
   }
@@ -1213,21 +1380,23 @@ document.getElementById('topicSelect').addEventListener('change', function() {
   if (currentMode === 'ngn') {
     fetchStats('ngn_concept', this.value);
     syncNGNTopics(this.value);
+  } else if (currentMode === 'overall') {
+    fetchStats('overall_concept', this.value);
+    syncOverallTopics(this.value);
   } else {
     fetchStats('topic', this.value);
     syncTradTopics(this.value);
   }
 });
 document.getElementById('conceptSelect').addEventListener('change', function() {
-  const t = currentMode === 'ngn' ? 'ngn_topic' : 'concept';
-  fetchStats(t, this.value);
+  if (currentMode === 'ngn')          fetchStats('ngn_topic',     this.value);
+  else if (currentMode === 'overall') fetchStats('overall_topic', this.value);
+  else                                fetchStats('concept',       this.value);
 });
 
-// Initial load — filter Topics dropdown to match the default concept, then fetch stats
+// Initial load — currentMode is 'overall' on page load
 (function () {
-  const conceptSel = document.getElementById('topicSelect');
-  fetchStats('topic', conceptSel.value);
-  syncTradTopics(conceptSel.value); // syncTradTopics also calls fetchStats('concept',...)
+  syncTopicConceptDropdowns(currentMode);
 })();
 </script>
 
@@ -1493,6 +1662,10 @@ document.getElementById('ngnStartForm').addEventListener('submit', function() {
   document.getElementById('hiddenTopics').value   = JSON.stringify(Array.from(document.querySelectorAll('.topic-cb:checked')).map(c => c.value));
 });
 </script>
+
+<?php if ($fetch['tutorial'] === null): ?>
+<?php include '_layout/tutorial.php'; ?>
+<?php endif; ?>
 
 </body>
 </html>

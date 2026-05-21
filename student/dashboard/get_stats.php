@@ -110,4 +110,86 @@ if ($type === 'ngn_topic') {
     exit;
 }
 
+// ── Overall = Trad (review table) + NGN (exam_results) combined ──
+// overall_concept: concept card — Concepts card uses eid (trad) + concept (ngn)
+if ($type === 'overall_concept') {
+    $val = mysqli_real_escape_string($con, $value);
+    $uid = intval($user_id);
+
+    // Trad: eid matches concept name (e.g. "Adult Health", "Pharmacology")
+    $tRow = mysqli_fetch_assoc(mysqli_query($con,
+        "SELECT
+            COUNT(DISTINCT r.questionId) as used,
+            SUM(r.ans = q.correctAns)    as correct,
+            SUM(r.ans != q.correctAns)   as wrong
+         FROM review r
+         JOIN question q ON r.questionId = q.id
+         WHERE r.studentId = '$uid' AND q.topics1 = '$val'"
+    ));
+    $tCorrect = (int)($tRow['correct'] ?? 0);
+    $tWrong   = (int)($tRow['wrong']   ?? 0);
+    $tUsed    = (int)($tRow['used']    ?? 0);
+
+    // NGN: concept column
+    $db  = db()->getConnection();
+    $nRow = $db->query(
+        "SELECT COUNT(DISTINCT question_uid) as used,
+                SUM(isCorrect)               as correct,
+                COUNT(*) - SUM(isCorrect)    as wrong
+         FROM exam_results
+         WHERE student_id = $uid AND concept = '{$db->real_escape_string($value)}'"
+    )->fetch_assoc();
+    $nCorrect = (int)($nRow['correct'] ?? 0);
+    $nWrong   = (int)($nRow['wrong']   ?? 0);
+    $nUsed    = (int)($nRow['used']    ?? 0);
+
+    echo json_encode([
+        'total'   => $tUsed + $nUsed,
+        'used'    => $tUsed + $nUsed,
+        'correct' => $tCorrect + $nCorrect,
+        'wrong'   => $tWrong   + $nWrong,
+    ]);
+    exit;
+}
+
+// overall_topic: Topics card — system (trad) + topic (ngn)
+if ($type === 'overall_topic') {
+    $uid = intval($user_id);
+
+    // Trad: system column in review table
+    $val = mysqli_real_escape_string($con, $value);
+    $tRow = mysqli_fetch_assoc(mysqli_query($con,
+        "SELECT
+            COUNT(DISTINCT questionId)         as used,
+            SUM(ans = correctAns)              as correct,
+            SUM(ans != correctAns)             as wrong
+         FROM review
+         WHERE studentId = '$uid' AND system = '$val'"
+    ));
+    $tCorrect = (int)($tRow['correct'] ?? 0);
+    $tWrong   = (int)($tRow['wrong']   ?? 0);
+    $tUsed    = (int)($tRow['used']    ?? 0);
+
+    // NGN: topic column
+    $db  = db()->getConnection();
+    $nRow = $db->query(
+        "SELECT COUNT(DISTINCT question_uid) as used,
+                SUM(isCorrect)               as correct,
+                COUNT(*) - SUM(isCorrect)    as wrong
+         FROM exam_results
+         WHERE student_id = $uid AND topic = '{$db->real_escape_string($value)}'"
+    )->fetch_assoc();
+    $nCorrect = (int)($nRow['correct'] ?? 0);
+    $nWrong   = (int)($nRow['wrong']   ?? 0);
+    $nUsed    = (int)($nRow['used']    ?? 0);
+
+    echo json_encode([
+        'total'   => $tUsed + $nUsed,
+        'used'    => $tUsed + $nUsed,
+        'correct' => $tCorrect + $nCorrect,
+        'wrong'   => $tWrong   + $nWrong,
+    ]);
+    exit;
+}
+
 echo json_encode(['error' => 'Invalid type']);
