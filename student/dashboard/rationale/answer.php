@@ -101,6 +101,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $correctAns = $stmt->get_result()->fetch_assoc()['correctans'] ?? '';
 }
 
+// ─── Progress drawer data ─────────────────────────────────────────────────────
+$_pd_s = $con->prepare("SELECT examTaken FROM login WHERE id = ?");
+$_pd_s->bind_param("i", $user_id); $_pd_s->execute();
+$_pd_et = $_pd_s->get_result()->fetch_assoc()['examTaken'] ?? 0;
+$_pd_q = $con->prepare(
+    "SELECT r.questionNumber, r.isCorrect, r.ans, r.correctAns,
+            q.question, q.choiceA, q.choiceB, q.choiceC, q.choiceD,
+            q.rationale, q.topics1, q.system
+     FROM review r JOIN question q ON r.questionId = q.id
+     WHERE r.studentId = ? AND r.examTaken = ?
+     ORDER BY r.questionNumber ASC"
+);
+$_pd_q->bind_param("is", $user_id, $_pd_et); $_pd_q->execute();
+$_pd_rows = []; $_pd_r2 = $_pd_q->get_result();
+while ($_r = $_pd_r2->fetch_assoc()) {
+    $_pd_rows[] = ['n'=>(int)$_r['questionNumber'],'ok'=>(int)$_r['isCorrect'],
+        'ans'=>$_r['ans'],'cor'=>$_r['correctAns'],'t'=>$_r['topics1'],
+        's'=>$_r['system'],'q'=>$_r['question'],'a'=>$_r['choiceA'],
+        'b'=>$_r['choiceB'],'c'=>$_r['choiceC'],'d'=>$_r['choiceD'],
+        'rat'=>$_r['rationale']];
+}
+$_pd_json = json_encode($_pd_rows, JSON_HEX_TAG|JSON_HEX_QUOT|JSON_HEX_AMP|JSON_UNESCAPED_UNICODE);
+
 // ─── Build navigation URLs ─────────────────────────────────────────────────────
 $updatedQnums = !empty($qnumsRaw) ? $qnumsRaw . '|' . $qq : (string)$qq;
 $newCc = ($isCorrect === 1) ? $cc + 1 : $cc;
@@ -383,6 +406,9 @@ $userData = mysqli_fetch_assoc($userRow);
       .ra-bottom { padding: 12px 16px; }
       .ra-tags { grid-template-columns: 1fr; }
     }
+    .pd-view-btn{display:inline-flex;align-items:center;gap:6px;padding:0 13px;height:38px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:.75rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:border-color .15s,background .15s,color .15s;white-space:nowrap;flex-shrink:0;margin-right:auto;}
+    .pd-view-btn:hover{border-color:#0d9488;background:#f0fdf9;color:#0d9488;}
+    .pd-view-btn i{color:#0d9488;font-size:.8rem;}
   </style>
 </head>
 <body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
@@ -485,10 +511,196 @@ $userData = mysqli_fetch_assoc($userRow);
   </div>
 </div>
 
-<div class="ra-bottom">
-  <div class="ra-score-label">
-    Progress: <strong><?= $newCc ?> correct</strong> · <strong><?= $newWc ?> incorrect</strong> · <?= $step ?> of 150 answered
+<!-- ── Progress Drawer ── -->
+<script>const PD_DATA = <?= $_pd_json ?>;</script>
+<style>
+#pd-ov{position:fixed;inset:0;background:rgba(0,0,0,.18);z-index:600;opacity:0;pointer-events:none;transition:opacity .25s;}
+#pd-ov.open{opacity:1;pointer-events:all;}
+#pd-dr{position:fixed;bottom:76px;left:20px;width:360px;max-width:calc(100vw - 32px);max-height:72vh;background:#fff;border-radius:16px;z-index:601;display:flex;flex-direction:column;transform:translateY(60px);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.4,0,.2,1),opacity .28s ease;box-shadow:0 20px 60px rgba(0,0,0,.18),0 6px 16px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.07);overflow:hidden;}
+#pd-dr.open{transform:translateY(0);opacity:1;pointer-events:all;}
+@media(max-width:640px){#pd-dr{left:12px;right:12px;width:auto;bottom:70px;max-height:72vh;}}
+.pd-hnd{width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:12px auto 4px;cursor:pointer;flex-shrink:0;}
+.pd-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 12px;border-bottom:1px solid #e8edf2;flex-shrink:0;}
+.pd-hd-t{font-size:.98rem;font-weight:700;color:#0f172a;}
+.pd-hd-s{font-size:.72rem;color:#64748b;margin-top:2px;}
+.pd-hd-x{width:28px;height:28px;border-radius:50%;border:none;background:#f1f5f9;cursor:pointer;font-size:1.1rem;color:#64748b;display:flex;align-items:center;justify-content:center;font-family:inherit;flex-shrink:0;}
+.pd-ls{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:7px;}
+.pd-it{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:11px;border:1.5px solid #e2e8f0;cursor:pointer;transition:border-color .15s,background .15s;background:#fff;text-align:left;width:100%;font-family:'Inter',sans-serif;}
+.pd-it:hover{border-color:#0d9488;background:#f0fdf9;}
+.pd-it.pdc{border-color:#bbf7d0;background:#f0fdf4;}
+.pd-it.pdw{border-color:#fecaca;background:#fef2f2;}
+.pd-it-n{font-size:.68rem;font-weight:700;color:#94a3b8;width:28px;flex-shrink:0;}
+.pd-it-ic{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;}
+.pd-it.pdc .pd-it-ic{background:#10b981;color:#fff;}
+.pd-it.pdw .pd-it-ic{background:#ef4444;color:#fff;}
+.pd-it-inf{flex:1;min-width:0;}
+.pd-it-tp{font-size:.8rem;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pd-it.pdw .pd-it-tp{text-decoration:line-through;color:#ef4444;}
+.pd-it-sy{font-size:.68rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pd-it-ar{font-size:.68rem;color:#cbd5e1;flex-shrink:0;}
+.pd-ft{padding:10px 16px;border-top:1px solid #f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pd-ft-info{font-size:.7rem;color:#94a3b8;white-space:nowrap;}
+.pd-pg{display:flex;align-items:center;gap:4px;}
+.pd-pg-btn{height:28px;min-width:28px;padding:0 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#fff;color:#475569;font-size:.72rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:border-color .15s,background .15s,color .15s;display:flex;align-items:center;justify-content:center;}
+.pd-pg-btn:hover:not(:disabled){border-color:#0d9488;background:#f0fdf9;color:#0d9488;}
+.pd-pg-btn:disabled{opacity:.35;cursor:default;}
+.pd-pg-btn.active{background:#0d9488;border-color:#0d9488;color:#fff;}
+.pd-pg-dots{font-size:.72rem;color:#94a3b8;padding:0 2px;}
+#pd-pv{position:absolute;inset:0;background:#fff;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:10;border-radius:20px 20px 0 0;}
+#pd-pv.open{transform:translateX(0);}
+.pd-pv-hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #e8edf2;flex-shrink:0;}
+.pd-pv-bk{border:none;background:#f1f5f9;border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:600;color:#475569;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'Inter',sans-serif;}
+.pd-pv-t{font-size:.92rem;font-weight:700;color:#0f172a;flex:1;}
+.pd-pv-b{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:20px;}
+.pd-pv-b.c{background:#dcfce7;color:#16a34a;}
+.pd-pv-b.w{background:#fee2e2;color:#dc2626;}
+.pd-pv-bd{flex:1;overflow-y:auto;padding:18px;}
+.pd-pq{font-size:.9rem;line-height:1.72;color:#1e293b;font-weight:500;margin-bottom:16px;}
+.pd-chs{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;}
+.pd-ch{display:flex;align-items:flex-start;gap:9px;padding:9px 13px;border-radius:9px;border:2px solid transparent;font-size:.85rem;line-height:1.5;}
+.pd-ch.c{background:#f0fdf4;border-color:#10b981;color:#065f46;}
+.pd-ch.w{background:#fef2f2;border-color:#ef4444;color:#991b1b;}
+.pd-ch.n{background:#f8fafc;border-color:#e2e8f0;color:#1e293b;}
+.pd-ch-i{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0;margin-top:1px;}
+.pd-ch.c .pd-ch-i{background:#10b981;color:#fff;}
+.pd-ch.w .pd-ch-i{background:#ef4444;color:#fff;}
+.pd-ch.n .pd-ch-i{background:#e2e8f0;color:#64748b;}
+.pd-rl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#0d9488;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.pd-rt{font-size:.85rem;line-height:1.72;color:#334155;}
+</style>
+<div id="pd-ov" onclick="pdClose()"></div>
+<div id="pd-dr">
+  <div class="pd-hnd" onclick="pdClose()"></div>
+  <div class="pd-hd">
+    <div>
+      <div class="pd-hd-t">Progress Overview</div>
+      <div class="pd-hd-s" id="pd-sub"></div>
+    </div>
+    <button class="pd-hd-x" onclick="pdClose()">&times;</button>
   </div>
+  <div class="pd-ls" id="pd-ls"></div>
+  <div class="pd-ft" id="pd-ft">
+    <span class="pd-ft-info" id="pd-pg-info"></span>
+    <div class="pd-pg" id="pd-pg"></div>
+  </div>
+  <div id="pd-pv">
+    <div class="pd-pv-hd">
+      <button class="pd-pv-bk" onclick="pdClosePv()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+      <div class="pd-pv-t" id="pd-pv-t"></div>
+      <div class="pd-pv-b" id="pd-pv-b"></div>
+    </div>
+    <div class="pd-pv-bd" id="pd-pv-bd"></div>
+  </div>
+</div>
+<script>
+function pdOpen() {
+  _pdDone = false;
+  _pdRender();
+  document.getElementById('pd-ov').classList.add('open');
+  document.getElementById('pd-dr').classList.add('open');
+}
+function pdClose() {
+  document.getElementById('pd-ov').classList.remove('open');
+  document.getElementById('pd-dr').classList.remove('open');
+  pdClosePv();
+}
+function pdClosePv() { document.getElementById('pd-pv').classList.remove('open'); }
+var _pdDone = false, _pdPage = 0;
+var PD_PER_PAGE = 10;
+function _pdRender() {
+  if (_pdDone) return; _pdDone = true;
+  var ans = PD_DATA.length, ok = 0;
+  PD_DATA.forEach(function(q){ if (q.ok == 1) ok++; });
+  document.getElementById('pd-sub').textContent = ans + ' of 150 answered';
+  _pdPage = 0;
+  _pdRenderPage();
+}
+function _pdRenderPage() {
+  var ans = PD_DATA.length;
+  var totalPages = Math.max(1, Math.ceil(ans / PD_PER_PAGE));
+  if (_pdPage >= totalPages) _pdPage = totalPages - 1;
+  var start = _pdPage * PD_PER_PAGE;
+  var end = Math.min(start + PD_PER_PAGE, ans);
+  var html = '';
+  for (var i = start; i < end; i++) {
+    var q = PD_DATA[i], isC = q.ok == 1;
+    html += '<button class="pd-it ' + (isC ? 'pdc' : 'pdw') + '" onclick="pdOpenPv(' + i + ')">'
+      + '<div class="pd-it-n">Q' + q.n + '</div>'
+      + '<div class="pd-it-ic">' + (isC ? '&#10003;' : '&#10007;') + '</div>'
+      + '<div class="pd-it-inf"><div class="pd-it-tp">' + _pdEsc(q.s) + '</div></div>'
+      + '<div class="pd-it-ar"><i class="fa-solid fa-chevron-right"></i></div>'
+      + '</button>';
+  }
+  if (!html) html = '<div style="text-align:center;padding:40px 20px;color:#94a3b8;font-size:.85rem;">No questions answered yet. Your progress will appear here.</div>';
+  document.getElementById('pd-ls').innerHTML = html;
+  document.getElementById('pd-ls').scrollTop = 0;
+  // Footer info
+  document.getElementById('pd-pg-info').textContent = ans > 0
+    ? (start + 1) + '–' + end + ' of ' + ans + ' answered'
+    : (150 - ans) + ' questions remaining';
+  // Pagination buttons
+  var pgHtml = '';
+  if (totalPages > 1) {
+    pgHtml += '<button class="pd-pg-btn" onclick="pdGoPage(' + (_pdPage - 1) + ')" ' + (_pdPage === 0 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
+    var pages = _pdPageNums(totalPages, _pdPage);
+    pages.forEach(function(p) {
+      if (p === '...') {
+        pgHtml += '<span class="pd-pg-dots">···</span>';
+      } else {
+        pgHtml += '<button class="pd-pg-btn' + (p === _pdPage ? ' active' : '') + '" onclick="pdGoPage(' + p + ')">' + (p + 1) + '</button>';
+      }
+    });
+    pgHtml += '<button class="pd-pg-btn" onclick="pdGoPage(' + (_pdPage + 1) + ')" ' + (_pdPage >= totalPages - 1 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>';
+  }
+  document.getElementById('pd-pg').innerHTML = pgHtml;
+}
+function pdGoPage(p) {
+  var totalPages = Math.ceil(PD_DATA.length / PD_PER_PAGE);
+  if (p < 0 || p >= totalPages) return;
+  _pdPage = p;
+  _pdRenderPage();
+}
+function _pdPageNums(total, cur) {
+  if (total <= 5) {
+    var r = []; for (var i = 0; i < total; i++) r.push(i); return r;
+  }
+  var pages = [0];
+  if (cur > 2) pages.push('...');
+  for (var i = Math.max(1, cur - 1); i <= Math.min(total - 2, cur + 1); i++) pages.push(i);
+  if (cur < total - 3) pages.push('...');
+  pages.push(total - 1);
+  return pages;
+}
+function _pdEsc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function pdOpenPv(idx) {
+  var q = PD_DATA[idx]; if (!q) return;
+  var L = ['A','B','C','D'], T = [q.a, q.b, q.c, q.d];
+  var ch = '';
+  for (var i = 0; i < 4; i++) {
+    var v = i + 1, cls = 'n', ico = L[i];
+    if (q.cor == v) { cls = 'c'; ico = '&#10003;'; }
+    else if (q.ans == v && q.ok == 0) { cls = 'w'; ico = '&#10007;'; }
+    ch += '<div class="pd-ch ' + cls + '"><div class="pd-ch-i">' + ico + '</div><div>' + (T[i] || '') + '</div></div>';
+  }
+  var rat = (q.rat || 'No rationale available.').replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+  document.getElementById('pd-pv-bd').innerHTML =
+    '<div class="pd-pq">' + (q.q || '') + '</div>' +
+    '<div class="pd-chs">' + ch + '</div>' +
+    '<div class="pd-rl"><i class="fa-solid fa-book-open"></i>&nbsp;Rationale</div>' +
+    '<div class="pd-rt">' + rat + '</div>';
+  var isC = q.ok == 1;
+  document.getElementById('pd-pv-t').textContent = 'Question ' + q.n;
+  var bdg = document.getElementById('pd-pv-b');
+  bdg.className = 'pd-pv-b ' + (isC ? 'c' : 'w');
+  bdg.textContent = isC ? 'Correct' : 'Incorrect';
+  document.getElementById('pd-pv').classList.add('open');
+}
+</script>
+
+<div class="ra-bottom">
+  <button onclick="pdOpen()" class="pd-view-btn" type="button">
+    <i class="fa-solid fa-list-check"></i> View Progress
+  </button>
   <a href="<?= htmlspecialchars($nextUrl) ?>" class="ra-next-btn" onclick="resumeTimer()">
     <?= $step === 150 ? '<i class="fa-solid fa-trophy"></i>' : '' ?>
     <?= $nextLabel ?>

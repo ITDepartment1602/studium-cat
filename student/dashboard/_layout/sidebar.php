@@ -62,19 +62,6 @@ function _sb_active($pages) {
 
   <!-- Welcome card -->
   <div class="s-sidebar-welcome">
-    <?php
-    $motives = [
-      'Every question gets you closer.',
-      'One more question. Let\'s go.',
-      'You\'ve got this, future RN.',
-      'Keep pushing — NCLEX is near.',
-      'Study now, celebrate later.',
-      'Progress over perfection.',
-      'Consistency beats intensity.',
-      'Small steps, big results.',
-    ];
-    $motive = $motives[array_rand($motives)];
-    ?>
     <div class="s-welcome-row">
       <div class="s-welcome-avatar"><?= $_sb_initial ?></div>
       <div class="s-welcome-info">
@@ -82,12 +69,6 @@ function _sb_active($pages) {
         <div class="s-welcome-name"><?= htmlspecialchars($_sb_firstname) ?></div>
       </div>
     </div>
-    <div class="s-welcome-motive"><?= $motive ?></div>
-    <?php if ($_sb_daysLeft > 0): ?>
-    <div class="s-welcome-exp"><i class="bi bi-calendar-check"></i> <?= $_sb_daysLeft ?> days left</div>
-    <?php elseif (!empty($_sb_notif)): ?>
-    <div class="s-welcome-exp s-welcome-exp--warn"><i class="bi bi-bell-fill"></i> <?= htmlspecialchars($_sb_notif) ?></div>
-    <?php endif; ?>
   </div>
 
   <!-- Navigation -->
