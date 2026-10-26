@@ -65,14 +65,45 @@ foreach ($ngnExams as $i => &$e) {
 }
 unset($e);
 
+// ── Adaptive CAT Exam Mode (exammoderesults) ──
+$examRows = db()->fetchAll(
+    "SELECT examTaken,
+            COUNT(*) AS totalQuestions,
+            SUM(isCorrect) AS correctAnswers,
+            SUM(omitted) AS omittedCount,
+            MAX(timestamp) AS timestamp,
+            MAX(totalTime) AS totalTime,
+            MAX(final_result) AS finalResult
+     FROM exammoderesults
+     WHERE student_id = ?
+     GROUP BY examTaken
+     ORDER BY examTaken DESC",
+    [$user_id]
+);
+$examExams = [];
+foreach ($examRows as $row) {
+    $examExams[] = $row;
+}
+$examTotal_count = count($examExams);
+foreach ($examExams as $i => &$e) {
+    $e['exam_label'] = 'Exam ' . ($examTotal_count - $i);
+}
+unset($e);
+
 // ── Summary stats ──
 $tradTotal   = count($tradExams);
 $ngnTotal    = count($ngnExams);
-$overallTotal = $tradTotal + $ngnTotal;
+$examTotal   = count($examExams);
+$overallTotal = $tradTotal + $ngnTotal + $examTotal;
 
 $tradTime = array_sum(array_column($tradExams, 'totalTime'));
 $ngnTime  = array_sum(array_column($ngnExams,  'totalTime'));
-$overallTime = $tradTime + $ngnTime;
+$examTime = array_sum(array_column($examExams, 'totalTime'));
+$overallTime = $tradTime + $ngnTime + $examTime;
+
+$examOmittedTotal   = array_sum(array_column($examExams, 'omittedCount'));
+$examQuestionsTotal = array_sum(array_column($examExams, 'totalQuestions'));
+$examOmissionRate    = $examQuestionsTotal > 0 ? round(($examOmittedTotal / $examQuestionsTotal) * 100, 1) : 0.0;
 
 // Best topic (traditional)
 $topicCorrects = [];
@@ -151,6 +182,8 @@ $pageTitle = 'Exam History — Studium';
   .s-hist-type-badge { padding:2px 10px; border-radius:20px; font-size:0.7rem; font-weight:600; }
   .s-hist-type-trad { background:rgba(0,124,191,.1); color:var(--s-primary); }
   .s-hist-type-ngn  { background:rgba(13,148,136,.1); color:#0D9488; }
+  .s-hist-type-exam { background:rgba(124,58,237,.1); color:#7c3aed; }
+  .s-hist-omit-badge { background:rgba(239,68,68,.1); color:#ef4444; font-weight:700; padding:2px 9px; border-radius:14px; font-size:0.72rem; }
 
   /* ── Pagination ── */
   .s-hist-pagination { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1.5px solid var(--s-border); flex-wrap:wrap; gap:10px; }
@@ -192,6 +225,9 @@ $pageTitle = 'Exam History — Studium';
       <button class="s-hist-tab" onclick="setHistFilter('ngn')" id="tab-ngn">
         <i class="bi bi-lightbulb-fill"></i> NGN
       </button>
+      <button class="s-hist-tab" onclick="setHistFilter('exam')" id="tab-exam">
+        <i class="bi bi-clipboard-data-fill"></i> Adaptive Exam
+      </button>
     </div>
   </div>
 
@@ -202,7 +238,7 @@ $pageTitle = 'Exam History — Studium';
         <div class="s-kpi-icon" style="background:rgba(13,148,136,.1);"><i class="bi bi-journal-check" style="color:#0D9488;"></i></div>
         <div class="s-kpi-num"><?= $overallTotal ?></div>
         <div class="s-kpi-label">Total Exams Taken</div>
-        <div class="s-kpi-sub"><?= $tradTotal ?> Traditional &nbsp;·&nbsp; <?= $ngnTotal ?> NGN</div>
+        <div class="s-kpi-sub"><?= $tradTotal ?> Traditional &nbsp;·&nbsp; <?= $ngnTotal ?> NGN &nbsp;·&nbsp; <?= $examTotal ?> Adaptive Exam</div>
       </div>
     </div>
     <div class="col-md-4 col-12">
@@ -277,6 +313,33 @@ $pageTitle = 'Exam History — Studium';
     </div>
   </div>
 
+  <div class="row g-3 mb-4" id="kpi-exam" style="display:none;">
+    <div class="col-md-4 col-12">
+      <div class="s-kpi-card">
+        <div class="s-kpi-icon" style="background:rgba(124,58,237,.1);"><i class="bi bi-clipboard-data-fill" style="color:#7c3aed;"></i></div>
+        <div class="s-kpi-num"><?= $examTotal ?></div>
+        <div class="s-kpi-label">Adaptive Exams</div>
+        <div class="s-kpi-sub"><?= $examTotal === 1 ? '1 exam completed' : $examTotal . ' exams completed' ?></div>
+      </div>
+    </div>
+    <div class="col-md-4 col-12">
+      <div class="s-kpi-card">
+        <div class="s-kpi-icon" style="background:rgba(124,58,237,.1);"><i class="bi bi-clock-history" style="color:#7c3aed;"></i></div>
+        <div class="s-kpi-num" style="font-size:1.4rem;"><?= formatTime($examTime) ?></div>
+        <div class="s-kpi-label">Time Spent</div>
+        <div class="s-kpi-sub">Adaptive exam time</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-12">
+      <div class="s-kpi-card">
+        <div class="s-kpi-icon" style="background:rgba(239,68,68,.1);"><i class="bi bi-skip-forward-fill" style="color:#ef4444;"></i></div>
+        <div class="s-kpi-num"><?= $examOmissionRate ?>%</div>
+        <div class="s-kpi-label">Historical Omission Rate</div>
+        <div class="s-kpi-sub"><?= $examOmittedTotal ?> omitted of <?= $examQuestionsTotal ?> items across all attempts</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Table ── -->
   <div class="s-hist-table-wrap">
     <div class="s-hist-table-header">
@@ -292,6 +355,7 @@ $pageTitle = 'Exam History — Studium';
             <th>Date &amp; Time</th>
             <th>Topic / Concept</th>
             <th>Score</th>
+            <th>Omitted</th>
             <th>Time Taken</th>
             <th>Action</th>
           </tr>
@@ -345,6 +409,21 @@ const ngnData = <?= json_encode(array_map(function($e) use ($user_id) {
   ];
 }, $ngnExams), JSON_UNESCAPED_UNICODE) ?>;
 
+const examData = <?= json_encode(array_map(function($e) {
+  return [
+    'exam_label'     => $e['exam_label'],
+    'examTaken'      => $e['examTaken'],
+    'type'           => 'Exam',
+    'timestamp'      => $e['timestamp'],
+    'topic'          => $e['finalResult'] ?? '—',
+    'correctAnswers' => (int)$e['correctAnswers'],
+    'totalQuestions' => (int)$e['totalQuestions'],
+    'omittedCount'   => (int)$e['omittedCount'],
+    'totalTime'      => (int)$e['totalTime'],
+    'link'           => 'exam/history_details.php?examTaken=' . $e['examTaken'],
+  ];
+}, $examExams), JSON_UNESCAPED_UNICODE) ?>;
+
 function formatTime(s) {
   s = parseInt(s) || 0;
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
@@ -357,7 +436,10 @@ function formatTime(s) {
 
 function getFilteredData() {
   const q = document.getElementById('histSearch').value.toLowerCase();
-  let data = currentFilter === 'trad' ? tradData : currentFilter === 'ngn' ? ngnData : [...tradData, ...ngnData];
+  let data = currentFilter === 'trad' ? tradData
+    : currentFilter === 'ngn' ? ngnData
+    : currentFilter === 'exam' ? examData
+    : [...tradData, ...ngnData, ...examData];
   if (q) data = data.filter(r =>
     r.exam_label.toLowerCase().includes(q) ||
     r.topic.toLowerCase().includes(q) ||
@@ -390,14 +472,18 @@ function renderPage() {
     tbody.innerHTML = slice.map(r => {
       const pct = r.totalQuestions > 0 ? Math.round((r.correctAnswers / r.totalQuestions) * 100) : 0;
       const scoreClass = pct >= 75 ? 's-hist-score-pass' : pct >= 60 ? 's-hist-score-warn' : 's-hist-score-fail';
-      const typeClass  = r.type === 'NGN' ? 's-hist-type-ngn' : 's-hist-type-trad';
+      const typeClass  = r.type === 'NGN' ? 's-hist-type-ngn' : r.type === 'Exam' ? 's-hist-type-exam' : 's-hist-type-trad';
       const date = r.timestamp ? new Date(r.timestamp).toLocaleString('en-US', {month:'short', day:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '—';
+      const omittedCell = (r.omittedCount !== undefined)
+        ? (r.omittedCount > 0 ? `<span class="s-hist-omit-badge">${r.omittedCount}</span>` : '<span style="color:var(--s-muted);">0</span>')
+        : '<span style="color:var(--s-muted);">—</span>';
       return `<tr>
         <td class="s-hist-exam-no">${r.exam_label}</td>
         <td><span class="s-hist-type-badge ${typeClass}">${r.type}</span></td>
         <td style="color:var(--s-muted); font-size:0.8rem;">${date}</td>
         <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.topic}">${r.topic}</td>
         <td><span class="${scoreClass}">${r.correctAnswers}/${r.totalQuestions} &nbsp;(${pct}%)</span></td>
+        <td>${omittedCell}</td>
         <td style="color:var(--s-muted);">${formatTime(r.totalTime)}</td>
         <td><a href="${r.link}" class="s-btn s-btn-primary" style="padding:5px 14px; font-size:0.75rem;"><i class="bi bi-eye me-1"></i>View</a></td>
       </tr>`;
@@ -433,11 +519,11 @@ function goPage(p) {
 function setHistFilter(f) {
   currentFilter = f;
   // Tabs
-  ['overall','trad','ngn'].forEach(t => document.getElementById('tab-'+t).classList.toggle('active', t === f));
+  ['overall','trad','ngn','exam'].forEach(t => document.getElementById('tab-'+t).classList.toggle('active', t === f));
   // KPI cards
-  ['overall','trad','ngn'].forEach(t => document.getElementById('kpi-'+t).style.display = t === f ? '' : 'none');
+  ['overall','trad','ngn','exam'].forEach(t => document.getElementById('kpi-'+t).style.display = t === f ? '' : 'none');
   // Table heading
-  const headings = { overall:'All Exam Records', trad:'Traditional Exam Records', ngn:'NGN Exam Records' };
+  const headings = { overall:'All Exam Records', trad:'Traditional Exam Records', ngn:'NGN Exam Records', exam:'Adaptive Exam Records' };
   document.getElementById('table-heading').textContent = headings[f];
   renderTable();
 }

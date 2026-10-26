@@ -1,10 +1,13 @@
 <?php
+// Toggle a student's activation type (from the dashboard).
 include('../config.php');
 
-$id = $_GET['id'];
-$type = $_GET['type'];
+$id   = intval($_GET['id'] ?? 0);
+$type = $_GET['type'] ?? '';
 
-$q="update login set type=$type where id=$id";
-mysqli_query($con, $q);
-header('location:../admin');
-?> 
+$stmt = mysqli_prepare($con, "UPDATE login SET type = ? WHERE id = ?");
+mysqli_stmt_bind_param($stmt, 'si', $type, $id);
+mysqli_stmt_execute($stmt);
+
+header('Location: ../admin');
+exit;

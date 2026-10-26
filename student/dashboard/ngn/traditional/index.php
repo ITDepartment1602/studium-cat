@@ -132,8 +132,16 @@ foreach ($choicesArray as $idx => $choice) {
     .right-panel { flex: 1; overflow-y: auto; padding: 24px; min-width: 0; }
     @media (max-width: 900px) {
       .two-panel { flex-direction: column; height: auto; overflow: visible; }
-      .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 35vh; overflow-y: auto; }
-      .right-panel { width: 100% !important; overflow: visible; }
+      .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 32vh; overflow-y: auto; }
+      .right-panel { width: 100% !important; overflow: visible; padding: 16px; }
+    }
+    @media (max-width: 768px) {
+      .panel-title { font-size: 12px; padding: 10px 14px; }
+      .tab-btn { padding: 7px 10px; font-size: 11.5px; }
+      .tab-content-area { padding: 10px; }
+      .clinical-record { font-size: 12.5px; padding: 8px 10px; line-height: 1.45; }
+      .left-panel { max-height: 28vh; }
+      .right-panel { padding: 12px; }
     }
 
     .nclex-tips {
@@ -487,20 +495,23 @@ foreach ($choicesArray as $idx => $choice) {
     }
 
     .btn-primary {
-      background: var(--primary);
+      background: #0d9488;
       color: white;
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: #132747;
+      background: #0b7e74;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(10, 22, 40, 0.2);
+      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
     }
 
     .btn-primary:disabled {
-      opacity: 0.5;
+      opacity: 0.65;
       cursor: not-allowed;
     }
+
+    @keyframes ngn-spin { to { transform: rotate(360deg); } }
+    .ngn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: ngn-spin 0.7s linear infinite; vertical-align: middle; margin-right: 4px; flex-shrink: 0; }
 
     .btn-outline {
       background: transparent;
@@ -514,65 +525,84 @@ foreach ($choicesArray as $idx => $choice) {
     }
 
     @media (max-width: 768px) {
+      body { overflow-x: hidden; }
       .card {
-        padding: 20px;
-      }
-
-      .question-header {
-        font-size: 16px;
-        margin-bottom: 20px;
-      }
-
-      .option-item {
-        padding: 14px 14px;
-        gap: 12px;
-      }
-
-      .details-section {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-
-      .button-group {
-        flex-direction: stretch;
-        gap: 10px;
-      }
-
-      .btn {
-        flex: 1;
-        padding: 12px 16px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .card {
-        padding: 16px;
+        padding: 18px 16px;
+        max-width: 100%;
+        border-radius: 10px;
       }
 
       .question-header {
         font-size: 15px;
-        line-height: 1.6;
-        margin-bottom: 16px;
+        line-height: 1.55;
+        margin-bottom: 18px;
       }
 
       .option-item {
-        padding: 12px 12px;
+        padding: 13px 12px;
         gap: 10px;
+        font-size: 13.5px;
+      }
+      .option-text { font-size: 13.5px; line-height: 1.5; }
+      .option-letter { font-size: 12px; }
+
+      .details-section {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .button-group {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .btn {
+        flex: 1;
+        padding: 11px 14px;
+        font-size: 13px;
+        width: 100%;
+      }
+      .stats-btn { font-size: 10px; padding: 5px 8px; }
+      .nclex-tips { padding: 14px; margin-top: 18px; }
+      .tips-list li { font-size: 13px; gap: 9px; }
+    }
+
+    @media (max-width: 480px) {
+      .card {
+        padding: 14px 12px;
+        border-radius: 8px;
+      }
+
+      .question-header {
+        font-size: 13.5px;
+        line-height: 1.6;
+        margin-bottom: 14px;
+      }
+
+      .option-item {
+        padding: 11px 10px;
+        gap: 8px;
       }
 
       .option-text {
-        font-size: 14px;
+        font-size: 13px;
+        line-height: 1.5;
       }
+      .option-letter { width: 24px; height: 24px; font-size: 11px; }
 
       .instruction-badge {
-        font-size: 10px;
-        padding: 5px 10px;
+        font-size: 9.5px;
+        padding: 4px 9px;
       }
 
       .details-section {
         grid-template-columns: 1fr;
-        gap: 8px;
+        gap: 7px;
       }
+      .btn { font-size: 12.5px; padding: 10px 12px; }
+      .tips-list li { font-size: 12.5px; }
+      .clinical-record { font-size: 12px; }
+      .tab-btn { font-size: 11px; padding: 6px 9px; }
     }
   </style>
 </head>
@@ -813,20 +843,24 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   // Submit button
   document.getElementById('submitBtn').addEventListener('click', function() {
     if (locked || isReviewMode) return; // Prevent resubmission in review mode
-    
+
     if (!userAnswer) {
       Swal.fire({
         icon: 'warning',
         title: 'Please Select Answer',
         text: 'You must select an answer before submitting.',
-        confirmButtonColor: '#3b82f6'
+        confirmButtonColor: '#0d9488'
       });
       return;
     }
 
-    revealFeedback();
-    setReadOnlyState();
-    sendAnswerToParent();
+    this.disabled = true;
+    this.innerHTML = '<span class="ngn-spinner"></span> Submitting...';
+    setTimeout(function() {
+      revealFeedback();
+      setReadOnlyState();
+      sendAnswerToParent();
+    }, 60);
   });
 
   function setReadOnlyState() {

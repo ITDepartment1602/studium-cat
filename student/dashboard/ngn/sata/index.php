@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // sata/index.php - Select All That Apply Question
 
 require_once '../../../../config.php';
@@ -30,6 +30,7 @@ $topic = $data['topic'] ?? 'General';
 $system = $data['system'] ?? 'N/A';
 $cnc = $data['cnc'] ?? 'N/A';
 $dlevel = $data['dlevel'] ?? 'N/A';
+$caseTitle = $data['case_title'] ?? '';
 
 // Dynamic clinical reference tabs from `tabs` DB field (spec §1.2)
 $tabs_data = json_decode(($data['tabs'] ?? '') ?: '[]', true) ?: [];
@@ -118,9 +119,10 @@ $correctAnswers = array_map('strval', (array)$correctAnswers);
     .clinical-record { background: #fdfdfd; border: 1px solid #f1f5f9; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
     .right-panel { flex: 1; overflow-y: auto; padding: 24px; min-width: 0; }
     @media (max-width: 900px) {
+      body { overflow-x: hidden; }
       .two-panel { flex-direction: column; height: auto; overflow: visible; }
       .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 35vh; overflow-y: auto; }
-      .right-panel { width: 100% !important; overflow: visible; }
+      .right-panel { width: 100% !important; overflow: visible; padding: 16px; }
     }
 
     .nclex-tips {
@@ -229,6 +231,15 @@ $correctAnswers = array_map('strval', (array)$correctAnswers);
       border-radius: 8px;
       margin-bottom: 20px;
       border-left: 4px solid #cbd5e1;
+    }
+
+    .case-title-badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: #0369a1;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 10px;
     }
 
     .instruction-badge {
@@ -451,20 +462,23 @@ $correctAnswers = array_map('strval', (array)$correctAnswers);
     }
 
     .btn-primary {
-      background: var(--primary);
+      background: #0d9488;
       color: white;
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: #132747;
+      background: #0b7e74;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(10, 22, 40, 0.2);
+      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
     }
 
     .btn-primary:disabled {
-      opacity: 0.5;
+      opacity: 0.65;
       cursor: not-allowed;
     }
+
+    @keyframes ngn-spin { to { transform: rotate(360deg); } }
+    .ngn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: ngn-spin 0.7s linear infinite; vertical-align: middle; margin-right: 4px; flex-shrink: 0; }
 
     .btn-outline {
       background: transparent;
@@ -538,7 +552,150 @@ $correctAnswers = array_map('strval', (array)$correctAnswers);
         gap: 8px;
       }
     }
-  </style>
+
+/* ── Mobile Clinical Reference — Senior-Friendly Design ── */
+@media (max-width: 768px) {
+  /* Hide panel from normal flow */
+  .left-panel { display: none !important; }
+
+  /* Compact banner button above the question */
+  .mobile-clinref-btn {
+    display: flex !important;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #e8f4fd;
+    color: #0369a1;
+    border: 1.5px solid #bae6fd;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 10px;
+    text-align: center;
+    letter-spacing: 0.1px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-clinref-btn i { font-size: 14px; }
+
+  /* Full-screen overlay */
+  .left-panel.mobile-open {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998 !important;
+    width: 100% !important;
+    min-width: unset !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100% !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Header inside modal */
+  .left-panel.mobile-open .panel-title {
+    padding: 16px 18px !important;
+    font-size: 13px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  /* Close button — large, with text */
+  .mobile-clinref-close {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    background: #ef4444;
+    color: #fff !important;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 80px;
+    justify-content: center;
+  }
+
+  /* Tabs — large tap targets */
+  .left-panel.mobile-open .tabs-row {
+    flex-shrink: 0;
+    padding: 6px 8px 0 !important;
+    gap: 3px !important;
+    overflow-x: hidden;
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .left-panel.mobile-open .tab-btn {
+    font-size: 11px !important;
+    padding: 8px 10px !important;
+    font-weight: 600;
+    white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Content area — scrollable, comfortable font */
+  .left-panel.mobile-open .tab-content-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px !important;
+  }
+  .left-panel.mobile-open .clinical-record {
+    font-size: 14.5px !important;
+    line-height: 1.7 !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+}
+
+/* ── Mobile UI: Compact & Readable (≤768px) ── */
+@media (max-width: 768px) {
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  .right-panel { padding: 8px !important; }
+  .card { padding: 12px !important; box-shadow: none !important; }
+  .instruction-badge { font-size: 9px !important; padding: 4px 8px !important; margin-bottom: 8px !important; }
+  .question-header { font-size: 14px !important; line-height: 1.55 !important; margin-bottom: 12px !important; }
+  .item-checkbox { padding: 10px 12px !important; gap: 10px !important; margin-bottom: 6px !important; border-radius: 8px !important; }
+  .item-text { font-size: 13px !important; line-height: 1.5 !important; }
+  .item-checkbox .custom-check { width: 18px !important; height: 18px !important; flex-shrink: 0 !important; }
+  .button-group { margin-top: 12px !important; gap: 8px !important; }
+  .btn { padding: 10px 14px !important; font-size: 13px !important; border-radius: 8px !important; }
+  .previous-badge { padding: 8px 10px !important; margin-bottom: 10px !important; font-size: 11px !important; }
+  .details-section { grid-template-columns: 1fr 1fr !important; gap: 6px !important; margin-top: 10px !important; }
+  .detail-card { padding: 8px !important; border-radius: 8px !important; }
+  .detail-label { font-size: 9px !important; }
+  .detail-value { font-size: 11px !important; }
+  #result { padding: 12px !important; margin-top: 12px !important; border-radius: 8px !important; }
+  #rationaleContent { font-size: 13px !important; line-height: 1.6 !important; }
+  .nclex-tips { padding: 12px !important; margin-top: 12px !important; border-radius: 8px !important; }
+  .tips-title { font-size: 10px !important; margin-bottom: 8px !important; }
+  .tips-list li { font-size: 12.5px !important; margin-bottom: 6px !important; }
+  .stats-btn { padding: 4px 8px !important; font-size: 10px !important; }
+}
+@media (min-width: 769px) {
+  .mobile-clinref-btn { display: none !important; }
+
+</style>
 </head>
 <body>
 <div class="two-panel">
@@ -564,6 +721,10 @@ $correctAnswers = array_map('strval', (array)$correctAnswers);
 <div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
 
 <div class="card">
+
+  <?php if ($caseTitle !== ''): ?>
+  <div class="case-title-badge"><?= htmlspecialchars($caseTitle) ?></div>
+  <?php endif; ?>
 
   <div class="instruction-badge">
     <i class="fas fa-asterisk"></i> SELECT ALL THAT APPLY
@@ -798,22 +959,27 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   // Submit button
   document.getElementById('submitBtn').addEventListener('click', function() {
     if (locked || isReviewMode) return; // Prevent resubmission in review mode
-    
+
     userAnswers = Array.from(document.querySelectorAll('input[name="answers"]:checked')).map(c => c.value);
-    
+
     if (userAnswers.length === 0) {
       Swal.fire({
         icon: 'warning',
         title: 'Please Select Answers',
         text: 'You must select at least one answer before submitting.',
-        confirmButtonColor: '#3b82f6'
+        confirmButtonColor: '#0d9488'
       });
       return;
     }
 
-    revealFeedback();
-    setReadOnlyState();
-    sendAnswerToParent();
+    this.disabled = true;
+    this.innerHTML = '<span class="ngn-spinner"></span> Submitting...';
+    // defer so browser paints the loading state before synchronous processing hides the button
+    setTimeout(function() {
+      revealFeedback();
+      setReadOnlyState();
+      sendAnswerToParent();
+    }, 60);
   });
 
   function setReadOnlyState() {
@@ -991,5 +1157,37 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   }
 </script>
 
+
+<script>
+(function () {
+  if (window.innerWidth > 768) return;
+  var lp = document.querySelector(".left-panel");
+  if (!lp) return;
+
+  /* Close button inside modal header — text label, not just × */
+  var pt = lp.querySelector(".panel-title");
+  if (pt) {
+    var cb = document.createElement("button");
+    cb.className = "mobile-clinref-close";
+    cb.innerHTML = "&#10005; Close";
+    cb.onclick = function () { lp.classList.remove("mobile-open"); };
+    pt.appendChild(cb);
+  }
+
+  /* Banner button injected at the TOP of right-panel content (before question) */
+  var rp = document.querySelector(".right-panel");
+  var btn = document.createElement("button");
+  btn.className = "mobile-clinref-btn";
+  btn.innerHTML = "<i class='fas fa-folder-open'></i> View Patient Chart &amp; Lab Results";
+  btn.onclick = function () { lp.classList.add("mobile-open"); };
+
+  if (rp) {
+    rp.insertBefore(btn, rp.firstChild);
+  } else {
+    document.body.insertBefore(btn, document.body.firstChild);
+  }
+
+})();
+</script>
 </body>
 </html>

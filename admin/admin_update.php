@@ -10,23 +10,34 @@ if (count($_POST) > 0) {
     if (empty($dateexpired) || $dateexpired === '0000-00-00 00:00:00') $dateexpired = null;
 
     $query = "UPDATE login SET
-        studentnumber='" . $_POST['studentnumber'] . "',
-        fullname='" . $_POST['fullname'] . "',
-        bundle_name='" . $bundle_name . "',
-        groupname='" . $_POST['groupname'] . "',
-        dateexpired=" . (is_null($dateexpired) ? "NULL" : "'" . $dateexpired . "'") . ",
-        dateenrolled='" . $_POST['dateenrolled'] . "',
-        subMonth=" . (is_null($subMonth) ? "NULL" : "'" . $subMonth . "'") . ",
-        password='" . $_POST['password'] . "',
-        email='" . $_POST['email'] . "'
-        WHERE id='" . $_POST['id'] . "'";
+        studentnumber = ?,
+        fullname      = ?,
+        bundle_name   = ?,
+        groupname     = ?,
+        dateexpired   = ?,
+        dateenrolled  = ?,
+        subMonth      = ?,
+        password      = ?,
+        email         = ?
+        WHERE id = ?";
 
-    mysqli_query($con, $query);
+    $sid = intval($_POST['id']);
+    $stmt = mysqli_prepare($con, $query);
+    mysqli_stmt_bind_param(
+        $stmt, 'sssssssssi',
+        $_POST['studentnumber'], $_POST['fullname'], $bundle_name, $_POST['groupname'],
+        $dateexpired, $_POST['dateenrolled'], $subMonth, $_POST['password'], $_POST['email'], $sid
+    );
+    mysqli_stmt_execute($stmt);
     $message = 'Record updated successfully.';
     $message_type = 'success';
 }
 
-$result = mysqli_query($con, "SELECT * FROM login WHERE id='" . $_GET['id'] . "'");
+$gid    = intval($_GET['id'] ?? 0);
+$sel    = mysqli_prepare($con, "SELECT * FROM login WHERE id = ?");
+mysqli_stmt_bind_param($sel, 'i', $gid);
+mysqli_stmt_execute($sel);
+$result = mysqli_stmt_get_result($sel);
 $row    = mysqli_fetch_array($result);
 $selected_bundles = explode(",", $row['bundle_name']);
 

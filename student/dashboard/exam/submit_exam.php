@@ -37,7 +37,7 @@ $selected_concepts   = isset($body['selected_concepts']) && is_array($body['sele
                        : null;
 
 // Validate allowed termination reasons (whitelist)
-$allowed_reasons = ['irt_pass','irt_fail','mercy_rule','completed_max','time_expired','time_expired_insufficient','pool_exhausted','manual_finish'];
+$allowed_reasons = ['irt_pass','irt_fail','mercy_rule','completed_max','time_expired','time_expired_insufficient','pool_exhausted','manual_finish','security_violation'];
 if (!in_array($termination_reason, $allowed_reasons, true)) $termination_reason = 'manual_finish';
 
 // Ownership: ensure this examTaken belongs to this student
@@ -75,7 +75,7 @@ try {
                 exam_duration_sec = %s,
                 selected_concepts = %s
              WHERE id = %d",
-            $conn->real_escape_string("'" . $termination_reason . "'"),
+            "'" . $conn->real_escape_string($termination_reason) . "'",
             $final_result ? "'" . $conn->real_escape_string($final_result) . "'" : 'NULL',
             $final_percent !== null ? $final_percent : 'NULL',
             $final_theta !== null ? $final_theta : 'NULL',

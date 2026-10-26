@@ -16,7 +16,7 @@
     <header>
     <nav>
         <ul class='nav-bar'>
-            <li class='logo'><a href='https://www.facebook.com/NCLEX.Amplified.Official' target="_blank"><img src='img/logo 2.png'></a></li>
+            <li class='logo'><a href='https://www.facebook.com/NCLEXAmplifiedReviewCenter' target="_blank"><img src='img/logo 2.png'></a></li>
             <span class="menua">
                 <a href="index.php"><i class="fa fa-sign-in" aria-hidden="true"></i> <b>&nbsp;Login &nbsp;</b></a>
                 &nbsp;

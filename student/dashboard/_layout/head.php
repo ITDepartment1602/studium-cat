@@ -27,7 +27,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Studium';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- Studium Design System v3 (Bootstrap-free) -->
-<link rel="stylesheet" href="css/studium-v2.css">
+<link rel="stylesheet" href="css/studium-v2.css?v=12">
 
 <!-- Custom Modal System (SModal) — replaces Bootstrap modal JS -->
 <script>

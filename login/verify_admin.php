@@ -23,7 +23,8 @@ if (isset($_POST['verify_btn'])) {
 
         unset($_SESSION['admin_code']);
 
-        header("location:../admin/");
+        $home = (($_SESSION['admin_home'] ?? '') === 'it') ? 'it' : 'admin';
+        header("location:../$home/");
     } else {
         echo "<script>alert('Invalid code. Please try again.');</script>";
     }
@@ -103,7 +104,7 @@ if (isset($_POST['verify_btn'])) {
     <header>
         <nav>
             <ul class='nav-bar d-flex justify-content-center'>
-                <li class='logo'><a href='https://www.facebook.com/NCLEX.Amplified.Official' target="_blank"><img src='../img/logo2.svg' alt="Logo"></a></li>
+                <li class='logo'><a href='https://www.facebook.com/NCLEXAmplifiedReviewCenter' target="_blank"><img src='../img/logo2.svg' alt="Logo"></a></li>
             </ul>
         </nav>
     </header>
@@ -133,3 +134,6 @@ if (isset($_POST['verify_btn'])) {
   
 </body>
 </html>
+
+
+

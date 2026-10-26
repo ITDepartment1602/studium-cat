@@ -1,49 +1,52 @@
 <?php
+// Add / delete standard (single-answer) questions (from manage question/questionlist.php).
 session_start();
 include('../../config.php');
 
-// =====================================================================================================================================
-// Add, update, and delete questions from manage_bundles.php
-
-// Handle form submission for adding questions
+// Add a question (one row per selected topic)
 if (isset($_POST['submit'])) {
-	$topic = $_POST['topic'];
-	$concept = $_POST['concept'];
-	$qnumber = mysqli_real_escape_string($con, $_POST['qnumber']);
-	$question = mysqli_real_escape_string($con, $_POST['question']);
-	$choiceA = mysqli_real_escape_string($con, $_POST['choiceA']);
-	$choiceB = mysqli_real_escape_string($con, $_POST['choiceB']);
-	$choiceC = mysqli_real_escape_string($con, $_POST['choiceC']);
-	$choiceD = mysqli_real_escape_string($con, $_POST['choiceD']);
-	$correctans = mysqli_real_escape_string($con, $_POST['correctans']);
-	$wrong = mysqli_real_escape_string($con, $_POST['wrong']);
-	$rationale = mysqli_real_escape_string($con, $_POST['rationale']);
+    $topics     = $_POST['topic'] ?? [];
+    $concept    = $_POST['concept']    ?? '';
+    $qnumber    = $_POST['qnumber']    ?? '';
+    $question   = $_POST['question']   ?? '';
+    $choiceA    = $_POST['choiceA']    ?? '';
+    $choiceB    = $_POST['choiceB']    ?? '';
+    $choiceC    = $_POST['choiceC']    ?? '';
+    $choiceD    = $_POST['choiceD']    ?? '';
+    $correctans = $_POST['correctans'] ?? '';
+    $wrong      = $_POST['wrong']      ?? '1';
+    $rationale  = $_POST['rationale']  ?? '';
+    $narcan     = $_POST['narcan']     ?? '';
+    $dlevel     = $_POST['dlevel']     ?? '';
+    $cnc        = $_POST['cnc']        ?? '';
+    $system     = $_POST['system']     ?? '';
 
-	// New fields
-	$narcan = mysqli_real_escape_string($con, $_POST['narcan']);
-	$dlevel = mysqli_real_escape_string($con, $_POST['dlevel']);
-	$cnc = mysqli_real_escape_string($con, $_POST['cnc']);
-	$system = mysqli_real_escape_string($con, $_POST['system']);
-
-	foreach ($topic as $rowhob) {
-		$query = "INSERT INTO question (topic, topics1, qnumber, question, choiceA, choiceB, choiceC, choiceD, correctans, wrong, rationale, narcan, dlevel, cnc, system) 
-                  VALUES ('$rowhob', '$concept', '$qnumber', '$question', '$choiceA', '$choiceB', '$choiceC', '$choiceD', '$correctans', '$wrong', '$rationale', '$narcan', '$dlevel', '$cnc', '$system')";
-		$query_run = mysqli_query($con, $query);
-	}
-
-	if ($query_run) {
-		header("Location: questionlist.php");
-		exit;
-	}
+    $stmt = mysqli_prepare(
+        $con,
+        "INSERT INTO question
+           (topic, topics1, qnumber, question, choiceA, choiceB, choiceC, choiceD,
+            correctans, wrong, rationale, narcan, dlevel, cnc, system)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    );
+    foreach ($topics as $topic) {
+        mysqli_stmt_bind_param(
+            $stmt, 'sssssssssssssss',
+            $topic, $concept, $qnumber, $question,
+            $choiceA, $choiceB, $choiceC, $choiceD,
+            $correctans, $wrong, $rationale, $narcan, $dlevel, $cnc, $system
+        );
+        mysqli_stmt_execute($stmt);
+    }
+    header("Location: questionlist.php");
+    exit;
 }
 
-// Handle deletion of questions
+// Delete a question
 if (isset($_GET['id'])) {
-	$id = intval($_GET['id']); // Ensure $id is an integer
-	$sql = "DELETE FROM question WHERE id = $id";
-	if ($con->query($sql) === TRUE) {
-		header("Location: questionlist.php");
-		exit;
-	}
+    $id = intval($_GET['id']);
+    $stmt = mysqli_prepare($con, "DELETE FROM question WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $id);
+    mysqli_stmt_execute($stmt);
+    header("Location: questionlist.php");
+    exit;
 }
-?>

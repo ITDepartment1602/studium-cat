@@ -1,0 +1,13 @@
+{
+  "name": "studium-admin-tailwind",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tailwind CSS build pipeline for the Studium admin panel",
+  "scripts": {
+    "build": "tailwindcss -i ./admin/src/tailwind.css -o ./admin/tw.css --minify",
+    "watch": "tailwindcss -i ./admin/src/tailwind.css -o ./admin/tw.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

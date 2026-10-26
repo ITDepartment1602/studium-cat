@@ -1,77 +1,45 @@
-<?php 
-
-	// in this file --> code for add a new video course ,update a video course and delete a video course by admin from manage_bundles.php
-
+<?php
+// Add / delete bundles and bundle contents (from manage bundle/index.php and bundlelist.php).
 session_start();
-
 include('../../config.php');
 
-// =====================================================================================================================================
-// ========================================================================================================================
-     // in this section add videos ,update videos and delete videos is going on from manage_bundles.php
-
+// Add a bundle
 if (isset($_POST['submit'])) {
-$bundle_name=$_POST['bundle_name'];
+    $stmt = mysqli_prepare($con, "INSERT INTO bundle (bundle_name) VALUES (?)");
+    mysqli_stmt_bind_param($stmt, 's', $_POST['bundle_name']);
+    mysqli_stmt_execute($stmt);
+    header("Location: index.php");
+    exit;
+}
 
-
-	$q="insert into bundle(bundle_name) values('$bundle_name')";
-	$r=mysqli_query($con,$q);
-
- if ($r==true)
-  {
-
-			 header("location:index.php");
+// Add topics to a bundle
+if (isset($_POST['createpackage'])) {
+    $bundle_name = $_POST['bundle_name'];
+    $items = $_POST['bundlelist_name'] ?? [];
+    $stmt = mysqli_prepare($con, "INSERT INTO bundlelist (bundle_name, bundlelist_name) VALUES (?, ?)");
+    foreach ($items as $item) {
+        mysqli_stmt_bind_param($stmt, 'ss', $bundle_name, $item);
+        mysqli_stmt_execute($stmt);
     }
-	
- }
-// ============================================================================================
-
-				// code to add a new video course by admin from manage_bundles.php
-
-if ( isset($_GET['id']) ){
-	$id = $_GET['id'];
-
-	$sql = "DELETE from bundle where id=$id";
-	$con->query($sql);
+    $_SESSION['status'] = "Courses Inserted";
+    header("Location: bundlelist.php?bundle_name=" . urlencode($bundle_name) . "&status=added");
+    exit;
 }
 
-header("location: index.php");
-
-// ============================================================================================
-
-
-if(isset($_POST['createpackage']))
-{	
-	$bundle_name = $_POST['bundle_name'];
-	$bundlelist_name = $_POST['bundlelist_name'];
-
-	foreach($bundlelist_name as $rowhob)
-	{
-		// echo $rowhob;
-		$query ="INSERT INTO bundlelist (bundle_name,bundlelist_name) VALUES ('$bundle_name','$rowhob')";
-		$query_run = mysqli_query($con, $query);
-	}
-
-	if($query_run)
-	{
-		$_SESSION['status'] = " Courses Inserted";
-		header("location:bundlelist.php?bundle_name=$bundle_name&status=added");
-	}
-	else
-	{
-		$_SESSION['status'] = " Courses Not Inserted";
-		header("location:bundlelist.php?bundle_name=$bundle_name&status=added");
-	}
+// Delete: scope=item removes a single topic from a bundle; otherwise remove the bundle itself.
+if (isset($_GET['id'])) {
+    $id = intval($_GET['id']);
+    if (($_GET['scope'] ?? '') === 'item') {
+        $stmt = mysqli_prepare($con, "DELETE FROM bundlelist WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, 'i', $id);
+        mysqli_stmt_execute($stmt);
+        header("Location: bundlelist.php?bundle_name=" . urlencode($_GET['bundle_name'] ?? ''));
+        exit;
+    }
+    $stmt = mysqli_prepare($con, "DELETE FROM bundle WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $id);
+    mysqli_stmt_execute($stmt);
 }
 
-
-// ============================================================================================
-
-if ( isset($_GET['id']) ){
-	$id = $_GET['id'];
-
-	$sql = "DELETE from bundlelist where id=$id";
-	$con->query($sql);
-}
-
-header("location: index.php");
+header("Location: index.php");
+exit;

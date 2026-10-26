@@ -8,140 +8,21 @@ $ap_title   = 'Dashboard';
 $ap_extra_head = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-<link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>';
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>';
 require_once 'partials/sidebar.php';
 ?>
 
-<style>
-/* stat cards */
-.stat-card {
-  background: var(--card-accent, #007CBF);
-  border-radius:16px; padding:26px 24px;
-  border:none;
-  box-shadow:0 4px 18px rgba(0,0,0,.18);
-  transition:box-shadow .2s, transform .2s;
-  position:relative; overflow:hidden;
-  display:flex; align-items:center; gap:18px; height:100%; min-height:110px;
-  text-decoration:none!important; color:#fff!important;
-  cursor:pointer;
-}
-.stat-card::before {
-  content:''; position:absolute; top:-30px; right:-20px;
-  width:120px; height:120px; border-radius:50%;
-  background:rgba(255,255,255,.1);
-  pointer-events:none;
-}
-.stat-card::after {
-  content:''; position:absolute; bottom:-40px; left:-20px;
-  width:100px; height:100px; border-radius:50%;
-  background:rgba(0,0,0,.1);
-  pointer-events:none;
-}
-.stat-card:hover { box-shadow:0 10px 36px rgba(0,0,0,.22); transform:translateY(-3px); color:#fff!important; }
-.stat-icon-box {
-  width:56px; height:56px; border-radius:16px;
-  background:rgba(255,255,255,.18);
-  display:flex; align-items:center; justify-content:center;
-  font-size:1.5rem; flex-shrink:0; color:#fff;
-}
-.stat-body { flex:1; min-width:0; }
-.stat-number {
-  font-size:2.1rem; font-weight:800; line-height:1;
-  color:#fff; letter-spacing:-1.5px; margin-bottom:6px;
-}
-.stat-label {
-  font-size:.69rem; font-weight:600; color:rgba(255,255,255,.82);
-  text-transform:uppercase; letter-spacing:.8px;
-}
-.stat-pulse {
-  width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.9);
-  position:absolute; top:16px; right:16px;
-  animation:pulse 1.8s infinite;
-}
-@keyframes pulse {
-  0%  { box-shadow:0 0 0 0 rgba(255,255,255,.5); }
-  70% { box-shadow:0 0 0 7px rgba(255,255,255,0); }
-  100%{ box-shadow:0 0 0 0 rgba(255,255,255,0); }
-}
-
-/* panel */
-.panel {
-  background:#fff; border-radius:16px;
-  border:1px solid #e2e8f0;
-  box-shadow:0 1px 4px rgba(15,23,42,.05);
-  overflow:hidden;
-}
-.panel-header {
-  padding:15px 20px; border-bottom:1px solid #f0f4f8;
-  display:flex; justify-content:space-between;
-  align-items:center; flex-wrap:wrap; gap:10px;
-}
-.panel-title {
-  font-size:.9rem; font-weight:700; color:#0f172a;
-  display:flex; align-items:center; gap:8px;
-}
-.panel-title-icon {
-  width:30px; height:30px; border-radius:8px;
-  background:linear-gradient(135deg,#0d9488,#007CBF);
-  display:flex; align-items:center; justify-content:center;
-  color:#fff; font-size:.82rem;
-}
-
-/* table action links */
-.tbl-badge {
-  display:inline-flex; align-items:center; gap:3px;
-  font-size:.68rem; font-weight:600; border-radius:6px;
-  padding:3px 9px; text-decoration:none!important;
-  transition:opacity .15s, transform .13s; white-space:nowrap;
-}
-.tbl-badge:hover { opacity:.8; transform:translateY(-1px); }
-.tbl-badge-update  { color:#007CBF; background:#e0f2fe; }
-.tbl-badge-delete  { color:#c53030; background:#fff5f5; }
-.tbl-badge-enable  { color:#276749; background:#f0fff4; }
-.tbl-badge-disable { color:#c53030; background:#fff5f5; }
-
-/* dataTables */
-.dataTables_wrapper { font-size:.82rem; }
-
-/* add-student legacy modal */
-#id01 { display:none; position:fixed; z-index:999; left:0; top:0; width:100%; height:100%; overflow:auto; background:rgba(15,23,42,.5); padding-top:60px; backdrop-filter:blur(4px); }
-#id01 .modal-content { background:#fff; margin:4% auto 12%; border:none; border-radius:16px; box-shadow:0 25px 60px rgba(0,0,0,.2); width:34%; }
-.close { position:absolute; right:20px; top:2px; color:#6b7280; font-size:30px; font-weight:bold; }
-.close:hover { color:#ef4444; cursor:pointer; }
-.animate { animation:animatezoom .25s; }
-@keyframes animatezoom { from{transform:scale(.85)} to{transform:scale(1)} }
-.imgcontainer { text-align:center; margin:20px 0 10px; position:relative; }
-#id01 .container { padding:16px 20px; }
-#id01 label { font-size:.8rem; font-weight:600; color:#334155; display:block; margin-top:10px; margin-bottom:3px; }
-#id01 input[type=text],#id01 input[type=number],#id01 input[type=email],#id01 input[type=datetime-local],#id01 select {
-  width:100%; padding:9px 13px; border:1.5px solid #e2e8f0;
-  border-radius:9px; font-family:Inter,sans-serif; font-size:.82rem; outline:none;
-  transition:border-color .18s;
-}
-#id01 input:focus,#id01 select:focus { border-color:#0d9488; box-shadow:0 0 0 3px rgba(13,148,136,.1); }
-#id01 button[type=submit] {
-  background:linear-gradient(135deg,#0d9488,#007CBF); color:#fff;
-  padding:11px; margin:12px 0 0; border:none; cursor:pointer;
-  width:100%; border-radius:10px; font-weight:600; font-size:.875rem; font-family:Inter,sans-serif;
-}
-#id01 button[type=submit]:hover { background:linear-gradient(135deg,#0f766e,#0d9488); }
-.cancelbtn { width:auto!important; padding:9px 18px; background:#ef4444!important; border-radius:8px!important; font-size:.85rem!important; color:#fff!important; border:none; cursor:pointer; font-family:Inter,sans-serif; }
-
-/* tally modal */
-#tallyModal .modal-content { border-radius:1rem!important; border:none!important; box-shadow:0 20px 60px rgba(0,0,0,.18)!important; font-family:Inter,sans-serif!important; }
-</style>
+<!-- dashboard component styles moved to tw.css (Tailwind build) -->
 
 <!-- STAT CARDS -->
 <div class="row g-3 mb-4" id="statsCards">
 
   <div class="col-xl-2 col-md-4 col-sm-6">
-    <a href="manage question/" class="stat-card" style="--card-accent:#007CBF;">
+    <a href="manage question/" class="stat-card tw-bg-[#007CBF]">
       <div class="stat-icon-box"><i class="bi bi-patch-question-fill"></i></div>
       <div class="stat-body">
         <div class="stat-number"><?= $count->questions() ?></div>
@@ -151,7 +32,7 @@ require_once 'partials/sidebar.php';
   </div>
 
   <div class="col-xl-2 col-md-4 col-sm-6">
-    <a href="it_admin.php" class="stat-card" style="--card-accent:#38a169;">
+    <a href="students.php?filter=all" class="stat-card tw-bg-[#38a169]">
       <div class="stat-icon-box"><i class="bi bi-people-fill"></i></div>
       <div class="stat-body">
         <div class="stat-number"><?= $count->concept() ?></div>
@@ -161,7 +42,7 @@ require_once 'partials/sidebar.php';
   </div>
 
   <div class="col-xl-2 col-md-4 col-sm-6">
-    <a href="it_admin.php" class="stat-card" style="--card-accent:#dd6b20;">
+    <a href="students.php?filter=activated" class="stat-card tw-bg-[#dd6b20]">
       <div class="stat-icon-box"><i class="bi bi-person-check-fill"></i></div>
       <div class="stat-body">
         <div class="stat-number"><?= $count->user() ?></div>
@@ -171,7 +52,7 @@ require_once 'partials/sidebar.php';
   </div>
 
   <div class="col-xl-2 col-md-4 col-sm-6">
-    <a href="admin_expired.php" class="stat-card" style="--card-accent:#e53e3e;">
+    <a href="students.php?filter=expired" class="stat-card tw-bg-[#e53e3e]">
       <div class="stat-icon-box"><i class="bi bi-person-x-fill"></i></div>
       <div class="stat-body">
         <div class="stat-number"><?= $count->expired() ?></div>
@@ -181,7 +62,7 @@ require_once 'partials/sidebar.php';
   </div>
 
   <div class="col-xl-2 col-md-4 col-sm-6">
-    <a href="admin_not_activated.php" class="stat-card" style="--card-accent:#805ad5;">
+    <a href="students.php?filter=notactivated" class="stat-card tw-bg-[#805ad5]">
       <div class="stat-icon-box"><i class="bi bi-person-dash-fill"></i></div>
       <div class="stat-body">
         <div class="stat-number"><?= $count->bundles() ?></div>
@@ -191,7 +72,7 @@ require_once 'partials/sidebar.php';
   </div>
 
   <div class="col-xl-2 col-md-4 col-sm-6">
-    <a href="it_admin.php" class="stat-card" style="--card-accent:#0D9488;">
+    <a href="students.php?filter=active" class="stat-card tw-bg-[#0D9488]">
       <div class="stat-icon-box"><i class="bi bi-activity"></i></div>
       <div class="stat-body">
         <div class="stat-number"><?= $count->countActiveStudents() ?></div>
@@ -210,15 +91,20 @@ require_once 'partials/sidebar.php';
       <div class="panel-title-icon"><i class="bi bi-person-lines-fill"></i></div>
       Student List
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div style="position:relative;">
-        <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.85rem;pointer-events:none;"></i>
+    <div class="tw-flex tw-gap-2 tw-flex-wrap tw-items-center">
+      <div class="tw-relative">
+        <i class="bi bi-search tw-absolute tw-left-[10px] tw-top-1/2 -tw-translate-y-1/2 tw-text-[#94a3b8] tw-text-[.85rem] tw-pointer-events-none"></i>
         <input type="text" id="dashSearchInput" placeholder="Search student…"
-          style="padding:6px 12px 6px 30px;border:1.5px solid #e2e8f0;border-radius:50px;font-size:.78rem;width:200px;outline:none;font-family:Inter,sans-serif;">
+          class="tw-py-[6px] tw-pr-3 tw-pl-[30px] tw-border-[1.5px] tw-border-solid tw-border-[#e2e8f0] tw-rounded-full tw-text-[.78rem] tw-w-[200px] tw-outline-none tw-font-sans">
       </div>
       <button type="button" class="ap-btn ap-btn-primary ap-btn-sm"
         data-bs-toggle="modal" data-bs-target="#tallyModal">
         <i class="bi bi-clipboard-data"></i> Tally
+      </button>
+      <button type="button" class="ap-btn ap-btn-primary ap-btn-sm position-relative"
+        data-bs-toggle="modal" data-bs-target="#renewalModal" id="renewalBtn">
+        <i class="bi bi-arrow-repeat"></i> Renewals
+        <span id="renewalBadge" class="badge bg-danger" style="display:none;">0</span>
       </button>
     </div>
   </div>
@@ -292,11 +178,11 @@ require_once 'partials/sidebar.php';
           include('../config.php');
           date_default_timezone_set('Asia/Manila');
           $current_date = date('Y-m-d H:i:s');
-          $query = "SELECT * FROM `login` WHERE status='user' AND groupname!='Admin' AND dateexpired>'$current_date'";
+          $query = "SELECT * FROM `login` WHERE status='user' AND groupname!='Admin' ORDER BY id DESC";
           $data  = mysqli_query($con, $query);
 
           while ($rows = mysqli_fetch_array($data)):
-            $lastLogin = strtotime($rows['lastlogin']);
+            $lastLogin = !empty($rows['lastlogin']) ? strtotime($rows['lastlogin']) : 0;
             $diff      = time() - $lastLogin;
             if (empty($rows['lastlogin']))  $dot = '<span style="display:inline-block;width:9px;height:9px;background:#3b82f6;border-radius:50%;box-shadow:0 0 0 2px rgba(59,130,246,.2);"></span>';
             elseif ($diff < 600)            $dot = '<span style="display:inline-block;width:9px;height:9px;background:#22c55e;border-radius:50%;box-shadow:0 0 0 2px rgba(34,197,94,.2);"></span>';
@@ -310,7 +196,7 @@ require_once 'partials/sidebar.php';
           <td style="font-weight:500;"><?= htmlspecialchars($rows['fullname']) ?></td>
           <td><?= htmlspecialchars(str_replace('Packege','Package',$rows['bundle_name'])) ?></td>
           <td><?= htmlspecialchars($rows['groupname']) ?></td>
-          <td style="white-space:nowrap;"><?= $rows['dateexpired'] ?></td>
+          <td style="white-space:nowrap;"><?= !empty($rows['dateexpired']) ? htmlspecialchars($rows['dateexpired']) : '<span style="color:#94a3b8;">—</span>' ?></td>
           <td>
             <?php if ($rows['type'] == 0): ?>
               <a href="#" onclick="confirmAction('disable','<?= $fn ?>','<?= $id ?>')" class="tbl-badge tbl-badge-enable"><i class="bi bi-check-circle"></i>Enable</a>
@@ -337,7 +223,7 @@ require_once 'partials/sidebar.php';
                   foreach($c as $s=>$str){if($d/$s>=1){$t=round($d/$s);return $t.' '.$str.($t>1?'s ':' ').'ago';}}
                 }
               }
-              echo get_time_ago(strtotime($rows['lastlogin']));
+              echo get_time_ago(!empty($rows['lastlogin']) ? strtotime($rows['lastlogin']) : 0);
             ?>
           </td>
         </tr>
@@ -349,72 +235,169 @@ require_once 'partials/sidebar.php';
 
 <!-- TALLY MODAL -->
 <div class="modal fade" id="tallyModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:430px;">
-    <div class="modal-content">
-      <div class="modal-header" style="background:linear-gradient(135deg,#0d9488,#007CBF);color:#fff;border-radius:1rem 1rem 0 0;padding:14px 20px;">
-        <h5 class="modal-title fw-bold" style="font-family:Inter,sans-serif;font-size:.95rem;">
-          <i class="bi bi-clipboard-data me-2"></i>Daily Tally
-        </h5>
-        <div class="d-flex align-items-center gap-2">
-          <span id="tallyDate" style="font-size:.72rem;opacity:.85;font-family:Inter,sans-serif;"></span>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+  <div class="modal-dialog modal-dialog-centered" style="max-width:700px;">
+    <div class="modal-content" style="border-radius:1rem!important;border:none!important;box-shadow:0 20px 60px rgba(0,0,0,.18)!important;font-family:Inter,sans-serif!important;">
+
+      <!-- Header -->
+      <div class="modal-header" style="background:linear-gradient(135deg,#0d9488,#007CBF);color:#fff;border-radius:1rem 1rem 0 0;padding:10px 18px;border:none;align-items:center;">
+        <div>
+          <h5 class="modal-title fw-bold" style="font-family:Inter,sans-serif;font-size:.92rem;margin:0;display:flex;align-items:center;">
+            <i class="bi bi-clipboard-data me-2"></i>Daily Tally
+          </h5>
+          <span id="tallyDate" style="font-size:.7rem;opacity:.75;font-family:Inter,sans-serif;padding-left:26px;display:block;margin-top:2px;"></span>
         </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body" style="padding:20px 24px;">
-        <div id="tallyScreenshots" style="display:none;margin-bottom:16px;">
-          <div style="display:flex;gap:8px;flex-direction:column;">
-            <div style="border:1px solid #e8eaf2;border-radius:10px;overflow:hidden;">
-              <div style="background:linear-gradient(135deg,#0d9488,#007CBF);color:#fff;font-size:.73rem;font-weight:600;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;font-family:Inter,sans-serif;">
-                <span>Before (Morning)</span>
-                <button id="copyBeforeBtn" onclick="copyScreenshot('before')" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:2px 10px;font-size:.68rem;cursor:pointer;font-family:Inter,sans-serif;"><i class="bi bi-clipboard-image"></i> Copy Image</button>
-              </div>
-              <div style="background:#f8f9fa;padding:6px;text-align:center;min-height:60px;display:flex;align-items:center;justify-content:center;">
-                <img id="beforeScreenshot" style="max-width:100%;border-radius:6px;display:none;"/>
-                <span id="beforeScreenshotNone" style="font-size:.73rem;color:#aaa;font-family:Inter,sans-serif;">No morning snapshot yet — open dashboard before importing</span>
-              </div>
-            </div>
-            <div style="border:1px solid #e8eaf2;border-radius:10px;overflow:hidden;">
-              <div style="background:linear-gradient(135deg,#198754,#2da86e);color:#fff;font-size:.73rem;font-weight:600;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;font-family:Inter,sans-serif;">
-                <span>After (Current)</span>
-                <button id="copyAfterBtn" onclick="copyScreenshot('after')" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:2px 10px;font-size:.68rem;cursor:pointer;font-family:Inter,sans-serif;"><i class="bi bi-clipboard-image"></i> Copy Image</button>
-              </div>
-              <div style="background:#f8f9fa;padding:6px;text-align:center;min-height:60px;display:flex;align-items:center;justify-content:center;">
-                <img id="afterScreenshot" style="max-width:100%;border-radius:6px;display:none;"/>
-                <span id="afterScreenshotLoading" style="font-size:.73rem;color:#aaa;font-family:Inter,sans-serif;"><span class="spinner-border spinner-border-sm text-secondary me-1"></span> Capturing...</span>
-              </div>
-            </div>
-          </div>
-        </div>
+
+      <!-- Body -->
+      <div class="modal-body" style="padding:14px 18px;overflow-y:auto;max-height:calc(100vh - 200px);">
+
+        <!-- Loading state -->
         <div id="tallyLoading" class="text-center py-4">
           <div class="spinner-border text-secondary" role="status" style="width:1.4rem;height:1.4rem;"></div>
           <p class="text-muted mt-2 mb-0" style="font-size:.82rem;font-family:Inter,sans-serif;">Loading tally...</p>
         </div>
-        <div id="tallyContent" style="display:none;">
-          <table class="table table-sm mb-0" style="font-size:.845rem;font-family:Inter,sans-serif;">
-            <tbody>
-              <tr style="background:#e8f4fd;"><td class="fw-semibold" style="color:#007CBF;border-radius:8px 0 0 8px;">Total Morning</td><td class="text-end fw-bold" id="t-morning" style="color:#007CBF;border-radius:0 8px 8px 0;"></td></tr>
-              <tr><td class="text-muted ps-3">Total of 1 month</td><td class="text-end fw-semibold" id="t-1month"></td></tr>
-              <tr><td class="text-muted ps-3">Total of 2 months</td><td class="text-end fw-semibold" id="t-2months"></td></tr>
-              <tr><td class="text-muted ps-3">Total of 3 months</td><td class="text-end fw-semibold" id="t-3months"></td></tr>
-              <tr><td class="text-muted ps-3">Total of 6 months</td><td class="text-end fw-semibold" id="t-6months"></td></tr>
-              <tr><td class="text-muted ps-3">Total of 12 months</td><td class="text-end fw-semibold" id="t-12months"></td></tr>
-              <tr style="background:#f0fdf4;"><td class="ps-3" style="color:#166534;">Total of 1 month FREE</td><td class="text-end fw-semibold" id="t-1free" style="color:#166534;"></td></tr>
-              <tr style="background:#f0fdf4;"><td class="ps-3" style="color:#166534;">Total of 2 month FREE</td><td class="text-end fw-semibold" id="t-2free" style="color:#166534;"></td></tr>
-              <tr style="border-top:2px solid #e8eaf2;"><td class="fw-semibold">Total Access</td><td class="text-end fw-bold text-success" id="t-access"></td></tr>
-              <tr><td class="text-muted ps-3">Deleted (duplicate)</td><td class="text-end fw-semibold text-danger" id="t-deleted"></td></tr>
-              <tr><td class="text-muted ps-3">Expired students</td><td class="text-end fw-semibold text-warning" id="t-expired"></td></tr>
-              <tr style="background:#e8f4fd;border-top:2px solid #007CBF;"><td class="fw-semibold" style="color:#007CBF;border-radius:8px 0 0 8px;">Total Afternoon</td><td class="text-end fw-bold" id="t-afternoon" style="color:#007CBF;border-radius:0 8px 8px 0;"></td></tr>
-            </tbody>
-          </table>
+
+        <!-- 2-column grid: left = screenshots, right = stats -->
+        <div id="tallyContentGrid" style="display:none;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">
+
+          <!-- LEFT: Screenshots -->
+          <div id="tallyScreenshots" style="display:flex;flex-direction:column;gap:8px;">
+            <!-- Before (Morning) -->
+            <div style="border:1px solid #e8eaf2;border-radius:8px;overflow:hidden;">
+              <div style="background:linear-gradient(135deg,#0d9488,#007CBF);color:#fff;font-size:.7rem;font-weight:600;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;font-family:Inter,sans-serif;">
+                <span><i class="bi bi-sunrise me-1"></i>Before (Morning)</span>
+                <button id="copyBeforeBtn" onclick="copyScreenshot('before')" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:5px;padding:2px 8px;font-size:.63rem;cursor:pointer;font-family:Inter,sans-serif;">
+                  <i class="bi bi-clipboard-image"></i> Copy
+                </button>
+              </div>
+              <div style="background:#f8f9fa;padding:5px;text-align:center;min-height:70px;display:flex;align-items:center;justify-content:center;">
+                <img id="beforeScreenshot" style="max-width:100%;max-height:110px;border-radius:5px;display:none;"/>
+                <span id="beforeScreenshotNone" style="font-size:.7rem;color:#aaa;font-family:Inter,sans-serif;">No morning snapshot yet</span>
+              </div>
+            </div>
+            <!-- After (Current) -->
+            <div style="border:1px solid #e8eaf2;border-radius:8px;overflow:hidden;">
+              <div style="background:linear-gradient(135deg,#198754,#2da86e);color:#fff;font-size:.7rem;font-weight:600;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;font-family:Inter,sans-serif;">
+                <span><i class="bi bi-sun me-1"></i>After (Current)</span>
+                <button id="copyAfterBtn" onclick="copyScreenshot('after')" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:5px;padding:2px 8px;font-size:.63rem;cursor:pointer;font-family:Inter,sans-serif;">
+                  <i class="bi bi-clipboard-image"></i> Copy
+                </button>
+              </div>
+              <div style="background:#f8f9fa;padding:5px;text-align:center;min-height:70px;display:flex;align-items:center;justify-content:center;">
+                <img id="afterScreenshot" style="max-width:100%;max-height:110px;border-radius:5px;display:none;"/>
+                <span id="afterScreenshotLoading" style="font-size:.7rem;color:#aaa;font-family:Inter,sans-serif;">
+                  <span class="spinner-border spinner-border-sm text-secondary me-1"></span> Capturing...
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Tally stats table -->
+          <div id="tallyContent">
+            <table class="table table-sm mb-0" style="font-size:.8rem;font-family:Inter,sans-serif;">
+              <tbody>
+                <tr style="background:#e8f4fd;">
+                  <td class="fw-semibold" style="color:#007CBF;padding:7px 10px;">Total Morning</td>
+                  <td class="text-end fw-bold" id="t-morning" style="color:#007CBF;padding:7px 10px;"></td>
+                </tr>
+                <tr><td class="text-muted" style="padding:5px 10px 5px 18px;font-size:.75rem;">1 month</td><td class="text-end fw-semibold" id="t-1month" style="padding:5px 10px;"></td></tr>
+                <tr><td class="text-muted" style="padding:5px 10px 5px 18px;font-size:.75rem;">2 months</td><td class="text-end fw-semibold" id="t-2months" style="padding:5px 10px;"></td></tr>
+                <tr><td class="text-muted" style="padding:5px 10px 5px 18px;font-size:.75rem;">3 months</td><td class="text-end fw-semibold" id="t-3months" style="padding:5px 10px;"></td></tr>
+                <tr><td class="text-muted" style="padding:5px 10px 5px 18px;font-size:.75rem;">6 months</td><td class="text-end fw-semibold" id="t-6months" style="padding:5px 10px;"></td></tr>
+                <tr><td class="text-muted" style="padding:5px 10px 5px 18px;font-size:.75rem;">12 months</td><td class="text-end fw-semibold" id="t-12months" style="padding:5px 10px;"></td></tr>
+                <tr style="background:#f0fdf4;">
+                  <td style="color:#166534;padding:5px 10px 5px 18px;font-size:.75rem;">1 month FREE</td>
+                  <td class="text-end fw-semibold" id="t-1free" style="color:#166534;padding:5px 10px;"></td>
+                </tr>
+                <tr style="background:#f0fdf4;">
+                  <td style="color:#166534;padding:5px 10px 5px 18px;font-size:.75rem;">2 month FREE</td>
+                  <td class="text-end fw-semibold" id="t-2free" style="color:#166534;padding:5px 10px;"></td>
+                </tr>
+                <tr style="border-top:2px solid #e8eaf2;">
+                  <td class="fw-semibold" style="padding:7px 10px;">Total Access</td>
+                  <td class="text-end fw-bold text-success" id="t-access" style="padding:7px 10px;"></td>
+                </tr>
+                <tr>
+                  <td class="text-muted" style="padding:5px 10px 5px 18px;font-size:.75rem;">Deleted (duplicate)</td>
+                  <td class="text-end fw-semibold text-danger" id="t-deleted" style="padding:5px 10px;"></td>
+                </tr>
+                <tr>
+                  <td class="text-muted" style="padding:5px 10px 5px 18px;font-size:.75rem;">Expired students</td>
+                  <td class="text-end fw-semibold text-warning" id="t-expired" style="padding:5px 10px;"></td>
+                </tr>
+                <tr style="background:#e8f4fd;border-top:2px solid #007CBF;">
+                  <td class="fw-semibold" style="color:#007CBF;padding:7px 10px;">Total Afternoon</td>
+                  <td class="text-end fw-bold" id="t-afternoon" style="color:#007CBF;padding:7px 10px;"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
         </div>
       </div>
-      <div class="modal-footer" style="border-top:1px solid #e9ecef;padding:12px 20px;border-radius:0 0 1rem 1rem;flex-direction:column;gap:8px;">
-        <button type="button" id="tallyCopyBtn" class="btn btn-sm w-100 fw-semibold" style="background:linear-gradient(135deg,#0d9488,#007CBF);color:#fff;border-radius:50px;padding:8px 0;display:none;font-family:Inter,sans-serif;border:none;">
+
+      <!-- Footer: two buttons side by side -->
+      <div class="modal-footer" style="border-top:1px solid #e9ecef;padding:10px 18px;border-radius:0 0 1rem 1rem;display:flex;gap:8px;justify-content:stretch;">
+        <button type="button" id="tallyCopyBtn" class="btn btn-sm fw-semibold" style="flex:1;background:linear-gradient(135deg,#0d9488,#007CBF);color:#fff;border-radius:50px;padding:8px 0;display:none;font-family:Inter,sans-serif;border:none;">
           <i class="bi bi-clipboard me-1" id="tallyCopyIcon"></i><span id="tallyCopyText">Copy Text</span>
         </button>
-        <button type="button" id="tallyResetBtn" class="btn btn-sm w-100 fw-semibold" style="background:#dc3545;color:#fff;border-radius:50px;padding:8px 0;display:none;font-family:Inter,sans-serif;border:none;">
+        <button type="button" id="tallyResetBtn" class="btn btn-sm fw-semibold" style="flex:1;background:#dc3545;color:#fff;border-radius:50px;padding:8px 0;display:none;font-family:Inter,sans-serif;border:none;">
           <i class="bi bi-arrow-counterclockwise me-1" id="tallyResetIcon"></i><span id="tallyResetText">Reset Tally</span>
         </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- RENEWAL MODAL -->
+<div class="modal fade" id="renewalModal" tabindex="-1" aria-labelledby="renewalModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:1rem!important;border:none!important;box-shadow:0 20px 60px rgba(0,0,0,.18)!important;font-family:Inter,sans-serif!important;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#0d9488,#007CBF);color:#fff;border-radius:1rem 1rem 0 0;padding:12px 18px;border:none;">
+        <h5 class="modal-title fw-bold" id="renewalModalLabel" style="font-family:Inter,sans-serif;font-size:.92rem;margin:0;display:flex;align-items:center;">
+          <i class="bi bi-arrow-repeat me-2"></i>Pending Renewals
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding:18px 22px;font-family:Inter,sans-serif;">
+
+        <!-- Rows present in the sheet that could not be actioned. Shown so a
+             renewal is never dropped without the admin being told why. -->
+        <div id="renewalSkipped" class="mb-3" style="display:none;background:#fff7ed;border:1px solid #fed7aa;border-radius:.6rem;padding:10px 14px;font-size:.8rem;color:#9a3412;">
+          <div style="font-weight:600;margin-bottom:4px;"><i class="bi bi-exclamation-triangle-fill me-1"></i><span id="renewalSkippedTitle"></span></div>
+          <ul id="renewalSkippedList" style="margin:0;padding-left:18px;"></ul>
+        </div>
+
+        <div id="renewalLoading" class="text-center py-4">
+          <div class="spinner-border text-secondary" role="status" style="width:1.5rem;height:1.5rem;"></div>
+          <p class="text-muted mt-2 mb-0" style="font-size:.85rem;">Loading pending renewals...</p>
+        </div>
+
+        <div id="renewalEmpty" class="text-center py-4" style="display:none;">
+          <p class="text-muted mb-0">No pending renewals 🎉</p>
+        </div>
+
+        <div id="renewalError" class="text-center py-4" style="display:none;">
+          <p class="text-danger mb-0" id="renewalErrorText">Failed to load pending renewals.</p>
+        </div>
+
+        <div id="renewalContent" style="display:none;overflow-x:auto;">
+          <table class="table mb-0" style="font-size:.82rem;">
+            <thead>
+              <tr>
+                <th>Full Name</th>
+                <th>Student No.</th>
+                <th>Gmail</th>
+                <th>Subscription</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="renewalTableBody"></tbody>
+          </table>
+        </div>
+
       </div>
     </div>
   </div>
@@ -478,34 +461,38 @@ function renderTally(d){
   for(const[k,v]of Object.entries(m)){const el=document.getElementById('t-'+k);if(el)el.textContent=d[v]??0;}
   const td=document.getElementById('tallyDate');if(td)td.textContent=todayPH();
   document.getElementById('tallyLoading').style.display='none';
-  document.getElementById('tallyContent').style.display='block';
+  document.getElementById('tallyContentGrid').style.display='grid';
   document.getElementById('tallyCopyBtn').style.display='block';
   document.getElementById('tallyResetBtn').style.display='block';
   localStorage.setItem(TALLY_KEY,JSON.stringify({date:todayPH(),data:d}));
 }
 
 function loadTally(){
-  ['tallyContent','tallyCopyBtn','tallyResetBtn','tallyScreenshots'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('tallyContentGrid').style.display='none';
+  document.getElementById('tallyCopyBtn').style.display='none';
+  document.getElementById('tallyResetBtn').style.display='none';
   document.getElementById('tallyLoading').style.display='block';
-  try{const c=JSON.parse(localStorage.getItem(TALLY_KEY));if(c?.date===todayPH())renderTally(c.data);}catch(e){}
-  fetch('tally_get.php').then(r=>r.json()).then(renderTally).catch(()=>{
-    document.getElementById('tallyLoading').innerHTML='<p class="text-danger mb-0" style="font-size:.82rem;">Failed to load tally data.</p>';
-  });
+  // Load morning screenshot
   const bImg=document.getElementById('beforeScreenshot'),bNone=document.getElementById('beforeScreenshotNone');
   let s=null;try{s=JSON.parse(localStorage.getItem(MORNING_KEY));}catch(e){}
   if(s?.date===todayPH()&&s.image){bImg.src=s.image;bImg.style.display='block';bNone.style.display='none';}
   else{bImg.style.display='none';bNone.style.display='inline';}
+  // Start capturing current screenshot
   const aImg=document.getElementById('afterScreenshot'),aLoad=document.getElementById('afterScreenshotLoading');
   aImg.style.display='none';aLoad.style.display='inline';_afterCanvas=null;
-  document.getElementById('tallyScreenshots').style.display='block';
-  captureCards().then(c=>{_afterCanvas=c;aImg.src=c.toDataURL('image/png');aImg.style.display='block';aLoad.style.display='none';}).catch(()=>{aLoad.innerHTML='<span style="color:red;font-size:.73rem;">Capture failed</span>';});
+  captureCards().then(c=>{_afterCanvas=c;aImg.src=c.toDataURL('image/png');aImg.style.display='block';aLoad.style.display='none';}).catch(()=>{aLoad.innerHTML='<span style="color:red;font-size:.7rem;">Capture failed</span>';});
+  // Try cache first, then fetch fresh
+  try{const c=JSON.parse(localStorage.getItem(TALLY_KEY));if(c?.date===todayPH())renderTally(c.data);}catch(e){}
+  fetch('tally_get.php').then(r=>r.json()).then(renderTally).catch(()=>{
+    document.getElementById('tallyLoading').innerHTML='<p class="text-danger mb-0" style="font-size:.82rem;">Failed to load tally data.</p>';
+  });
 }
 
 // ── Dashboard student table search ───────────────────────────
 $(document).ready(function () {
   var dashTable = $('.data-table').DataTable({
     order: [],
-    pageLength: 25,
+    pageLength: 20,
     dom: 'tip',
     language: {
       info:      "Showing _START_–_END_ of _TOTAL_ students",
@@ -538,6 +525,162 @@ document.getElementById('tallyResetBtn')?.addEventListener('click',()=>{
     if(res.ok){localStorage.removeItem(TALLY_KEY);loadTally();}else alert('Reset failed.');
   }).catch(()=>alert('Request failed.')).finally(()=>{ri.className='bi bi-arrow-counterclockwise me-1';rt.textContent='Reset Tally';rb.disabled=false;});
 });
+
+// ── Pending Renewals ─────────────────────────────────────────
+var renewalData = [];
+var renewalSkippedData = [];
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+
+function updateRenewalBadge(count) {
+  var badge = document.getElementById('renewalBadge');
+  if (!badge) return;
+  if (count > 0) { badge.textContent = count; badge.style.display = 'inline-block'; }
+  else           { badge.style.display = 'none'; }
+}
+
+// Rows the sheet contains but the panel cannot action (blank student number,
+// unreadable subscription text). Listing them stops a renewal disappearing.
+function renderRenewalSkipped() {
+  var box = document.getElementById('renewalSkipped');
+  if (!box) return;
+
+  if (!renewalSkippedData.length) { box.style.display = 'none'; return; }
+
+  document.getElementById('renewalSkippedTitle').textContent =
+    renewalSkippedData.length + ' sheet row' + (renewalSkippedData.length === 1 ? '' : 's') +
+    ' could not be read — please fix them in the STUDIUM-RENEW sheet';
+
+  document.getElementById('renewalSkippedList').innerHTML =
+    renewalSkippedData.map(function (r) {
+      var who = r.full_name ? ' (' + escapeHtml(r.full_name) + ')' : '';
+      return '<li>Row ' + escapeHtml(r.sheet_row) + who + ' — ' + escapeHtml(r.reason) + '</li>';
+    }).join('');
+
+  box.style.display = 'block';
+}
+
+function renderRenewalList() {
+  var empty   = document.getElementById('renewalEmpty');
+  var error   = document.getElementById('renewalError');
+  var content = document.getElementById('renewalContent');
+  var tbody   = document.getElementById('renewalTableBody');
+
+  document.getElementById('renewalLoading').style.display = 'none';
+  error.style.display = 'none';
+
+  renderRenewalSkipped();
+
+  if (renewalData.length === 0) {
+    content.style.display = 'none';
+    empty.style.display   = 'block';
+    return;
+  }
+
+  empty.style.display   = 'none';
+  content.style.display = 'block';
+
+  tbody.innerHTML = renewalData.map(function (s, i) {
+    return '<tr>' +
+      '<td style="font-weight:500;">' + escapeHtml(s.full_name) + '</td>' +
+      '<td>' + escapeHtml(s.student_number) + '</td>' +
+      '<td>' + escapeHtml(s.gmail) + '</td>' +
+      '<td>' + escapeHtml(s.subscription_label) + '</td>' +
+      '<td><a href="#" class="tbl-badge tbl-badge-update" onclick="confirmGiveAccess(' + i + '); return false;">' +
+      '<i class="bi bi-unlock"></i>Give Access</a></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function loadRenewalPending() {
+  document.getElementById('renewalLoading').style.display = 'block';
+  document.getElementById('renewalEmpty').style.display   = 'none';
+  document.getElementById('renewalError').style.display   = 'none';
+  document.getElementById('renewalSkipped').style.display = 'none';
+  document.getElementById('renewalContent').style.display = 'none';
+
+  fetch('renewal_pending.php')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) {
+        document.getElementById('renewalLoading').style.display = 'none';
+        document.getElementById('renewalError').style.display   = 'block';
+        document.getElementById('renewalErrorText').textContent = d.error || 'Failed to load pending renewals.';
+        return;
+      }
+      renewalData = d.students || [];
+      renewalSkippedData = d.skipped || [];
+      updateRenewalBadge(d.count || 0);
+      renderRenewalList();
+    })
+    .catch(function () {
+      document.getElementById('renewalLoading').style.display = 'none';
+      document.getElementById('renewalError').style.display   = 'block';
+    });
+}
+
+function confirmGiveAccess(i) {
+  var s = renewalData[i];
+  if (!s) return;
+
+  Swal.fire({
+    title: 'Give Access',
+    html: 'Give <b>' + escapeHtml(s.full_name) + '</b> access for <b>' + escapeHtml(s.subscription_label) + '</b>?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#0d9488',
+    confirmButtonText: 'Yes, give access',
+    cancelButtonText: 'Cancel',
+  }).then(function (result) {
+    if (!result.isConfirmed) return;
+
+    fetch('renewal_give_access.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        row_index: s.row_index,
+        student_number: s.student_number,
+        months: s.months,
+        free: s.free
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.ok) {
+          // Access is already granted at this point. If the sheet row could not be
+          // highlighted the entry will show up as pending again, so warn the admin
+          // to mark it by hand rather than giving access a second time.
+          if (res.sheet_marked === false) {
+            Swal.fire({
+              title: 'Access granted — sheet not updated',
+              html: '<b>' + escapeHtml(s.full_name) + '</b> now has access until <b>' +
+                    escapeHtml(res.new_expiration) + '</b>.<br><br>' +
+                    'The STUDIUM-RENEW sheet could not be marked, so this row will appear ' +
+                    'as pending again. Highlight row ' + escapeHtml(s.sheet_row) + ' manually — ' +
+                    'do <b>not</b> give access twice.',
+              icon: 'warning', confirmButtonColor: '#0d9488'
+            });
+          } else {
+            Swal.fire({ title: 'Access granted', text: s.full_name + ' now has access until ' + res.new_expiration + '.', icon: 'success', confirmButtonColor: '#0d9488' });
+          }
+          loadRenewalPending();
+        } else {
+          Swal.fire({ title: 'Failed', text: res.error || 'Could not give access.', icon: 'error', confirmButtonColor: '#0d9488' });
+        }
+      })
+      .catch(function () {
+        Swal.fire({ title: 'Error', text: 'Request failed.', icon: 'error', confirmButtonColor: '#0d9488' });
+      });
+  });
+}
+
+// Load badge on page load, refresh list when modal opens
+document.addEventListener('DOMContentLoaded', loadRenewalPending);
+document.getElementById('renewalModal')?.addEventListener('show.bs.modal', loadRenewalPending);
 </script>
 
 <?php require_once 'partials/footer.php'; ?>

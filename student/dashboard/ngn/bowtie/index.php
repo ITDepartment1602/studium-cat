@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // bowtie/index.php
 require_once '../../../../config.php';
 // Suppress deprecated notices from json_decode(null) on older data rows
@@ -328,7 +328,9 @@ body {
 }
 
 .btn { padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
-.btn-primary { background: var(--primary); color: white; }
+.btn-primary { background: #0d9488; color: white; }
+@keyframes ngn-spin { to { transform: rotate(360deg); } }
+.ngn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: ngn-spin 0.7s linear infinite; vertical-align: middle; margin-right: 4px; flex-shrink: 0; }
 .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-muted); }
 
 #result {
@@ -484,7 +486,7 @@ body {
 
   .banks-container { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
   .app-container { overflow-y: visible; height: auto; min-height: 100%; display: block; }
-  body { overflow: auto; height: auto; min-height: 100%; display: block; }
+  body { overflow-y: auto; overflow-x: hidden; height: auto; min-height: 100%; display: block; }
 }
 
 @media (max-width: 480px) {
@@ -663,6 +665,207 @@ body {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* ── Mobile Clinical Reference — Senior-Friendly Design ── */
+@media (max-width: 768px) {
+  /* Hide panel from normal flow */
+  .left-panel { display: none !important; }
+
+  /* Compact banner button above the question */
+  .mobile-clinref-btn {
+    display: flex !important;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #e8f4fd;
+    color: #0369a1;
+    border: 1.5px solid #bae6fd;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 10px;
+    text-align: center;
+    letter-spacing: 0.1px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-clinref-btn i { font-size: 14px; }
+
+  /* Full-screen overlay */
+  .left-panel.mobile-open {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998 !important;
+    width: 100% !important;
+    min-width: unset !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100% !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Header inside modal */
+  .left-panel.mobile-open .panel-title {
+    padding: 16px 18px !important;
+    font-size: 13px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  /* Close button — large, with text */
+  .mobile-clinref-close {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    background: #ef4444;
+    color: #fff !important;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 80px;
+    justify-content: center;
+  }
+
+  /* Tabs — large tap targets */
+  .left-panel.mobile-open .tabs-row {
+    flex-shrink: 0;
+    padding: 6px 8px 0 !important;
+    gap: 3px !important;
+    overflow-x: hidden;
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .left-panel.mobile-open .tab-btn {
+    font-size: 11px !important;
+    padding: 8px 10px !important;
+    font-weight: 600;
+    white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Content area — scrollable, comfortable font */
+  .left-panel.mobile-open .tab-content-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px !important;
+  }
+  .left-panel.mobile-open .clinical-record {
+    font-size: 14.5px !important;
+    line-height: 1.7 !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+}
+
+/* ── Mobile UI: Compact & Readable (≤768px) ── */
+@media (max-width: 768px) {
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  .right-panel { padding: 8px !important; }
+  .question-header { font-size: 14px !important; line-height: 1.55 !important; margin-bottom: 12px !important; padding: 12px !important; }
+  .diagram-wrapper { gap: 10px !important; padding: 8px 0 !important; }
+  .col-label { font-size: 9px !important; padding: 3px 6px !important; margin-bottom: 6px !important; }
+  .dropzone { min-height: 40px !important; font-size: 11px !important; padding: 6px 8px !important; border-radius: 8px !important; }
+  .choice-token { padding: 6px 9px !important; font-size: 11.5px !important; border-radius: 7px !important; }
+  .mobile-tap-list .choice-token { font-size: 12px !important; padding: 8px 10px !important; }
+  .banks-container { padding: 10px !important; border-radius: 10px !important; gap: 8px !important; }
+  .bank-header { font-size: 9px !important; margin-bottom: 6px !important; }
+  .footer { padding: 10px 12px !important; gap: 8px !important; }
+  .btn { padding: 10px 14px !important; font-size: 13px !important; border-radius: 8px !important; }
+  #result { padding: 12px !important; margin-top: 12px !important; border-radius: 8px !important; }
+  #rationaleContent { font-size: 13px !important; line-height: 1.6 !important; }
+  .nclex-tips { padding: 12px !important; margin-top: 12px !important; border-radius: 8px !important; }
+  .tips-title { font-size: 10px !important; margin-bottom: 8px !important; }
+  .tips-list li { font-size: 12.5px !important; margin-bottom: 6px !important; }
+  .previous-badge { padding: 8px 10px !important; margin-bottom: 10px !important; font-size: 11px !important; }
+  .stats-btn { padding: 4px 8px !important; font-size: 10px !important; }
+}
+@media (min-width: 769px) {
+  .mobile-clinref-btn { display: none !important; }
+}
+
+/* ── Color-coded option types: Actions (#F7DD7D), Condition (#6EADBC), Parameters (#F1F7D4) ──
+   The option tokens themselves are coloured, and each dropzone shares the colour
+   of the bank whose options belong in it. */
+
+/* Bank headers (text only) */
+.banks-container .bank-col:nth-child(1) .bank-header { color: #8A6D1B; }
+.banks-container .bank-col:nth-child(2) .bank-header { color: #3F8294; }
+.banks-container .bank-col:nth-child(3) .bank-header { color: #7E8C2F; }
+
+/* Diagram column labels (above the bowtie dropzones) */
+.diagram-col:has([data-type="action"]) .col-label { color: #8A6D1B; }
+.diagram-col:has([data-type="condition"]) .col-label { color: #3F8294; }
+.diagram-col:has([data-type="parameter"]) .col-label { color: #7E8C2F; }
+
+/* Choice tokens — the option itself is coloured by type */
+.choice-token[data-type="action"] {
+  background: #fae7a0; border: 2px solid #e3c354; color: #6b551a;
+}
+.choice-token[data-type="condition"] {
+  background: #e2f1f4; border: 2px solid #6EADBC; color: #2c5c68;
+}
+.choice-token[data-type="parameter"] {
+  background: #f1f7d4; border: 2px solid #c5d27a; color: #5c6726;
+}
+
+/* Dropzones — tinted to match their bank (only before the answer is revealed) */
+.dropzone[data-type="action"]:not(.correct-reveal):not(.wrong-reveal) {
+  background: #fdf6e0; border-color: #f0e1a0; color: #8A6D1B;
+}
+.dropzone[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal) {
+  background: #eff8fa; border-color: #a9d4dd; color: #3F8294;
+}
+.dropzone[data-type="parameter"]:not(.correct-reveal):not(.wrong-reveal) {
+  background: #f8fbe9; border-color: #dce6a6; color: #7E8C2F;
+}
+.dropzone.center-slot[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal) {
+  border-color: #6EADBC; background: #eff8fa; color: #2c5c68;
+}
+
+/* Hover keeps the type colour, a shade stronger */
+.dropzone[data-type="action"]:not(.correct-reveal):not(.wrong-reveal):hover {
+  background: #f3e7a8; border-color: #e3c354;
+}
+.dropzone[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal):hover {
+  background: #d2ebf0; border-color: #6EADBC;
+}
+.dropzone[data-type="parameter"]:not(.correct-reveal):not(.wrong-reveal):hover {
+  background: #eaf2c2; border-color: #c5d27a;
+}
+
+/* Mobile: keep the type tint on empty dropzones (override the blanket blue) */
+@media (max-width: 768px) {
+  .dropzone[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal):not(.mobile-filled) {
+    border-color: #a9d4dd !important; background: #eff8fa !important;
+  }
+  .dropzone[data-type="parameter"]:not(.correct-reveal):not(.wrong-reveal):not(.mobile-filled) {
+    border-color: #dce6a6 !important; background: #f8fbe9 !important;
+  }
 }
 </style>
 </head>
@@ -1048,7 +1251,8 @@ $(document).ready(function(){
             Swal.fire({ icon:'warning', title:'Incomplete', text:'Please fill all slots in the diagram.' });
             return;
         }
-        
+        $(this).html('<span class="ngn-spinner"></span> Submitting...');
+        setTimeout(function() {
         // Capture initial if not done yet (safety net)
         if(!hasInteracted){
             hasInteracted = true;
@@ -1108,9 +1312,10 @@ $(document).ready(function(){
         };
         // Send to parent; retry once after short delay to handle timing edge cases
         window.parent.postMessage(payload, '*');
-        setTimeout(() => {
+        setTimeout(function() {
             if (window.parent !== window) window.parent.postMessage(payload, '*');
         }, 300);
+        }, 60); // end loading-state setTimeout
     });
 
     // ===== AUTO-SCROLL FOR DRAG & DROP ON MOBILE =====
@@ -1301,6 +1506,38 @@ $(document).ready(function(){
     document.getElementById('mobileSheetBackdrop').addEventListener('click', closeMobileSheet);
     document.getElementById('mobileSheetCloseBtn').addEventListener('click', closeMobileSheet);
 });
+</script>
+
+<script>
+(function () {
+  if (window.innerWidth > 768) return;
+  var lp = document.querySelector(".left-panel");
+  if (!lp) return;
+
+  /* Close button inside modal header — text label, not just × */
+  var pt = lp.querySelector(".panel-title");
+  if (pt) {
+    var cb = document.createElement("button");
+    cb.className = "mobile-clinref-close";
+    cb.innerHTML = "&#10005; Close";
+    cb.onclick = function () { lp.classList.remove("mobile-open"); };
+    pt.appendChild(cb);
+  }
+
+  /* Banner button injected at the TOP of right-panel content (before question) */
+  var rp = document.querySelector(".right-panel");
+  var btn = document.createElement("button");
+  btn.className = "mobile-clinref-btn";
+  btn.innerHTML = "<i class='fas fa-folder-open'></i> View Patient Chart &amp; Lab Results";
+  btn.onclick = function () { lp.classList.add("mobile-open"); };
+
+  if (rp) {
+    rp.insertBefore(btn, rp.firstChild);
+  } else {
+    document.body.insertBefore(btn, document.body.firstChild);
+  }
+
+})();
 </script>
 </body>
 </html>

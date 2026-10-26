@@ -1,38 +1,24 @@
-<?php 
-
-	// in this file --> code for add a new video course ,update a video course and delete a video course by admin from manage_bundles.php
-
+<?php
+// Add / delete groups (from manage group/index.php and grouplist.php).
 session_start();
-
 include('../../config.php');
 
-// =====================================================================================================================================
-// ========================================================================================================================
-     // in this section add videos ,update videos and delete videos is going on from manage_bundles.php
-
+// Add a group
 if (isset($_POST['submit'])) {
-$groupname=$_POST['groupname'];
-
-	$q="insert into grouplist(groupname) values('$groupname')";
-	$r=mysqli_query($con,$q);
-
- if ($r==true)
-  {
-
-			 header("location:index.php");
-    }
-	
- }
-// ============================================================================================
-
-				// code to add a new video course by admin from manage_bundles.php
-
-if ( isset($_GET['id']) ){
-	$id = $_GET['id'];
-
-	$sql = "DELETE from grouplist where id=$id";
-	$con->query($sql);
+    $stmt = mysqli_prepare($con, "INSERT INTO grouplist (groupname) VALUES (?)");
+    mysqli_stmt_bind_param($stmt, 's', $_POST['groupname']);
+    mysqli_stmt_execute($stmt);
+    header("Location: index.php");
+    exit;
 }
 
-header("location: index.php");
+// Delete a group / member
+if (isset($_GET['id'])) {
+    $id = intval($_GET['id']);
+    $stmt = mysqli_prepare($con, "DELETE FROM grouplist WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $id);
+    mysqli_stmt_execute($stmt);
+}
+
+header("Location: index.php");
 exit;

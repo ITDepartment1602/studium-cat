@@ -1,44 +1,24 @@
-<?php 
-
-	// in this file --> code for add a new video course ,update a video course and delete a video course by admin from manage_bundles.php
-
+<?php
+// Add / delete testimonials.
 session_start();
-
 include('../../config.php');
 
-// =====================================================================================================================================
-// ========================================================================================================================
-     // in this section add videos ,update videos and delete videos is going on from manage_bundles.php
-
+// Add a testimonial
 if (isset($_POST['submit'])) {
-$message=addslashes($_POST['message']);
-$name=$_POST['name'];
-$credinial=addslashes($_POST['credinial']);
-
-
-
-	$q="insert into testimonial(message,name,credinial) values ('$message','$name','$credinial')";
-	$r=mysqli_query($con,$q);
-
- if ($r==true)
-  {
-
-			 header("location:index.php");
-    }
-	
- }
-
-// =====================================================================================================================================
-if ( isset($_GET['id']) ){
-	$id = $_GET['id'];
-
-	$sql = "DELETE from testimonial where id=$id";
-	$con->query($sql);
+    $stmt = mysqli_prepare($con, "INSERT INTO testimonial (message, name, credinial) VALUES (?, ?, ?)");
+    mysqli_stmt_bind_param($stmt, 'sss', $_POST['message'], $_POST['name'], $_POST['credinial']);
+    mysqli_stmt_execute($stmt);
+    header("Location: index.php");
+    exit;
 }
 
-header("location: index.php");
+// Delete a testimonial
+if (isset($_GET['id'])) {
+    $id = intval($_GET['id']);
+    $stmt = mysqli_prepare($con, "DELETE FROM testimonial WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $id);
+    mysqli_stmt_execute($stmt);
+}
 
-
-
-
-?>
+header("Location: index.php");
+exit;

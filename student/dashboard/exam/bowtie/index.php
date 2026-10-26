@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../../../config.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
@@ -94,7 +94,6 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); display: flex; f
 .bank-list { min-height: 100px; display: flex; flex-direction: column; gap: 8px; }
 
 .footer { position: sticky; bottom: 0; background: white; border-top: 1px solid var(--border); padding: 16px 0 20px; display: flex; justify-content: center; z-index: 10; }
-@media (max-width: 600px) { .footer { padding: 16px; } .footer .btn { min-width: 0; width: 100%; font-size: 15px; } }
 .btn { padding: 14px 40px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; border: none; transition: all .2s ease; min-width: 220px; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; box-shadow: 0 4px 14px rgba(59,130,246,.4); }
 .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.5); }
@@ -139,6 +138,217 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); display: flex; f
 .mobile-sheet-footer { padding: 12px 16px; border-top: 1px solid #e2e8f0; flex-shrink: 0; display: flex; gap: 10px; }
 .mobile-sheet-confirm { flex: 1; padding: 14px; background: #0a1628; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
 .mobile-sheet-clear { padding: 14px 18px; background: #f1f5f9; color: #64748b; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+/* ── Mobile Clinical Reference — Senior-Friendly Design ── */
+@media (max-width: 768px) {
+  /* Hide panel from normal flow */
+  .left-panel { display: none !important; }
+
+  /* Full-width banner button above the question — impossible to miss */
+  .mobile-clinref-btn {
+    display: flex !important;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #e8f4fd;
+    color: #0369a1;
+    border: 2px solid #bae6fd;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 16px;
+    text-align: center;
+    letter-spacing: 0.1px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-clinref-btn i { font-size: 17px; }
+  /* Submit button */
+  .footer { padding: 10px 12px 14px !important; }
+  .footer .btn { min-width: 0 !important; width: 100% !important; font-size: 13px !important; padding: 10px 16px !important; border-radius: 10px !important; }
+  .question-header { font-size: 14px !important; line-height: 1.55 !important; margin-bottom: 14px !important; }
+
+  /* Full-screen overlay */
+  .left-panel.mobile-open {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998 !important;
+    width: 100% !important;
+    min-width: unset !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100% !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Header inside modal */
+  .left-panel.mobile-open .panel-title {
+    padding: 16px 18px !important;
+    font-size: 13px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  /* Close button — large, with text */
+  .mobile-clinref-close {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    background: #ef4444;
+    color: #fff !important;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 80px;
+    justify-content: center;
+  }
+
+  /* Tabs — large tap targets */
+  .left-panel.mobile-open .tabs-row {
+    flex-shrink: 0;
+    padding: 6px 8px 0 !important;
+    gap: 3px !important;
+    overflow-x: hidden;
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .left-panel.mobile-open .tab-btn {
+    font-size: 11px !important;
+    padding: 8px 10px !important;
+    font-weight: 600;
+    white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Content area — scrollable, comfortable font */
+  .left-panel.mobile-open .tab-content-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px !important;
+  }
+  .left-panel.mobile-open .clinical-record {
+    font-size: 14.5px !important;
+    line-height: 1.7 !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+}
+
+  /* Submit pill FAB */
+  .submit-fab {
+    position: fixed;
+    bottom: 80px;
+    right: 14px;
+    z-index: 1100;
+    display: none;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 24px;
+    padding: 11px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 4px 18px rgba(37,99,235,0.35);
+    cursor: pointer;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .submit-fab.visible { display: flex; }
+  .submit-fab.pulse { animation: submitPulse 0.4s ease; }
+  @keyframes submitPulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+}
+@media (min-width: 769px) {
+  .mobile-clinref-btn { display: none !important; }
+}
+
+/* ── Color-coded option types: Actions (#F7DD7D), Condition (#6EADBC), Parameters (#F1F7D4) ──
+   The option tokens themselves are coloured, and each dropzone shares the colour
+   of the bank whose options belong in it. */
+
+/* Bank headers (text only) */
+.banks-container .bank-col:nth-child(1) .bank-header { color: #8A6D1B; }
+.banks-container .bank-col:nth-child(2) .bank-header { color: #3F8294; }
+.banks-container .bank-col:nth-child(3) .bank-header { color: #7E8C2F; }
+
+/* Diagram column labels (above the bowtie dropzones) */
+.diagram-col:has([data-type="action"]) .col-label { color: #8A6D1B; }
+.diagram-col:has([data-type="condition"]) .col-label { color: #3F8294; }
+.diagram-col:has([data-type="parameter"]) .col-label { color: #7E8C2F; }
+
+/* Choice tokens — the option itself is coloured by type */
+.choice-token[data-type="action"] {
+  background: #fae7a0; border: 2px solid #e3c354; color: #6b551a;
+}
+.choice-token[data-type="condition"] {
+  background: #e2f1f4; border: 2px solid #6EADBC; color: #2c5c68;
+}
+.choice-token[data-type="parameter"] {
+  background: #f1f7d4; border: 2px solid #c5d27a; color: #5c6726;
+}
+
+/* Dropzones — tinted to match their bank (only before the answer is revealed) */
+.dropzone[data-type="action"]:not(.correct-reveal):not(.wrong-reveal) {
+  background: #fdf6e0; border-color: #f0e1a0; color: #8A6D1B;
+}
+.dropzone[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal) {
+  background: #eff8fa; border-color: #a9d4dd; color: #3F8294;
+}
+.dropzone[data-type="parameter"]:not(.correct-reveal):not(.wrong-reveal) {
+  background: #f8fbe9; border-color: #dce6a6; color: #7E8C2F;
+}
+.dropzone.center-slot[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal) {
+  border-color: #6EADBC; background: #eff8fa; color: #2c5c68;
+}
+
+/* Hover keeps the type colour, a shade stronger */
+.dropzone[data-type="action"]:not(.correct-reveal):not(.wrong-reveal):hover {
+  background: #f3e7a8; border-color: #e3c354;
+}
+.dropzone[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal):hover {
+  background: #d2ebf0; border-color: #6EADBC;
+}
+.dropzone[data-type="parameter"]:not(.correct-reveal):not(.wrong-reveal):hover {
+  background: #eaf2c2; border-color: #c5d27a;
+}
+
+/* Mobile: keep the type tint on empty dropzones (override the blanket blue) */
+@media (max-width: 768px) {
+  .dropzone[data-type="condition"]:not(.correct-reveal):not(.wrong-reveal):not(.mobile-filled) {
+    border-color: #a9d4dd !important; background: #eff8fa !important;
+  }
+  .dropzone[data-type="parameter"]:not(.correct-reveal):not(.wrong-reveal):not(.mobile-filled) {
+    border-color: #dce6a6 !important; background: #f8fbe9 !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -446,6 +656,62 @@ $(document).ready(function(){
   document.getElementById('mobileSheetBackdrop').addEventListener('click', closeMobileSheet);
   document.getElementById('mobileSheetCloseBtn').addEventListener('click', closeMobileSheet);
 });
+</script>
+
+<script>
+(function () {
+  if (window.innerWidth > 768) return;
+  var lp = document.querySelector(".left-panel");
+  if (!lp) return;
+
+  /* Close button inside modal header — text label, not just × */
+  var pt = lp.querySelector(".panel-title");
+  if (pt) {
+    var cb = document.createElement("button");
+    cb.className = "mobile-clinref-close";
+    cb.innerHTML = "&#10005; Close";
+    cb.onclick = function () { lp.classList.remove("mobile-open"); };
+    pt.appendChild(cb);
+  }
+
+  /* Banner button injected at the TOP of right-panel content (before question) */
+  var rp = document.querySelector(".right-panel");
+  var btn = document.createElement("button");
+  btn.className = "mobile-clinref-btn";
+  btn.innerHTML = "<i class='fas fa-folder-open'></i> View Patient Chart &amp; Lab Results";
+  btn.onclick = function () { lp.classList.add("mobile-open"); };
+
+  if (rp) {
+    rp.insertBefore(btn, rp.firstChild);
+  } else {
+    document.body.insertBefore(btn, document.body.firstChild);
+  }
+
+  /* Submit pill FAB for mobile */
+  var sb = document.getElementById("submitBtn");
+  if (sb) {
+    var fab = document.createElement("button");
+    fab.className = "submit-fab";
+    fab.innerHTML = "<i class='fas fa-check-circle'></i> Submit";
+    document.body.appendChild(fab);
+    fab.addEventListener("click", function () {
+      sb.scrollIntoView({ behavior: "smooth", block: "center" });
+      fab.classList.add("pulse");
+      setTimeout(function () { fab.classList.remove("pulse"); }, 500);
+    });
+    if ("IntersectionObserver" in window) {
+      var obs = new IntersectionObserver(function (entries) {
+        fab.classList.toggle("visible", !entries[0].isIntersecting);
+      }, { threshold: 0.5 });
+      obs.observe(sb);
+    } else {
+      fab.classList.add("visible");
+    }
+    /* Hide original empty footer if present */
+    var ft = document.querySelector(".footer");
+    if (ft && ft.children.length === 0) ft.style.display = "none";
+  }
+})();
 </script>
 </body>
 </html>

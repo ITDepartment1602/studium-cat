@@ -1,24 +1,21 @@
 <?php
-session_start();
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: ../'); // Redirect to login page
-    exit();
-}
+$ap_base    = '../';
+$active_nav = 'result';
+$ap_title   = 'Student Result';
+$ap_extra_head = '
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">';
 
+require_once '../partials/sidebar.php';
 include('../../config.php');
 
-// Check if student_id is set in the URL
-if (isset($_GET['student_id'])) {
-    $student_id = intval($_GET['student_id']); // Convert to integer for security
-
-    // Modify the query to filter by student_id
-    $query = "SELECT * FROM `history` LEFT JOIN login ON history.email = login.id WHERE login.id = $student_id";
-} else {
-    header('Location: ../manage_result.php'); // Adjust as necessary
+// student_id is required; bail back to the list if it is missing.
+if (!isset($_GET['student_id'])) {
+    header('Location: index.php');
     exit();
 }
+$student_id = intval($_GET['student_id']);
 
-// Define categories
+// Categories shown as score cards.
 $categories = [
     'Adult Health',
     'Child Health',
@@ -27,325 +24,109 @@ $categories = [
     'Leadership and Management',
     'Maternal and Newborn Health',
     'Mental Health',
-    'Pharmacology'
+    'Pharmacology',
 ];
 
-// Function to get average score for each category
+// Average score for one category. Guards against NULL (no attempts) so
+// round() never receives null (PHP 8.1+ deprecation / fatal).
 function getAverageScore($con, $eid, $student_id)
 {
-    $query = "SELECT AVG(score) AS average FROM history WHERE eid = '$eid' AND email = '$student_id'";
-    $result = mysqli_query($con, $query);
-    $row = mysqli_fetch_assoc($result);
-    return round($row['average'], 2); // Round to 2 decimal places
+    $stmt = mysqli_prepare($con, "SELECT AVG(score) AS average FROM history WHERE eid = ? AND email = ?");
+    mysqli_stmt_bind_param($stmt, 'si', $eid, $student_id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+
+    return ($row && $row['average'] !== null) ? round((float) $row['average'], 2) : 0;
 }
+
+// Fetch the student's history (also used for the name + the table below).
+$stmt = mysqli_prepare(
+    $con,
+    "SELECT history.*, login.fullname
+     FROM history
+     LEFT JOIN login ON history.email = login.id
+     WHERE login.id = ?
+     ORDER BY history.date DESC"
+);
+mysqli_stmt_bind_param($stmt, 'i', $student_id);
+mysqli_stmt_execute($stmt);
+$history = mysqli_stmt_get_result($stmt);
+
+$rows = mysqli_fetch_all($history, MYSQLI_ASSOC);
+$student_name = !empty($rows) ? $rows[0]['fullname'] : 'Student';
 ?>
 
-<!DOCTYPE html>
-<!-- Website - www.codingnepalweb.com -->
-<html lang="en" dir="ltr">
-
-<head>
-    <meta charset="UTF-8" />
-    <title>Studium Admin</title>
-    <link rel="shortcut icon" type="text/css" href="../../img/logo1.svg">
-    <link rel="stylesheet" href="../adminstyles.css" />
-    <!-- Boxicons CDN Link -->
-    <link href="https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="../../table css/dataTables.bootstrap5.min.css" />
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
-        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-</head>
-<style type="text/css">
-    /* Full-width input fields */
-    input[type=text],
-    input[type=number],
-    input[type=email] {
-        width: 100%;
-        padding: 12px 20px;
-        margin: 8px 0;
-        display: inline-block;
-        border: 1px solid #ccc;
-        box-sizing: border-box;
-    }
-
-    /* Set a style for all buttons */
-    button {
-        background-color: #04AA6D;
-        color: white;
-        padding: 14px 20px;
-        margin: 8px 0;
-        border: none;
-        cursor: pointer;
-        width: 100%;
-    }
-
-    button:hover {
-        opacity: 0.8;
-    }
-
-    /* Extra styles for the cancel button */
-    .cancelbtn {
-        width: auto;
-        padding: 10px 18px;
-        background-color: #f44336;
-    }
-
-    /* Center the image and position the close button */
-    .imgcontainer {
-        text-align: center;
-        margin: 24px 0 12px 0;
-        position: relative;
-    }
-
-    .container {
-        padding: 16px;
-    }
-
-
-    /* The Modal (background) */
-    .modal {
-        display: none;
-        /* Hidden by default */
-        position: fixed;
-        /* Stay in place */
-        z-index: 1;
-        /* Sit on top */
-        left: 0;
-        top: 0;
-        width: 100%;
-        /* Full width */
-        height: 100%;
-        /* Full height */
-        overflow: auto;
-        /* Enable scroll if needed */
-        background-color: rgb(0, 0, 0);
-        /* Fallback color */
-        background-color: rgba(0, 0, 0, 0.4);
-        /* Black w/ opacity */
-        padding-top: 60px;
-    }
-
-    /* Modal Content/Box */
-    .modal-content {
-        background-color: #fefefe;
-        margin: 5% auto 15% auto;
-        /* 5% from the top, 15% from the bottom and centered */
-        border: 1px solid #888;
-        width: 30%;
-        /* Could be more or less, depending on screen size */
-    }
-
-    /* The Close Button (x) */
-    .close {
-        position: absolute;
-        right: 25px;
-        top: 0;
-        color: #000;
-        font-size: 35px;
-        font-weight: bold;
-    }
-
-    .close:hover,
-    .close:focus {
-        color: red;
-        cursor: pointer;
-    }
-
-    /* Add Zoom Animation */
-    .animate {
-        -webkit-animation: animatezoom 0.6s;
-        animation: animatezoom 0.6s
-    }
-
-    @-webkit-keyframes animatezoom {
-        from {
-            -webkit-transform: scale(0)
-        }
-
-        to {
-            -webkit-transform: scale(1)
-        }
-    }
-
-    @keyframes animatezoom {
-        from {
-            transform: scale(0)
-        }
-
-        to {
-            transform: scale(1)
-        }
-    }
-
-    /* Change styles for span and cancel button on extra small screens */
-    @media screen and (max-width: 300px) {
-        .cancelbtn {
-            width: 100%;
-        }
-    }
-
-
-    .navbar,
-    .card-header {
-        background-color: #007CBF;
-        color: white;
-        /* Change text color to white for better contrast */
-    }
-</style>
-
-<body>
-    <div class="sidebar">
-        <div class="logo-details">
-            <center><img src="../../img/logo1.svg" width="30%"></center>
-        </div>
-        <ul class="nav-links">
-            <li>
-                <a href="../">
-                    <i class="bx bx-grid-alt"></i>
-                    <span class="links_name">Dashboard</span>
-                </a>
-            </li>
-            <li>
-                <a href="../manage topics">
-                    <i class="bx bx-box"></i>
-                    <span class="links_name">Manage Topics</span>
-                </a>
-            </li>
-            <li>
-                <a href="../manage question">
-                    <i class="bx bx-list-ul"></i>
-                    <span class="links_name">Manage Question</span>
-                </a>
-            </li>
-            <li>
-                <a href="../manage bundle">
-                    <i class="bx bx-pie-chart-alt-2"></i>
-                    <span class="links_name">Manage Bundle</span>
-                </a>
-            </li>
-            <li>
-                <a href="../manage group">
-                    <i class="bx bx-user"></i>
-                    <span class="links_name">Manage Group</span>
-                </a>
-            </li>
-            <li>
-                <a href="../manage result">
-                    <i class="bx bx-coin-stack"></i>
-                    <span class="links_name">Manage Result</span>
-                </a>
-            </li>
-
-            <li>
-                <a href="../manage feedback">
-                    <i class="bx bx-heart"></i>
-                    <span class="links_name">Feedback</span>
-                </a>
-            </li>
-
-            <li class="log_out">
-                <a href="../../index.php">
-                    <i class="bx bx-log-out"></i>
-                    <span class="links_name">Log out</span>
-                </a>
-            </li>
-        </ul>
+<div class="ap-card">
+  <div class="ap-card-header">
+    <div class="ap-card-title">
+      <div class="ap-card-title-icon"><i class="bi bi-person-lines-fill"></i></div>
+      <?= htmlspecialchars($student_name) ?>'s Results
     </div>
-    <section class="home-section">
-        <nav>
-            <div class="sidebar-button">
-                <i class="bx bx-menu sidebarBtn"></i>
-                <span class="dashboard">Dashboard</span>
+    <a href="index.php" class="ap-btn ap-btn-ghost ap-btn-sm">
+      <i class="bi bi-arrow-left"></i> Back
+    </a>
+  </div>
+
+  <div class="ap-card-body">
+    <div class="row g-3">
+      <?php foreach ($categories as $category):
+        $averageScore = getAverageScore($con, $category, $student_id);
+        if ($averageScore < 40)      $bar = '#dc2626';
+        elseif ($averageScore <= 70) $bar = '#d97706';
+        else                         $bar = '#16a34a';
+      ?>
+      <div class="col-6 col-lg-3">
+        <div class="ap-card" style="margin:0;height:100%;">
+          <div class="ap-card-header" style="justify-content:center;">
+            <div class="ap-card-title" style="font-size:0.82rem;text-align:center;">
+              <?= htmlspecialchars($category) ?>
             </div>
-        </nav>
-        <div class="home-content">
-            <div class="sales-boxes">
-                <div class="recent-sales box">
-                    <?php
-                    $query = "SELECT history.*, login.fullname FROM `history` LEFT JOIN login ON history.email = login.id WHERE login.id = $student_id";
-
-                    $data = mysqli_query($con, $query);
-                    $student_name = 'fullname';
-                    if ($rows = mysqli_fetch_array($data)) {
-                        $student_name = $rows['fullname']; // Get the first word of fullname
-                        mysqli_data_seek($data, 0); // Reset pointer for further use
-                    }
-                    ?>
-
-                    <div class="title"><?php echo $student_name; ?>'s Results</div>
-
-
-                    <div class="row">
-                        <?php foreach ($categories as $category): ?>
-                            <div class="col-md-3">
-                                <div class="card text-center mb-4">
-                                    <div class="card-header">
-                                        <strong><?php echo $category; ?></strong>
-                                    </div>
-                                    <div class="card-body">
-                                        <h5 class="card-title" style="font-size: 2rem;">
-                                         <?php $averageScore = getAverageScore($con, $category, $student_id); ?>
-                                            <?php echo $averageScore > 0 ? $averageScore : '0'; ?>%
-                                        </h5>
-                                        <div class="progress">
-                                            <div class="progress-bar" role="progressbar"
-                                                style="width: <?php echo $averageScore; ?>%; background-color: #007CBF;"
-                                                aria-valuenow="<?php echo $averageScore; ?>" aria-valuemin="0"
-                                                aria-valuemax="100"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <table class="table table-striped data-table">
-                        <thead>
-                            <tr>
-                                <th>Score</th>
-                                <th>Correct Answer</th>
-                                <th>Wrong Answer</th>
-                                <th>Date Test</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            $data = mysqli_query($con, $query);
-                            while ($rows = mysqli_fetch_array($data)) {
-                                ?>
-                                <tr>
-                                    <td><?php echo $rows['score']; ?>%</td>
-                                    <td><?php echo $rows['sahi']; ?></td>
-                                    <td><?php echo $rows['wrong']; ?></td>
-                                    <td>
-                                        <?php
-                                        $date = strtotime($rows['date']); // Convert date string to timestamp
-                                        echo date('F j, Y - h:i A', $date); // Format the date
-                                        ?>
-                                    </td>
-                                </tr>
-                            <?php } ?>
-                        </tbody>
-                    </table>
-                </div>
+          </div>
+          <div class="ap-card-body" style="text-align:center;">
+            <div style="font-size:1.9rem;font-weight:700;color:var(--ap-text);margin-bottom:10px;">
+              <?= $averageScore ?>%
             </div>
+            <div class="progress" style="height:8px;border-radius:6px;">
+              <div class="progress-bar" role="progressbar"
+                   style="width:<?= $averageScore ?>%;background-color:<?= $bar ?>;"
+                   aria-valuenow="<?= $averageScore ?>" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </div>
         </div>
-    </section>
+      </div>
+      <?php endforeach; ?>
+    </div>
 
-    <script>
-        let sidebar = document.querySelector(".sidebar");
-        let sidebarBtn = document.querySelector(".sidebarBtn");
-        sidebarBtn.onclick = function () {
-            sidebar.classList.toggle("active");
-            if (sidebar.classList.contains("active")) {
-                sidebarBtn.classList.replace("bx-menu", "bx-menu-alt-right");
-            } else sidebarBtn.classList.replace("bx-menu-alt-right", "bx-menu");
-        };
-    </script>
-    <script src="../.././table js/jquery-3.5.1.js"></script>
-    <script src="../.././table js/jquery.dataTables.min.js"></script>
-    <script src="../.././table js/dataTables.bootstrap5.min.js"></script>
-    <script src="../.././table js/script.js"></script>
-</body>
+    <div style="margin-top:22px; overflow-x:auto;">
+      <table class="table data-table" style="width:100%;">
+        <thead>
+          <tr>
+            <th>Score</th>
+            <th>Correct Answer</th>
+            <th>Wrong Answer</th>
+            <th>Date Test</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($rows as $r): ?>
+          <tr>
+            <td><span class="ap-badge ap-badge-navy"><?= htmlspecialchars($r['score']) ?>%</span></td>
+            <td><?= htmlspecialchars($r['sahi']) ?></td>
+            <td><?= htmlspecialchars($r['wrong']) ?></td>
+            <td><?= $r['date'] ? date('F j, Y - h:i A', strtotime($r['date'])) : '—' ?></td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-</html>
+<?php
+$ap_extra_js = '
+<script src="../.././table js/jquery-3.5.1.js"></script>
+<script src="../.././table js/jquery.dataTables.min.js"></script>
+<script src="../.././table js/script.js"></script>';
+require_once '../partials/footer.php';
+?>

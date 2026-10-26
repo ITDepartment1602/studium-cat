@@ -282,7 +282,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <td class="nav-link px-1">
                 </td>
                 <td>
-                  <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank" id="myVideo"
+                  <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank" id="myVideo"
                     class="nav-link">
                     <p style="font-size: 14px;"><i class="bi bi-telephone" style="font-size: 17px;"></i> Contact Us
                       >
@@ -316,7 +316,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
               <?php echo date('F d, Y', strtotime($fetch['dateexpired'])); ?><br>
               <?php echo date('h:i A', strtotime($fetch['dateexpired'])); ?>
             </p>
-            <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank">
+            <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank">
               Upgrade Now!
             </a>
           </div>

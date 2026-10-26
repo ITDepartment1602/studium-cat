@@ -93,16 +93,16 @@ $_tut_pkg2 = isset($isPackege2) && $isPackege2;
   #tut-card.tut-centered {
     position: fixed !important;
     top: 50% !important;
-    left: 16px !important;
-    right: 16px !important;
-    width: auto !important;
-    max-width: none !important;
+    left: 50% !important;
+    right: auto !important;
+    width: calc(100vw - 32px) !important;
+    max-width: 360px !important;
     max-height: 85vh !important;
     overflow-y: auto !important;
-    transform: translateY(-48%) scale(.95) !important;
+    transform: translate(-50%, -48%) scale(.95) !important;
   }
   #tut-card.tut-centered.tut-visible {
-    transform: translateY(-50%) scale(1) !important;
+    transform: translate(-50%, -50%) scale(1) !important;
   }
 
   /* Steps where card should appear at top (e.g. sidebar footer step) */

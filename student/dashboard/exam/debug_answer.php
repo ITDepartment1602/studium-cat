@@ -1,5 +1,14 @@
 <?php
 require_once '../../../config.php';
+
+// Dev-only answer peek used by the exam navbar debug badge — must never
+// leak correct answers to students in production. Mirrors the same
+// localhost/127.0.0.1 check used by index.php's $isProduction guard.
+$isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
+if ($isProduction) { http_response_code(403); echo 'disabled'; exit; }
+
+if (!isset($_SESSION['user_id'])) { http_response_code(401); echo 'N/A'; exit; }
+
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $table = isset($_GET['table']) ? preg_replace('/[^a-zA-Z0-9_]/', '', $_GET['table']) : '';
 

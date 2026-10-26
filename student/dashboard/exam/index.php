@@ -143,8 +143,13 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
       --radius: 14px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
-    body { font-family: 'Inter', sans-serif; background: var(--surface-alt); color: var(--text); display: flex; flex-direction: column; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--surface-alt); color: var(--text); display: flex; flex-direction: column; -webkit-user-select: none; user-select: none; }
+    /* Desktop only: lock viewport */
+    @media (min-width: 769px) {
+      html, body { height: 100%; overflow: hidden; }
+    }
+    input, textarea { -webkit-user-select: text; user-select: text; }
 
     /* ── NAVBAR ── */
     .navbar {
@@ -216,6 +221,9 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
 
     /* ── LAYOUT ── */
     .main-content { flex: 1; display: flex; overflow: hidden; }
+    @media (max-width: 768px) {
+      .main-content { overflow: visible; }
+    }
 
     /* ── TOOLS SIDEBAR ── */
     .tools-nav-wrapper { width: 64px; background: #fff; border-right: 1px solid var(--border); flex-shrink: 0; }
@@ -233,6 +241,11 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
     .iframe-container { flex: 1; display: flex; flex-direction: column; background: var(--surface-alt); overflow: hidden; }
     .iframe-wrapper { flex: 1; padding: clamp(8px,2vw,20px); display: flex; align-items: stretch; overflow: hidden; }
     iframe { width: 100%; height: 100%; border: none; border-radius: var(--radius); background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+    @media (max-width: 768px) {
+      .iframe-container { overflow: visible; }
+      .iframe-wrapper { overflow: visible; padding: 6px; height: auto; flex: none; min-height: calc(100svh - 60px); }
+      iframe { height: 100%; min-height: calc(100svh - 60px); border-radius: 10px; }
+    }
 
     .btn {
       padding: 9px 22px; border: none; border-radius: 10px;
@@ -318,17 +331,52 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
 
     /* ── RESPONSIVE HIDE ── */
     @media (max-width: 768px) {
+      html, body { overflow-x: hidden; }
       .question-nav { display: none; }
       .nav-center { display: none; }
       .comp-meter-wrap { display: none; }
       .user-badge { display: none; }
+      .navbar { padding: 0 12px; height: 54px; flex-shrink: 0; }
+      .nav-brand { font-size: 13px; }
+      .timer-box { font-size: 11.5px; padding: 5px 10px; }
+      .controls-bar, .bottom-bar { padding: 6px 10px; gap: 6px; }
+      .btn { font-size: 12px; padding: 7px 12px; }
+
+      /* Hide tools sidebar on mobile — + FAB handles tool access */
+      .tools-nav-wrapper { display: none !important; }
+      .tools-nav.active {
+        display: flex !important;
+        position: fixed;
+        bottom: 140px;
+        right: 12px;
+        flex-direction: column;
+        background: #fff;
+        border-radius: 14px;
+        padding: 8px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+        z-index: 1199;
+        gap: 6px;
+        width: auto;
+      }
+      .tools-nav.active .tool-btn {
+        width: 50px; padding: 8px 4px; font-size: 9px;
+      }
+      .tools-nav.active .tool-btn i { font-size: 16px; }
+      #fullBtn { display: none !important; }
+
+      /* Modals fit viewport */
+      .modal-box { max-width: 94vw !important; }
     }
     @media (max-width: 640px) {
       .nav-brand span { display: none; }
       .diff-badge { display: none; }
     }
     @media (max-width: 480px) {
+      .navbar { height: 50px; padding: 0 8px; flex-shrink: 0; }
       .btn span { display: none; }
+      .btn { padding: 7px 10px; font-size: 11.5px; }
+      .timer-box { font-size: 11px; padding: 4px 8px; }
+      .modal-box { width: 92vw !important; padding: 16px !important; }
     }
   </style>
 </head>
@@ -347,24 +395,7 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
     <span class="diff-badge diff-moderate" id="diffBadge">MEDIUM</span>
     <span id="srcTableBadge" style="padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.12);color:#94a3b8;border:1px solid rgba(255,255,255,.15);">—</span>
     <span id="debugBadge" style="display:none;padding:3px 10px;border-radius:6px;font-size:9px;font-weight:700;font-family:monospace;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3);">θ=0.000</span>
-    <span id="debugAnswerBadge" onclick="showAnswerModal()" style="padding:3px 10px;border-radius:6px;font-size:9px;font-weight:700;font-family:monospace;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);cursor:pointer;user-select:none;" title="Click to see full answer">Ans: —</span>
-  </div>
-
-  <div class="nav-center">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div class="progress-ring-container">
-        <svg class="progress-ring" width="38" height="38">
-          <circle class="progress-ring-bg" cx="19" cy="19" r="15"/>
-          <circle class="progress-ring-fill" id="progressRing" cx="19" cy="19" r="15"
-                  stroke-dasharray="94.25" stroke-dashoffset="94.25"/>
-        </svg>
-        <span class="progress-ring-text" id="progressPercent">0%</span>
-      </div>
-      <div class="progress-label" id="questionProgress">
-        Q <strong>—</strong> <span>/ <?php echo $TARGET_TOTAL; ?></span>
-      </div>
-    </div>
-    <span class="streak-badge" id="streakBadge"></span>
+    <span id="debugAnswerBadge" onclick="showAnswerModal()" style="display:none;padding:3px 10px;border-radius:6px;font-size:9px;font-weight:700;font-family:monospace;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);cursor:pointer;user-select:none;" title="Click to see full answer">Ans: —</span>
   </div>
 
   <div class="nav-right">
@@ -385,9 +416,6 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
       <span class="timer-text" id="timer">—</span>
     </div>
   </div>
-</div>
-<div class="progress-bar-bottom">
-  <div class="progress-bar-fill" id="progressBarFill" style="width:0%"></div>
 </div>
 
 <!-- ── PRE-EXAM MODAL ── -->
@@ -459,23 +487,15 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="examParams"></div>
       </div>
 
-      <!-- Security warning -->
-      <div style="background:#fef2f2;border:1px solid #fee2e2;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start;">
-        <div style="width:28px;height:28px;background:#ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;flex-shrink:0;margin-top:1px;">!</div>
-        <div style="font-size:12px;color:#991b1b;line-height:1.6;">
-          <strong>ZERO TOLERANCE:</strong> Leaving this tab will result in <span style="font-weight:700;text-decoration:underline;">Instant Exam Termination</span>. No exceptions.
-        </div>
-      </div>
-
       <!-- Agreements -->
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
         <label style="display:flex;align-items:center;gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;">
           <input type="checkbox" id="agreeRules" style="width:18px;height:18px;accent-color:#3b82f6;cursor:pointer;">
-          <span style="font-size:13px;font-weight:600;color:#334155;">I agree to the NCLEX Security Guidelines.</span>
+          <span style="font-size:13px;font-weight:600;color:#334155;">I have read and agree to all exam security rules.</span>
         </label>
         <label style="display:flex;align-items:center;gap:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px 14px;cursor:pointer;">
           <input type="checkbox" id="agreeFocus" style="width:18px;height:18px;accent-color:#ef4444;cursor:pointer;">
-          <span style="font-size:13px;font-weight:600;color:#991b1b;">I understand leaving this tab will immediately fail my exam.</span>
+          <span style="font-size:13px;font-weight:600;color:#991b1b;">I understand that any violation will result in <u>immediate termination</u> and loss of all answers.</span>
         </label>
       </div>
 
@@ -503,6 +523,15 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
       <div class="tool-btn" id="feedBtn" title="Feedback"><i class="fas fa-comment-dots"></i><span>Feed</span></div>
     </div>
   </div>
+
+  <!-- Mobile Tools Toggle FAB -->
+  <div class="md:hidden fixed bottom-[80px] right-3 z-[1200] pointer-events-auto" id="examToolsToggleWrap">
+    <button id="examToolsFab"
+      class="w-12 h-12 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-lg transition-transform active:scale-90 border-2 border-white/20">
+      <i class="fas fa-plus"></i>
+    </button>
+  </div>
+
 
   <!-- Iframe Area -->
   <div class="iframe-container">
@@ -573,36 +602,116 @@ $typeQuotaMapJs = json_encode($typeQuotaMap);
       <span style="font-weight:800;font-size:11px;text-transform:uppercase;color:var(--text-muted);">Flash Feedback</span>
       <i class="fas fa-times" style="cursor:pointer;" onclick="document.getElementById('feedModal').style.display='none'"></i>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button class="btn btn-secondary" style="justify-content:flex-start;font-size:12px;" onclick="logFeedback('Technical Issue')"><i class="fas fa-bug"></i> Bug / Technical Issue</button>
-      <button class="btn btn-secondary" style="justify-content:flex-start;font-size:12px;" onclick="logFeedback('Calculation Help')"><i class="fas fa-calculator"></i> Calculation Help</button>
-      <button class="btn btn-secondary" style="justify-content:flex-start;font-size:12px;" onclick="logFeedback('Vague Question')"><i class="fas fa-question"></i> Vague Question</button>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+      <button class="btn btn-secondary feedback-cat-btn" data-cat="Technical Issue" style="justify-content:flex-start;font-size:12px;" onclick="selectFeedbackCategory(this)"><i class="fas fa-bug"></i> Bug / Technical Issue</button>
+      <button class="btn btn-secondary feedback-cat-btn" data-cat="Calculation Help" style="justify-content:flex-start;font-size:12px;" onclick="selectFeedbackCategory(this)"><i class="fas fa-calculator"></i> Calculation Help</button>
+      <button class="btn btn-secondary feedback-cat-btn" data-cat="Vague Question" style="justify-content:flex-start;font-size:12px;" onclick="selectFeedbackCategory(this)"><i class="fas fa-question"></i> Vague Question</button>
+    </div>
+    <textarea id="feedbackText" placeholder="Add details (optional)…" style="width:100%;min-height:64px;resize:vertical;font-size:12px;font-family:inherit;padding:8px;border:1px solid var(--border);border-radius:6px;"></textarea>
+    <button id="feedbackSendBtn" class="btn btn-primary" style="width:100%;justify-content:center;font-size:12px;margin-top:8px;" onclick="sendFeedback()"><i class="fas fa-paper-plane"></i> <span id="feedbackSendBtnLabel">Send to Admin</span></button>
+    <div id="feedbackProgressTrack" style="display:none;height:4px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;">
+      <div id="feedbackProgressFill" style="height:100%;width:0%;background:#3b82f6;transition:width .3s ease;"></div>
     </div>
   </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <script>
+
 // ── SECURITY ────────────────────────────────────────────────────────────────
 document.addEventListener('contextmenu', e => {
   e.preventDefault();
   Swal.fire({ icon:'warning', title:'Security', text:'Right-click is disabled during the examination.', timer:2000, showConfirmButton:false });
 });
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden || isExiting) return;
-  if (document.getElementById('startModal').classList.contains('active')) return;
-  if (currentQuestion === 0 && Object.keys(userAnswers).length === 0) return;
-  window.location.href = 'security_violation.php?reason=tab_switch';
-});
-window.addEventListener('blur', () => {
-  setTimeout(() => {
-    if (isExiting) return;
-    if (document.getElementById('startModal').classList.contains('active')) return;
-    if (currentQuestion === 0 && Object.keys(userAnswers).length === 0) return;
-    if (document.activeElement && document.activeElement.tagName === 'IFRAME') return;
-    window.location.href = 'security_violation.php?reason=window_focus_lost';
-  }, 200);
-});
+document.addEventListener('copy',        function(e) { e.preventDefault(); });
+document.addEventListener('cut',         function(e) { e.preventDefault(); });
+document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+window.addEventListener('beforeprint',   function(e) { e.preventDefault(); window.stop(); });
+if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+  var _origGDM = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getDisplayMedia = function() {
+    if (isExiting) return _origGDM.apply(this, arguments);
+    triggerViolation('screen_capture');
+    return Promise.reject(new Error('Blocked'));
+  };
+}
+// ── VIOLATION SHIELD ─────────────────────────────────────────────────────────
+function examStarted() {
+  if (isExiting) return false;
+  if (document.getElementById('startModal').classList.contains('active')) return false;
+  if (currentQuestion === 0 && Object.keys(userAnswers).length === 0) return false;
+  return true;
+}
+
+async function triggerViolation(reason) {
+  if (!examStarted()) return;
+  if (isExiting) return;
+  isExiting = true;
+
+  // Cover everything immediately before navigating
+  var shield = document.getElementById('secShield');
+  if (shield) shield.style.display = 'flex';
+
+  // Also blur the iframe so content isn't visible
+  var fr = document.getElementById('questionFrame');
+  if (fr) fr.style.filter = 'blur(20px)';
+
+  // Per the pre-exam agreement: a violation finalizes the attempt as FAILED
+  // (matches NCSBN ROT-style auto-fail behavior used elsewhere in this file)
+  // rather than leaving it dangling as "Incomplete" forever.
+  try {
+    await Promise.race([
+      fetch('submit_exam.php', {
+        method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          examTaken,
+          termination_reason: 'security_violation',
+          final_result:  'FAILED',
+          final_percent: calculateCompetencyPercent(),
+          final_theta:   irt.theta,
+          final_sem:     irt.sem,
+          total_items:   Object.keys(userAnswers).length,
+          exam_duration: totalSeconds,
+          is_auto_terminate: true,
+        })
+      }),
+      new Promise(resolve => setTimeout(resolve, 800)), // don't let a slow network stall the redirect
+    ]);
+  } catch (err) { console.error('security violation submit failed:', err); }
+
+  window.location.href = 'security_violation.php?reason=' + reason;
+}
+
+(function () {
+  // Build shield overlay (shown instantly on violation)
+  var shield = document.createElement('div');
+  shield.id = 'secShield';
+  shield.style.cssText = [
+    'display:none',
+    'position:fixed',
+    'inset:0',
+    'z-index:99999',
+    'background:#0f172a',
+    'align-items:center',
+    'justify-content:center',
+    'flex-direction:column',
+    'gap:16px',
+    'user-select:none',
+    '-webkit-user-select:none',
+  ].join(';');
+  shield.innerHTML =
+    '<div style="font-size:56px;line-height:1;">🚫</div>' +
+    '<div style="color:#f87171;font-size:22px;font-weight:800;letter-spacing:-0.5px;">Violation Detected</div>' +
+    '<div style="color:#94a3b8;font-size:14px;text-align:center;max-width:280px;line-height:1.6;">' +
+      'Leaving the exam screen is not allowed.' +
+    '</div>';
+  document.body.appendChild(shield);
+
+  // visibilitychange — pull-down notification, tab switch, screen lock, app switch
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) triggerViolation('tab_switch');
+  });
+})();
 document.onkeydown = e => {
   if (e.keyCode === 123) return false;                                                // F12
   if (e.keyCode === 44)  return false;                                                // PrintScreen
@@ -640,20 +749,95 @@ function calcInput(v) {
   }
   d.value += v;
 }
-function logFeedback(t) {
-  Swal.fire({ icon:'success', title:'Logged', text:`Feedback on "${t}" recorded.` });
-  document.getElementById('feedModal').style.display = 'none';
+let selectedFeedbackCategory = 'General';
+function selectFeedbackCategory(btn) {
+  document.querySelectorAll('.feedback-cat-btn').forEach(b => b.classList.remove('btn-primary'));
+  btn.classList.add('btn-primary');
+  selectedFeedbackCategory = btn.dataset.cat;
+}
+let feedbackSending = false;
+async function sendFeedback() {
+  if (feedbackSending) return; // guard against double-click / double-submit spam
+  const message = (document.getElementById('feedbackText').value || '').trim();
+  if (!message && selectedFeedbackCategory === 'General') {
+    Swal.fire({ icon:'warning', title:'Add details', text:'Pick a category or type a message first.', timer:1800, showConfirmButton:false });
+    return;
+  }
+
+  const btn      = document.getElementById('feedbackSendBtn');
+  const btnLabel = document.getElementById('feedbackSendBtnLabel');
+  const track    = document.getElementById('feedbackProgressTrack');
+  const fill     = document.getElementById('feedbackProgressFill');
+
+  feedbackSending = true;
+  btn.disabled = true;
+  btn.style.opacity = '.7';
+  btn.style.cursor = 'not-allowed';
+  btnLabel.textContent = 'Sending…';
+  track.style.display = 'block';
+  fill.style.width = '0%';
+  requestAnimationFrame(() => { fill.style.width = '70%'; }); // immediate feedback while the request is in flight
+
+  const q = questionIds[currentQuestion];
+  let ok = false;
+  try {
+    const res = await fetch('feedback.php', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        examTaken,
+        question_uid: q ? `${q.type}-${q.id}` : null,
+        question_type: q ? q.type : null,
+        category: selectedFeedbackCategory,
+        message,
+      })
+    });
+    const data = await res.json();
+    ok = !!data.ok;
+  } catch (err) {
+    console.error('sendFeedback:', err);
+    ok = false;
+  }
+
+  if (ok) {
+    fill.style.width = '100%';
+    btnLabel.textContent = 'Sent ✓';
+    setTimeout(() => {
+      document.getElementById('feedbackText').value = '';
+      document.querySelectorAll('.feedback-cat-btn').forEach(b => b.classList.remove('btn-primary'));
+      selectedFeedbackCategory = 'General';
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      btnLabel.textContent = 'Send to Admin';
+      track.style.display = 'none';
+      fill.style.width = '0%';
+      feedbackSending = false;
+      document.getElementById('feedModal').style.display = 'none';
+    }, 700);
+  } else {
+    track.style.display = 'none';
+    fill.style.width = '0%';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+    btnLabel.textContent = 'Send to Admin';
+    feedbackSending = false;
+    Swal.fire({ icon:'error', title:'Failed', text:'Could not send feedback. Try again.' });
+  }
 }
 function toggleTool(id) {
   const el = document.getElementById(id);
   el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
 }
 function toggleFullScreen() {
+  const el = document.documentElement;
   if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) { try { const p = req.call(el); if (p && typeof p.catch === 'function') p.catch(() => {}); } catch (e) {} }
     document.getElementById('fullBtn').innerHTML = '<i class="fas fa-compress"></i><span>Size</span>';
   } else {
-    document.exitFullscreen && document.exitFullscreen();
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (exit) { try { exit.call(document); } catch (e) {} }
     document.getElementById('fullBtn').innerHTML = '<i class="fas fa-expand"></i><span>Size</span>';
   }
 }
@@ -663,7 +847,59 @@ document.getElementById('feedBtn').addEventListener('click', () => toggleTool('f
 document.getElementById('fullBtn').addEventListener('click', toggleFullScreen);
 // Dev-mode debug badge
 const isDevMode = ['localhost','127.0.0.1'].includes(location.hostname);
-if (isDevMode) document.getElementById('debugBadge').style.display = 'inline';
+if (isDevMode) {
+  document.getElementById('debugBadge').style.display = 'inline';
+  document.getElementById('debugAnswerBadge').style.display = 'inline';
+}
+
+// ── Mobile FAB: move toolsNav out of hidden wrapper so it can appear fixed ──
+(function () {
+  if (window.innerWidth > 768) return;
+  var nav = document.getElementById('toolsNav');
+  var fab = document.getElementById('examToolsFab');
+  if (!nav || !fab) return;
+
+  // Move toolsNav directly to body so parent display:none won't affect it
+  nav.style.display = 'none';
+  document.body.appendChild(nav);
+
+  var open = false;
+  fab.addEventListener('click', function () {
+    open = !open;
+    if (open) {
+      nav.style.cssText = [
+        'display:flex !important',
+        'position:fixed',
+        'bottom:140px',
+        'right:12px',
+        'flex-direction:column',
+        'background:#fff',
+        'border-radius:14px',
+        'padding:8px',
+        'box-shadow:0 12px 32px rgba(0,0,0,0.22)',
+        'z-index:1199',
+        'gap:6px',
+        'width:auto',
+        'align-items:center'
+      ].join(';');
+      fab.style.transform = 'rotate(45deg)';
+    } else {
+      nav.style.display = 'none';
+      fab.style.transform = '';
+    }
+  });
+
+  // Close panel when any tool button is tapped
+  nav.querySelectorAll('.tool-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      open = false;
+      nav.style.display = 'none';
+      fab.style.transform = '';
+    });
+  });
+})();
+
+// View Progress FAB removed — question progress tracking removed from exam mode
 </script>
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
@@ -871,6 +1107,36 @@ async function handleTimeExpired() {
   if (isExiting) return;
   isExiting = true;
   clearInterval(pressureTimerInterval);
+
+  // The question on screen when the global timer hit 0 was never answered —
+  // record it as omitted (same convention as Pressure Mode's per-question timeout)
+  // so it's counted in total_items_answered and penalized in the competency %.
+  const q = questionIds[currentQuestion];
+  if (q) {
+    const uid = `${q.type}-${q.id}`;
+    if (!userAnswers[uid]) {
+      userAnswers[uid] = {
+        question_uid: uid, question_type: q.type, question_id: q.id,
+        answer: null, correct_answer: null, initial_answer: null, changes: null,
+        isCorrect: 0, score: 0, max_points: 1, earned_points: 0,
+        rationale: null, topic: null, system: null, cnc: null, dlevel: q.dlevel ?? 'moderate',
+        time_taken: Math.floor((Date.now() - questionStartTime) / 1000), totalTime: totalSeconds,
+        examTaken, question_number: currentQuestion + 1,
+        timestamp: new Date().toISOString(),
+        theta_before: irt.theta, item_difficulty: q.b ?? 0.0,
+        theta_after: irt.theta, sem_after: irt.sem,
+        omitted: 1,
+      };
+      saveAnswersToCache();
+      try {
+        await pendingSave;
+        await fetch('save_history.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({}, userAnswers[uid], { exam_mode: 'exam', weighted_score: 0 }))
+        });
+      } catch (err) { console.error('save omitted (time_expired):', err); }
+    }
+  }
 
   const answered = Object.keys(userAnswers).length;
   const termReason  = answered < MIN_ITEMS ? 'time_expired_insufficient' : 'time_expired';
@@ -1187,13 +1453,7 @@ function updateStreakBadge() {
 }
 
 function updateProgress() {
-  const answered = Object.keys(userAnswers).length;
-  const pct      = Math.round((answered / Math.max(MAX_ITEMS, 1)) * 100);
-  const ring     = document.getElementById('progressRing');
-  const circ     = 2 * Math.PI * 15;
-  ring.style.strokeDashoffset = circ - (pct / 100) * circ;
-  document.getElementById('progressPercent').textContent = pct + '%';
-  document.getElementById('progressBarFill').style.width = pct + '%';
+  // Progress ring/bar removed from UI — function kept as no-op to avoid call-site errors
 }
 
 function updateDebugBadge() {
@@ -1222,18 +1482,18 @@ function loadQuestion(index) {
 
   document.getElementById('questionTag').innerHTML =
     `<i class="fas ${tl.icon}" style="margin-right:4px;"></i> ${tl.label}`;
-  document.getElementById('questionProgress').innerHTML =
-    `Q <strong>${index + 1}</strong> <span>/ ${MAX_ITEMS}</span>`;
 
   updateDifficultyBadge();
 
-  fetch('debug_answer.php?id=' + q.id + '&table=' + q.table)
-    .then(r => r.text())
-    .then(t => {
-      lastAnswerFull = t;
-      const b = document.getElementById('debugAnswerBadge');
-      if (b) b.textContent = 'Ans: ' + (t.length > 40 ? t.substring(0,40)+'…' : t);
-    }).catch(e => console.error(e));
+  if (isDevMode) {
+    fetch('debug_answer.php?id=' + q.id + '&table=' + q.table)
+      .then(r => r.text())
+      .then(t => {
+        lastAnswerFull = t;
+        const b = document.getElementById('debugAnswerBadge');
+        if (b) b.textContent = 'Ans: ' + (t.length > 40 ? t.substring(0,40)+'…' : t);
+      }).catch(e => console.error(e));
+  }
 
   const iframe   = document.getElementById('questionFrame');
   const srcParam = q.table ? `&src=${encodeURIComponent(q.table)}` : '';
@@ -1253,13 +1513,35 @@ function loadQuestion(index) {
 document.getElementById('questionFrame').addEventListener('load', () => {
   const iframe   = document.getElementById('questionFrame');
   const innerDoc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (innerDoc) {
-    innerDoc.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      Swal.fire({ icon:'warning', title:'Security', text:'Right-click is disabled.', timer:1500, showConfirmButton:false });
-    });
-    innerDoc.onkeydown = document.onkeydown;
-  }
+  if (!innerDoc) return;
+
+  // Block right-click inside iframe
+  innerDoc.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    Swal.fire({ icon:'warning', title:'Security', text:'Right-click is disabled.', timer:1500, showConfirmButton:false });
+  });
+
+  // Forward keyboard blocks into iframe
+  innerDoc.onkeydown = document.onkeydown;
+
+  // Block copy/cut/selection inside iframe — this is where the question text lives
+  innerDoc.addEventListener('copy',        e => e.preventDefault());
+  innerDoc.addEventListener('cut',         e => e.preventDefault());
+  innerDoc.addEventListener('selectstart', e => e.preventDefault());
+
+  // Inject user-select:none into the iframe body via a <style> tag
+  const style = innerDoc.createElement('style');
+  style.textContent = [
+    'body, p, span, div, li, td, th, label {',
+    '  -webkit-user-select: none !important;',
+    '  user-select: none !important;',
+    '}',
+    'input, textarea {',
+    '  -webkit-user-select: text !important;',
+    '  user-select: text !important;',
+    '}',
+  ].join('\n');
+  (innerDoc.head || innerDoc.body || innerDoc.documentElement).appendChild(style);
 });
 
 // ── MESSAGE HANDLER ───────────────────────────────────────────────────────────
@@ -1483,7 +1765,7 @@ document.getElementById('startExamBtn').addEventListener('click', () => {
     badge.textContent = '⏱ Normal';
   }
 
-  toggleFullScreen();
+  try { toggleFullScreen(); } catch (e) {}
   startModal.classList.remove('active');
   startTime = Date.now();
 

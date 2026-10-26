@@ -28,7 +28,7 @@ ob_start();
 
 // ── 1. ENVIRONMENT DETECTION ──────────────────────────────────
 $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
-define('IS_PRODUCTION', !in_array($host, ['localhost', '127.0.0.1', '::1', '']));
+define('IS_PRODUCTION', !in_array($host, ['localhost', '127.0.0.1', '::1', '', '192.168.1.37', '192.168.1.37:8080']));
 define('APP_ENV', IS_PRODUCTION ? 'production' : 'local');
 
 // ── 1b. BASE URL & BASE PATH ─────────────────────────────────
@@ -240,6 +240,23 @@ if (isset($con)) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
 
+    // Exam Mode — in-exam student feedback, routed to the admin "Exam Mode" inbox
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `exam_feedback` (
+            `id`            int(11)       NOT NULL AUTO_INCREMENT,
+            `student_id`    int(11)       NOT NULL,
+            `examTaken`     int(11)       NOT NULL,
+            `question_uid`  varchar(100)  DEFAULT NULL,
+            `question_type` varchar(50)   DEFAULT NULL,
+            `category`      varchar(50)   DEFAULT NULL,
+            `message`       text,
+            `status`        varchar(20)   DEFAULT 'new',
+            `created_at`    datetime      DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `student_exam` (`student_id`, `examTaken`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
     // Permanent exam results table
     mysqli_query($con, "
         CREATE TABLE IF NOT EXISTS `exam_results` (
@@ -329,6 +346,21 @@ if (isset($con)) {
     _addColIfMissing($con, 'temporary_exam_state', 'irt_sem',             'FLOAT DEFAULT 1.0');
     _addColIfMissing($con, 'temporary_exam_state', 'irt_history',         'LONGTEXT DEFAULT NULL');
 
+    // 6.4c — email_sent_status: records which students have already been sent
+    // their access email.  Created here rather than only in admin/import_csv.php
+    // because it_admin.php, access_history.php, send_email.php and
+    // send_email_bulk.php all read it and fatal on a false query result if the
+    // table is missing (e.g. on a database that predates the Add Student page).
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `email_sent_status` (
+            `id`         int(11)  NOT NULL AUTO_INCREMENT,
+            `student_id` int(11)  NOT NULL,
+            `sent_at`    datetime DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `student_id` (`student_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
     // 6.5 — testimonial table (may be absent from DB exports)
     mysqli_query($con, "
         CREATE TABLE IF NOT EXISTS `testimonial` (
@@ -360,6 +392,51 @@ if (isset($con)) {
             mysqli_query($con, "CREATE OR REPLACE VIEW `{$alias}` AS SELECT * FROM `{$actual}`");
         }
     }
+
+    // 6.7 — case_title + tabs for the JSON Question Import feature.
+    // tabs is already read by all 8 student renderers; case_title only by sata/mpr/mmr.
+    _addColIfMissing($con, 'sata', 'case_title', 'VARCHAR(255) DEFAULT NULL');
+    _addColIfMissing($con, 'mpr',  'case_title', 'VARCHAR(255) DEFAULT NULL');
+    _addColIfMissing($con, 'mmr',  'case_title', 'VARCHAR(255) DEFAULT NULL');
+    foreach (['sata', 'mpr', 'mmr', 'btq', 'dragndrop', 'dropdown_questions', 'highlight'] as $t) {
+        _addColIfMissing($con, $t, 'tabs', 'LONGTEXT DEFAULT NULL');
+    }
+
+    // 6.7b — `highlight`.dlevel shipped as enum('Moderate','Hard'), so the Easy and Medium
+    // levels that both the admin form and the importer produce were silently stored as ''.
+    // Widen it to the varchar(50) every other question table already uses.
+    $hlExists = mysqli_query($con, "SHOW TABLES LIKE 'highlight'");
+    if ($hlExists && mysqli_num_rows($hlExists) > 0) {
+        $hlCol = mysqli_query($con, "SHOW COLUMNS FROM `highlight` LIKE 'dlevel'");
+        if ($hlCol && ($hlRow = mysqli_fetch_assoc($hlCol)) && stripos($hlRow['Type'], 'enum') !== false) {
+            mysqli_query($con, "ALTER TABLE `highlight` MODIFY `dlevel` VARCHAR(50) DEFAULT NULL");
+        }
+    }
+
+    // 6.8 — staging area for the admin question-approval queue.
+    // SQL/JSON imports land here first; approving a row re-validates it and copies it
+    // into that type's real table.  `payload` holds the full raw question object so an
+    // admin can keep editing it before approval without re-pasting the original import.
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `pending_questions` (
+            `id`                int(11)      NOT NULL AUTO_INCREMENT,
+            `type`              varchar(20)  NOT NULL,
+            `payload`           longtext     NOT NULL,
+            `question`          text         DEFAULT NULL,
+            `topic`             varchar(255) DEFAULT NULL,
+            `concept`           varchar(255) DEFAULT NULL,
+            `dlevel`            varchar(50)  DEFAULT NULL,
+            `status`            varchar(20)  NOT NULL DEFAULT 'pending',
+            `reject_reason`     text         DEFAULT NULL,
+            `batch_id`          varchar(40)  DEFAULT NULL,
+            `imported_id`       int(11)      DEFAULT NULL,
+            `created_at`        datetime     DEFAULT current_timestamp(),
+            `reviewed_at`       datetime     DEFAULT NULL,
+            `reviewed_by`       varchar(150) DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `type_status` (`type`, `status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
 }
 
 // ── 7. HELPER FUNCTIONS ───────────────────────────────────────

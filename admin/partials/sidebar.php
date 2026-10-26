@@ -19,6 +19,7 @@ $nav_items = [
     ['id'=>'group',       'label'=>'Manage Group',     'icon'=>'bi bi-people-fill',         'href'=> $ap_base . 'manage group/'],
     ['id'=>'result',      'label'=>'Manage Result',    'icon'=>'bi bi-bar-chart-fill',      'href'=> $ap_base . 'manage result/'],
     ['id'=>'feedback',    'label'=>'Feedback',         'icon'=>'bi bi-chat-heart-fill',     'href'=> $ap_base . 'manage feedback/'],
+    ['id'=>'exam_mode',   'label'=>'Exam Mode',        'icon'=>'bi bi-clipboard-data-fill', 'href'=> $ap_base . 'manage exam/'],
 ];
 ?>
 <!DOCTYPE html>
@@ -33,6 +34,7 @@ $nav_items = [
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <?php if (!empty($ap_extra_head)) echo $ap_extra_head; ?>
   <link rel="stylesheet" href="<?= $ap_base ?>admin-panel.css">
+  <link rel="stylesheet" href="<?= $ap_base ?>tw.css">
 </head>
 <body>
 
@@ -72,8 +74,11 @@ $nav_items = [
         </li>
         <?php endforeach; ?>
       </ul>
+    </div>
 
-      <div class="ap-nav-section" style="margin-top:8px;">Account</div>
+    <!-- Account / Log Out — pinned to the bottom of the sidebar -->
+    <div class="ap-nav-bottom" style="margin-top:auto; padding:8px 0 16px;">
+      <div class="ap-nav-section">Account</div>
       <ul class="ap-nav ap-nav-logout">
         <li>
           <a href="#" onclick="document.getElementById('apLogoutModal').style.display='flex';return false;">

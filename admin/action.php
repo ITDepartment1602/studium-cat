@@ -1,50 +1,33 @@
-<?php 
-
-	// in this file --> code for add a new video course ,update a video course and delete a video course by admin from manage_bundles.php
-
+<?php
+// Add / delete students (from the dashboard add-student form).
 session_start();
-
 include('../config.php');
 
-// =====================================================================================================================================
-// ========================================================================================================================
-     // in this section add videos ,update videos and delete videos is going on from manage_bundles.php
-
+// Add a student
 if (isset($_POST['submit'])) {
-$studentnumber=$_POST['studentnumber'];
-$fullname=$_POST['fullname'];
-$bundle_name=$_POST['bundle_name'];
-$groupname=$_POST['groupname'];
-$dateenrolled=$_POST['dateenrolled'];
-$dateexpired=$_POST['dateexpired'];
-$email=$_POST['email'];
-$password=$_POST['password'];
-$status=$_POST['status'];
-
-
-
-	$q="insert into login(studentnumber,fullname,bundle_name,groupname,dateenrolled,dateexpired,email,password,status) values ('$studentnumber','$fullname','$bundle_name','$groupname','$dateenrolled','$dateexpired','$email','$password','$status')";
-	$r=mysqli_query($con,$q);
-
- if ($r==true)
-  {
-
-			 header("location:index.php");
-    }
-	
- }
-
-// =====================================================================================================================================
-if ( isset($_GET['id']) ){
-	$id = $_GET['id'];
-
-	$sql = "DELETE from login where id=$id";
-	$con->query($sql);
+    $stmt = mysqli_prepare(
+        $con,
+        "INSERT INTO login
+           (studentnumber, fullname, bundle_name, groupname, dateenrolled, dateexpired, email, password, status)
+         VALUES (?,?,?,?,?,?,?,?,?)"
+    );
+    mysqli_stmt_bind_param(
+        $stmt, 'sssssssss',
+        $_POST['studentnumber'], $_POST['fullname'], $_POST['bundle_name'], $_POST['groupname'],
+        $_POST['dateenrolled'], $_POST['dateexpired'], $_POST['email'], $_POST['password'], $_POST['status']
+    );
+    mysqli_stmt_execute($stmt);
+    header("Location: index.php");
+    exit;
 }
 
-header("location: index.php");
+// Delete a student
+if (isset($_GET['id'])) {
+    $id = intval($_GET['id']);
+    $stmt = mysqli_prepare($con, "DELETE FROM login WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $id);
+    mysqli_stmt_execute($stmt);
+}
 
-
-
-
-?>
+header("Location: index.php");
+exit;

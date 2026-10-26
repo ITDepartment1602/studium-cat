@@ -33,6 +33,7 @@ $topic  = $data['topic']  ?? 'General';
 $system = $data['system'] ?? 'N/A';
 $cnc    = $data['cnc']    ?? 'N/A';
 $dlevel = $data['dlevel'] ?? 'N/A';
+$caseTitle = $data['case_title'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -75,6 +76,7 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); display: flex; f
 
 .right-panel { width: 55%; background: white; overflow-y: auto; padding: 32px; }
 .matrix-card { max-width: 100%; }
+.case-title-badge { font-size: 13px; font-weight: 800; color: #0369a1; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
 .question-title { font-size: 18px; font-weight: 700; line-height: 1.6; margin-bottom: 24px; color: var(--primary); }
 
 .matrix-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -86,12 +88,22 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); display: flex; f
 .matrix-checkbox { width: 22px; height: 22px; cursor: pointer; }
 
 .footer { position: sticky; bottom: 0; background: white; border-top: 1px solid var(--border); padding: 16px 0 20px; display: flex; justify-content: center; z-index: 10; }
-@media (max-width: 600px) { .footer { padding: 16px; } .footer .btn { min-width: 0; width: 100%; font-size: 15px; } }
 
 .btn { padding: 14px 40px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; border: none; transition: all .2s ease; min-width: 220px; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; box-shadow: 0 4px 14px rgba(59,130,246,.4); }
 .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.5); }
 .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none !important; box-shadow: none; }
+
+@media (max-width: 768px) {
+  .footer { padding: 10px 12px 14px !important; }
+  .footer .btn { min-width: 0 !important; width: 100% !important; font-size: 13px !important; padding: 10px 16px !important; border-radius: 10px !important; }
+  .question-title { font-size: 13px !important; margin-bottom: 12px !important; }
+  .matrix-table { font-size: 12px !important; }
+  .matrix-table th { padding: 8px 6px !important; font-size: 9px !important; }
+  .matrix-table td { padding: 8px 6px !important; }
+  .matrix-table td:first-child { font-size: 12px !important; min-width: 120px !important; }
+  .matrix-checkbox { width: 18px !important; height: 18px !important; }
+}
 
 @media (max-width: 900px) {
   .main-content { flex-direction: column; overflow: visible; display: block; height: auto; }
@@ -109,6 +121,55 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); display: flex; f
   body { overflow: auto; height: auto; min-height: 100%; display: block; }
   .app-container { overflow-y: visible; height: auto; min-height: 100%; display: block; }
 }
+
+/* ── Mobile Clinical Reference ── */
+@media (max-width: 768px) {
+  .left-panel { display: none !important; }
+  .mobile-clinref-btn {
+    display: flex !important; width: 100%; align-items: center; justify-content: center;
+    gap: 6px; background: #e8f4fd; color: #0369a1; border: 1.5px solid #bae6fd;
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-bottom: 10px; text-align: center; letter-spacing: 0.1px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-clinref-btn i { font-size: 14px; }
+  .left-panel.mobile-open {
+    display: flex !important; position: fixed !important; inset: 0 !important;
+    z-index: 9998 !important; width: 100% !important; min-width: unset !important;
+    max-width: 100% !important; height: 100dvh !important; max-height: 100% !important;
+    border-right: none !important; border-bottom: none !important;
+    flex-direction: column !important; overflow: hidden !important;
+    border-radius: 0 !important; background: #fff !important;
+  }
+  .left-panel.mobile-open .panel-header {
+    padding: 16px 18px !important; font-size: 13px !important; display: flex !important;
+    align-items: center; justify-content: space-between; flex-shrink: 0;
+    background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+  }
+  .mobile-clinref-close {
+    display: flex !important; align-items: center; gap: 6px; background: #ef4444;
+    color: #fff !important; border: none; border-radius: 10px; padding: 8px 16px;
+    font-size: 14px; font-weight: 700; cursor: pointer; min-width: 80px; justify-content: center;
+  }
+  .left-panel.mobile-open .tabs-nav {
+    flex-shrink: 0; padding: 6px 8px 0 !important; gap: 3px !important;
+    overflow-x: hidden; display: flex; flex-wrap: nowrap;
+  }
+  .left-panel.mobile-open .tab-btn {
+    font-size: 11px !important; padding: 8px 10px !important; font-weight: 600;
+    white-space: nowrap; flex: 1 1 0; min-width: 0; text-align: center;
+    border-radius: 8px 8px 0 0; overflow: hidden; text-overflow: ellipsis;
+  }
+  .left-panel.mobile-open .tab-content-area {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px !important;
+  }
+  .left-panel.mobile-open .clinical-list li {
+    font-size: 14.5px !important; line-height: 1.7 !important; padding: 12px 14px !important;
+    margin-bottom: 10px !important; border-radius: 8px; background: #f8fafc;
+    border: 1px solid #e2e8f0; list-style: none;
+  }
+}
+@media (min-width: 769px) { .mobile-clinref-btn { display: none !important; } }
 </style>
 </head>
 <body>
@@ -139,6 +200,9 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); display: flex; f
 
         <div class="right-panel" <?= !$hasTabs ? 'style="width:100%;"' : '' ?>>
             <div class="matrix-card">
+                <?php if ($caseTitle !== ''): ?>
+                <div class="case-title-badge"><?= htmlspecialchars($caseTitle) ?></div>
+                <?php endif; ?>
                 <h2 class="question-title"><?= nl2br(htmlspecialchars($data['question'])) ?></h2>
 
                 <form id="mmrForm">
@@ -290,6 +354,28 @@ $(document).ready(function(){
         }, '*');
     });
 });
+</script>
+<script>
+(function () {
+  if (window.innerWidth > 768) return;
+  var lp = document.querySelector(".left-panel");
+  if (!lp) return;
+  var pt = lp.querySelector(".panel-header");
+  if (pt) {
+    var cb = document.createElement("button");
+    cb.className = "mobile-clinref-close";
+    cb.innerHTML = "&#10005; Close";
+    cb.onclick = function () { lp.classList.remove("mobile-open"); };
+    pt.appendChild(cb);
+  }
+  var rp = document.querySelector(".right-panel");
+  var btn = document.createElement("button");
+  btn.className = "mobile-clinref-btn";
+  btn.innerHTML = "<i class='fas fa-folder-open'></i> View Patient Chart &amp; Lab Results";
+  btn.onclick = function () { lp.classList.add("mobile-open"); };
+  if (rp) rp.insertBefore(btn, rp.firstChild);
+  else document.body.insertBefore(btn, document.body.firstChild);
+})();
 </script>
 </body>
 </html>

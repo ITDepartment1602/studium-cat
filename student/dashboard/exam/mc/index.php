@@ -436,66 +436,73 @@ foreach ($choicesArray as $idx => $choice) {
     }
 
     @media (max-width: 768px) {
-      .card {
-        padding: 20px;
-      }
-
-      .question-header {
-        font-size: 16px;
-        margin-bottom: 20px;
-      }
-
-      .option-item {
-        padding: 14px 14px;
-        gap: 12px;
-      }
-
-      .details-section {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-
-      .button-group {
-        flex-direction: stretch;
-        gap: 10px;
-      }
-
-      .btn {
-        flex: 1;
-        padding: 12px 16px;
-      }
+      .card { padding: 14px !important; border-radius: 10px !important; margin: 0 !important; max-width: 100% !important; box-shadow: none !important; }
+      .question-header { font-size: 14px !important; line-height: 1.55 !important; margin-bottom: 14px !important; }
+      .instruction-badge { font-size: 10px !important; padding: 5px 10px !important; margin-bottom: 10px !important; }
+      .option-item { padding: 10px 12px !important; gap: 10px !important; border-radius: 10px !important; }
+      .option-label { min-width: 34px !important; height: 34px !important; font-size: 13px !important; border-radius: 8px !important; }
+      .option-text { font-size: 13px !important; line-height: 1.5 !important; }
+      .details-section { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .button-group { padding: 10px 0 14px !important; }
+      .btn { padding: 10px 16px !important; font-size: 13px !important; min-width: 0 !important; width: 100% !important; border-radius: 10px !important; }
     }
-
     @media (max-width: 480px) {
-      .card {
-        padding: 16px;
-      }
-
-      .question-header {
-        font-size: 15px;
-        line-height: 1.6;
-        margin-bottom: 16px;
-      }
-
-      .option-item {
-        padding: 12px 12px;
-        gap: 10px;
-      }
-
-      .option-text {
-        font-size: 14px;
-      }
-
-      .instruction-badge {
-        font-size: 10px;
-        padding: 5px 10px;
-      }
-
-      .details-section {
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
+      .card { padding: 12px !important; }
+      .question-header { font-size: 13px !important; margin-bottom: 12px !important; }
+      .option-item { padding: 9px 10px !important; gap: 8px !important; }
+      .option-label { min-width: 30px !important; height: 30px !important; font-size: 12px !important; }
+      .option-text { font-size: 12px !important; }
+      .details-section { grid-template-columns: 1fr; gap: 6px; }
+      .btn { padding: 9px 14px !important; font-size: 12px !important; }
     }
+
+/* ── Mobile Clinical Reference ── */
+@media (max-width: 768px) {
+  .left-panel { display: none !important; }
+  .mobile-clinref-btn {
+    display: flex !important; width: 100%; align-items: center; justify-content: center;
+    gap: 6px; background: #e8f4fd; color: #0369a1; border: 1.5px solid #bae6fd;
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-bottom: 10px; text-align: center; letter-spacing: 0.1px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-clinref-btn i { font-size: 14px; }
+  .left-panel.mobile-open {
+    display: flex !important; position: fixed !important; inset: 0 !important;
+    z-index: 9998 !important; width: 100% !important; min-width: unset !important;
+    max-width: 100% !important; height: 100dvh !important; max-height: 100% !important;
+    border-right: none !important; border-bottom: none !important;
+    flex-direction: column !important; overflow: hidden !important;
+    border-radius: 0 !important; background: #fff !important;
+  }
+  .left-panel.mobile-open .panel-title {
+    padding: 16px 18px !important; font-size: 13px !important; display: flex !important;
+    align-items: center; justify-content: space-between; flex-shrink: 0;
+    background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+  }
+  .mobile-clinref-close {
+    display: flex !important; align-items: center; gap: 6px; background: #ef4444;
+    color: #fff !important; border: none; border-radius: 10px; padding: 8px 16px;
+    font-size: 14px; font-weight: 700; cursor: pointer; min-width: 80px; justify-content: center;
+  }
+  .left-panel.mobile-open .tabs-row {
+    flex-shrink: 0; padding: 6px 8px 0 !important; gap: 3px !important;
+    overflow-x: hidden; display: flex; flex-wrap: nowrap;
+  }
+  .left-panel.mobile-open .tab-btn {
+    font-size: 11px !important; padding: 8px 10px !important; font-weight: 600;
+    white-space: nowrap; flex: 1 1 0; min-width: 0; text-align: center;
+    border-radius: 8px 8px 0 0; overflow: hidden; text-overflow: ellipsis;
+  }
+  .left-panel.mobile-open .tab-content-area {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px !important;
+  }
+  .left-panel.mobile-open .clinical-record {
+    font-size: 14.5px !important; line-height: 1.7 !important; padding: 12px 14px !important;
+    margin-bottom: 10px !important; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0;
+  }
+}
+@media (min-width: 769px) { .mobile-clinref-btn { display: none !important; } }
   </style>
 </head>
 <body>
@@ -651,6 +658,28 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       }, '*');
     }
   }
+</script>
+<script>
+(function () {
+  if (window.innerWidth > 768) return;
+  var lp = document.querySelector(".left-panel");
+  if (!lp) return;
+  var pt = lp.querySelector(".panel-title");
+  if (pt) {
+    var cb = document.createElement("button");
+    cb.className = "mobile-clinref-close";
+    cb.innerHTML = "&#10005; Close";
+    cb.onclick = function () { lp.classList.remove("mobile-open"); };
+    pt.appendChild(cb);
+  }
+  var rp = document.querySelector(".right-panel");
+  var btn = document.createElement("button");
+  btn.className = "mobile-clinref-btn";
+  btn.innerHTML = "<i class='fas fa-folder-open'></i> View Patient Chart &amp; Lab Results";
+  btn.onclick = function () { lp.classList.add("mobile-open"); };
+  if (rp) rp.insertBefore(btn, rp.firstChild);
+  else document.body.insertBefore(btn, document.body.firstChild);
+})();
 </script>
 
 </body>

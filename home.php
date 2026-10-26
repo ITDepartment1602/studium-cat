@@ -139,7 +139,7 @@
 
             var typed = new Typed("#typing-effect", options);
         </script>
-        <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank" class="btn "
+        <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank" class="btn "
             style="background-color:rgb(76, 148, 167); color: white;">Avail
             Now!</a>
     </header>
@@ -231,7 +231,7 @@
                         <div class="card-body">
                             <h3 class="card-title">1 Month</h3>
                             <p class="card-text">2,999.00 Php</p>
-                            <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank"
+                            <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank"
                                 class="btn btn-primary">Avail Now!</a>
                         </div>
                     </div>
@@ -241,7 +241,7 @@
                         <div class="card-body">
                             <h3 class="card-title">3 Months</h3>
                             <p class="card-text">3,499.00 Php</p>
-                            <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank"
+                            <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank"
                                 class="btn btn-primary">Avail Now!</a>
                         </div>
                     </div>
@@ -251,7 +251,7 @@
                         <div class="card-body">
                             <h3 class="card-title">6 Months</h3>
                             <p class="card-text">4,499.00 Php</p>
-                            <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank"
+                            <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank"
                                 class="btn btn-primary">Avail Now!</a>
                         </div>
                     </div>
@@ -261,7 +261,7 @@
                         <div class="card-body">
                             <h3 class="card-title">12 Months</h3>
                             <p class="card-text">5,999.00 Php</p>
-                            <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank"
+                            <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank"
                                 class="btn btn-primary">Avail Now!</a>
                         </div>
                     </div>

@@ -147,6 +147,13 @@ body{font-family:"Segoe UI", Roboto, Arial, sans-serif;background:var(--bg);marg
 .col b{display:block;margin-bottom:8px;color:var(--blue)}
 .choice {background:var(--accent-2);padding:8px 10px;margin-bottom:8px;border-radius:8px;border:1px solid #c5e3ff;cursor:grab;text-align:left;box-shadow:0 1px 0 rgba(0,0,0,0.02);font-size:14px;}
 .choice[draggable="true"]:active{cursor:grabbing}
+/* Color-coded option types: Actions (#F7DD7D), Condition (#6EADBC), Parameters (#F1F7D4) */
+.choices .col:nth-child(1) b{color:#8A6D1B;}
+.choices .col:nth-child(2) b{color:#3F8294;}
+.choices .col:nth-child(3) b{color:#7E8C2F;}
+.choice[data-type="action"]{background:#fae7a0;border-color:#e3c354;color:#6b551a;}
+.choice[data-type="condition"]{background:#e2f1f4;border-color:#6EADBC;color:#2c5c68;}
+.choice[data-type="parameter"]{background:#f1f7d4;border-color:#c5d27a;color:#5c6726;}
 .correct {outline:4px solid rgba(34,197,94,0.12);background:#ecfdf5;}
 .incorrect {outline:4px solid rgba(255,99,99,0.10);background:#fff5f5;}
 .highlight-correct {background:#e6fff0;border-color:#9ef0b3;}

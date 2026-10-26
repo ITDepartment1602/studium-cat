@@ -76,82 +76,120 @@ $questions = db()->fetchAll(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exam Result — Studium</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
-            --primary: #0a1628;
-            --accent:  #3b82f6;
+            --accent:  <?= $cat['color'] ?>;
             --surface: #ffffff;
-            --surface-alt: #f8fafc;
+            --surface-alt: #f1f5f9;
             --text: #0f172a;
             --muted: #64748b;
             --border: #e2e8f0;
             --radius: 16px;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--surface-alt); color: var(--text); padding: 30px 15px; line-height: 1.5; }
-        .container { max-width: 1200px; margin: 0 auto; width: 100%; }
-
-        /* ── Top row: hero left + right sidebar ── */
-        .top-row {
-            display: grid;
-            grid-template-columns: 1fr 340px;
-            gap: 20px;
-            margin-bottom: 20px;
-            align-items: start;
-        }
-        @media (max-width: 768px) {
-            .top-row { grid-template-columns: 1fr; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--surface-alt);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        /* ── Hero (left panel) ── */
-        .hero {
-            background: linear-gradient(135deg, #0a1628 0%, #1e3a5f 100%);
-            color: white;
-            border-radius: 20px;
-            padding: 36px 40px;
-            display: flex;
-            align-items: center;
-            gap: 36px;
-            position: relative;
-            overflow: hidden;
-            height: 100%;
+        /* ── NAVBAR ── */
+        .navbar {
+            height: 52px; background: #fff;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center;
+            padding: 0 28px; gap: 10px;
         }
-        .hero::after {
-            content: '';
-            position: absolute;
-            right: -60px; top: -60px;
-            width: 220px; height: 220px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 50%;
+        .nb-brand { display: flex; align-items: center; gap: 8px; text-decoration: none; flex: 1; }
+        .nb-name  { font-size: 13px; font-weight: 700; color: #0f172a; }
+        .nb-sep   { width: 1px; height: 14px; background: var(--border); }
+        .nb-ctx   { font-size: 11px; color: #94a3b8; }
+        .nb-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11.5px; font-weight: 500; color: #64748b;
+            text-decoration: none; padding: 5px 12px;
+            border: 1px solid var(--border); border-radius: 6px;
+            background: #f8fafc; transition: all .15s; white-space: nowrap;
         }
-        .hero-chart { position: relative; width: 130px; height: 130px; flex-shrink: 0; }
-        .hero-center {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
+        .nb-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* ── RESULT HEADER ── */
+        .result-header {
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            border-top: 3px solid var(--accent);
+            padding: 32px 40px 0;
         }
-        .hero-percent { font-size: 28px; font-weight: 800; line-height: 1; }
-        .hero-label   { font-size: 11px; font-weight: 600; opacity: 0.7; margin-top: 2px; }
-        .hero-info h1  { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-        .hero-info p   { font-size: 13px; opacity: 0.7; margin-bottom: 18px; }
-        .hero-stats    { display: flex; gap: 28px; flex-wrap: wrap; }
-        .hero-stat span:first-child { font-size: 11px; font-weight: 700; opacity: 0.6; text-transform: uppercase; display: block; }
-        .hero-stat span:last-child  { font-size: 18px; font-weight: 800; }
-        .badge {
+        .rh-top { display: flex; align-items: flex-start; gap: 32px; padding-bottom: 24px; }
+        .rh-left { flex: 1; min-width: 0; }
+
+        .eyebrow {
+            font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+            text-transform: uppercase; color: #94a3b8; margin-bottom: 10px;
+        }
+        .score-display {
+            font-size: 72px; font-weight: 800;
+            letter-spacing: -4px; line-height: .9;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+        .score-sub {
+            font-size: 13.5px; font-weight: 300;
+            color: #64748b; line-height: 1.6; margin-bottom: 12px;
+        }
+        .cat-badge {
             display: inline-flex; align-items: center; gap: 8px;
-            padding: 7px 14px; border-radius: 10px;
+            padding: 6px 14px; border-radius: 20px;
             font-size: 12px; font-weight: 800; text-transform: uppercase;
+            background: <?= $cat['bg'] ?>; color: <?= $cat['color'] ?>;
         }
 
-        /* ── Right sidebar ── */
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
+        /* stat strip */
+        .stat-strip {
+            flex-shrink: 0;
+            display: flex; align-items: stretch;
+            border: 1px solid var(--border); border-radius: 10px;
+            overflow: hidden; background: #f8fafc;
+            align-self: center;
         }
+        .stat-item {
+            padding: 14px 22px;
+            display: flex; flex-direction: column; gap: 4px;
+            min-width: 100px;
+        }
+        .stat-item + .stat-item { border-left: 1px solid var(--border); }
+        .stat-val {
+            font-size: 22px; font-weight: 700;
+            letter-spacing: -.5px; color: #0f172a; line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 10px; font-weight: 600;
+            color: #94a3b8; text-transform: uppercase; letter-spacing: .8px;
+        }
+
+        /* tab bar */
+        .rh-tabs { display: flex; border-top: 1px solid #f1f5f9; }
+        .rh-tab {
+            font-size: 11.5px; font-weight: 500; color: #94a3b8;
+            padding: 10px 18px; border-bottom: 2px solid transparent;
+            cursor: default;
+        }
+        .rh-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+        /* ── BODY ── */
+        .result-body { padding: 28px 40px 56px; }
+        .body-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+        }
+        .body-main { min-width: 0; }
+        .body-side { display: flex; flex-direction: column; gap: 16px; }
 
         /* ── Section card ── */
         .section {
@@ -162,87 +200,74 @@ $questions = db()->fetchAll(
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
+        .section-last { margin-bottom: 0; }
         .section-title {
-            font-size: 12px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.5px; color: var(--muted); margin-bottom: 16px;
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.6px; color: var(--muted); margin-bottom: 16px;
         }
 
-        /* ── Topic pills in sidebar ── */
-        .topic-list { display: flex; flex-direction: column; gap: 10px; }
-        .topic-row {
-            display: flex; align-items: center; gap: 10px;
+        /* ── Concept rows (CPR-style) ── */
+        .concept-list { display: flex; flex-direction: column; gap: 12px; }
+        .concept-row { display: flex; align-items: center; gap: 12px; }
+        .concept-name {
+            font-size: 13px; font-weight: 600; color: #334155;
+            width: 140px; flex-shrink: 0;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .topic-name {
-            font-size: 13px; font-weight: 600; color: #475569;
-            min-width: 60px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        .concept-bar-wrap { flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .concept-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+        .concept-pct { font-size: 12px; font-weight: 700; white-space: nowrap; min-width: 38px; text-align: right; }
+        .concept-band {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            padding: 2px 8px; border-radius: 10px; white-space: nowrap;
         }
-        .topic-bar-wrap {
-            flex: 1; height: 7px; background: #e2e8f0; border-radius: 4px; overflow: hidden; min-width: 40px;
-        }
-        .topic-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
-        .topic-pct { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; min-width: 38px; text-align: right; }
 
         /* ── Action buttons ── */
-        .actions-sidebar {
-            display: flex;
-            gap: 10px;
-        }
+        .action-row { display: flex; gap: 10px; }
         .btn {
             display: inline-flex; align-items: center; gap: 8px;
             padding: 12px 18px; border-radius: 12px;
             font-size: 13px; font-weight: 700; text-decoration: none;
             transition: all 0.2s ease; flex: 1; justify-content: center;
+            border: none; cursor: pointer;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent), #2563eb);
-            color: white; box-shadow: 0 4px 12px rgba(59,130,246,0.2);
-        }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(59,130,246,0.3); }
-        .btn-outline {
-            background: white; color: var(--text);
-            border: 1px solid var(--border);
-        }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37,99,235,.25); }
+        .btn-outline { background: white; color: var(--text); border: 1px solid var(--border); }
         .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
 
-        /* ── Performance Graph ── */
-        .graph-container { height: 300px; width: 100%; }
-
         /* ── Question Table ── */
+        .q-table-wrapper { overflow-x: auto; }
         .q-table { width: 100%; border-collapse: collapse; }
         .q-table thead th {
             background: #f1f5f9; padding: 10px 12px;
             font-size: 11px; font-weight: 700; text-transform: uppercase;
             color: var(--muted); text-align: left; border-bottom: 1px solid var(--border);
         }
-        .q-table tbody td {
-            padding: 10px 12px; border-bottom: 1px solid var(--border);
-            font-size: 13px;
-        }
+        .q-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
         .q-table tbody tr:last-child td { border-bottom: none; }
         .q-table .q-num-col { width: 40px; text-align: center; color: var(--muted); font-weight: 700; }
-        .q-table tbody tr.correct { background: rgba(16, 185, 129, 0.03); }
-        .q-table tbody tr.incorrect { background: rgba(239, 68, 68, 0.03); }
+        .q-table tbody tr.correct { background: rgba(16,185,129,0.03); }
+        .q-table tbody tr.incorrect { background: rgba(239,68,68,0.03); }
         .q-table .q-correct { color: #10b981; font-weight: 600; }
         .q-table .q-incorrect { color: #ef4444; font-weight: 600; }
-        .q-table .q-score-col { width: auto; min-width: 90px; text-align: center; font-weight: 700; }
+        .q-table .q-score-col { min-width: 80px; text-align: center; font-weight: 700; }
         .q-table .q-action-col { width: 70px; text-align: center; }
         .view-btn {
-            display: inline-flex; align-items: center; gap: 6px;
+            display: inline-flex; align-items: center; gap: 5px;
             padding: 6px 12px; border-radius: 8px;
-            background: var(--accent); color: white;
-            border: none; cursor: pointer;
-            font-size: 12px; font-weight: 600;
-            transition: all 0.2s ease;
+            background: #3b82f6; color: white; border: none; cursor: pointer;
+            font-size: 12px; font-weight: 600; transition: all .2s;
         }
         .view-btn:hover { background: #2563eb; transform: translateY(-1px); }
 
         /* ── Modal ── */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
         .modal.active { display: flex; }
-        .modal-content { background: white; border-radius: 16px; width: 98%; max-width: 1200px; max-height: 95vh; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        .modal-content { background: white; border-radius: 16px; width: 98%; max-width: 1200px; max-height: 95vh; overflow: hidden; display: flex; flex-direction: column; }
         .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .modal-title { font-size: 16px; font-weight: 700; }
-        .modal-close { background: none; border: none; font-size: 24px; color: var(--muted); cursor: pointer; padding: 0 8px; }
+        .modal-close { background: none; border: none; font-size: 24px; color: var(--muted); cursor: pointer; }
         .modal-body { padding: 16px; overflow-y: auto; flex: 1; }
         .modal-loading { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--muted); font-size: 14px; gap: 10px; }
         .question-iframe { width: 100%; height: 680px; border: none; }
@@ -250,79 +275,122 @@ $questions = db()->fetchAll(
         /* ── Pagination ── */
         .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; }
         .pagination-btn {
-            padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+            padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
             background: white; color: var(--text); cursor: pointer;
-            font-size: 13px; font-weight: 600; transition: all 0.2s;
+            font-size: 13px; font-weight: 600; transition: all .2s;
         }
-        .pagination-btn:hover:not(:disabled) { background: var(--accent); color: white; border-color: var(--accent); }
-        .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination-btn:hover:not(:disabled) { background: #3b82f6; color: white; border-color: #3b82f6; }
+        .pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .pagination-info { font-size: 13px; color: var(--muted); font-weight: 600; }
-        .q-table-wrapper { overflow-x: auto; width: 100%; }
-        .section { width: 100%; }
 
-        @media (max-width: 640px) {
-            .hero { flex-direction: column; gap: 20px; padding: 24px; }
-            .hero-stats { gap: 16px; }
-            .actions-sidebar { flex-direction: column; }
+        /* ── RESPONSIVE ── */
+        @media (max-width: 900px) {
+            .body-grid { grid-template-columns: 1fr; }
+            .body-side { flex-direction: row; flex-wrap: wrap; }
+            .body-side .section { flex: 1 1 300px; margin-bottom: 0; }
+        }
+        @media (max-width: 768px) {
+            .result-header { padding: 20px 16px 0; }
+            .rh-top { flex-direction: column; gap: 16px; }
+            .stat-strip { width: 100%; }
+            .stat-item { flex: 1; padding: 12px 10px; min-width: 0; }
+            .stat-val { font-size: 18px; }
+            .score-display { font-size: 52px; letter-spacing: -2px; }
+            .result-body { padding: 16px; }
+            .body-side { flex-direction: column; }
+            .concept-name { width: 100px; }
+            .action-row { flex-direction: column; }
+            .q-table thead th:nth-child(3),
+            .q-table tbody td:nth-child(3) { display: none; }
+        }
+        @media (max-width: 480px) {
+            .stat-strip { flex-wrap: wrap; }
+            .stat-item { flex: 1 1 45%; border-left: none !important; border-top: 1px solid var(--border); }
+            .stat-item:nth-child(-n+2) { border-top: none; }
+            .score-display { font-size: 44px; }
         }
     </style>
 </head>
 <body>
-<div class="container">
 
-    <!-- Top Row: Hero + Sidebar -->
-    <div class="top-row">
+<!-- Navbar -->
+<nav class="navbar">
+    <a href="../index.php" class="nb-brand">
+        <span class="nb-name">Studium</span>
+    </a>
+    <span class="nb-sep"></span>
+    <span class="nb-ctx">NGN Exam Result</span>
+    <a href="../index.php" class="nb-btn" style="margin-left:auto;">
+        <i class="fas fa-home"></i> Dashboard
+    </a>
+</nav>
 
-        <!-- Left: Hero Score Panel -->
-        <div class="hero">
-            <div class="hero-chart">
-                <canvas id="heroChart"></canvas>
-                <div class="hero-center">
-                    <div class="hero-percent"><?= $percent ?>%</div>
-                    <div class="hero-label">Score</div>
-                </div>
+<!-- Result Header -->
+<div class="result-header">
+    <div class="rh-top">
+        <div class="rh-left">
+            <div class="eyebrow">NGN Session Complete</div>
+            <div class="score-display"><?= $percent ?>%</div>
+            <div class="score-sub">
+                <?= date("M d, Y · h:i A", strtotime($summary['exam_time'])) ?>
+                &nbsp;·&nbsp; <?= intval($summary['total_questions']) ?> questions
             </div>
-            <div class="hero-info">
-                <h1>Exam Complete</h1>
-                <p>Attempt #<?= $examTaken ?> &nbsp;·&nbsp; <?= date("M d, Y • h:i A", strtotime($summary['exam_time'])) ?></p>
-                <div class="hero-stats">
-                    <div class="hero-stat">
-                        <span>Questions</span>
-                        <span><?= intval($summary['total_questions']) ?></span>
-                    </div>
-                    <div class="hero-stat">
-                        <span>Points Earned</span>
-                        <span><?= round($totalEarned, 1) ?> / <?= round($totalMax, 1) ?></span>
-                    </div>
-                    <div class="hero-stat">
-                        <span>Rating</span>
-                        <span>
-                            <div class="badge" style="background:<?= $cat['bg'] ?>; color:<?= $cat['color'] ?>;">
-                                <i class="fas <?= $cat['icon'] ?>"></i> <?= $cat['label'] ?>
-                            </div>
-                        </span>
-                    </div>
-                </div>
+            <div class="cat-badge">
+                <i class="fas <?= $cat['icon'] ?>"></i> <?= $cat['label'] ?>
             </div>
         </div>
 
-        <!-- Right: Concept Performance + Buttons -->
-        <div class="sidebar">
+        <!-- Stat Strip -->
+        <div class="stat-strip">
+            <div class="stat-item">
+                <div class="stat-val" style="color:<?= $cat['color'] ?>;"><?= $percent ?>%</div>
+                <div class="stat-lbl">Score</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val"><?= intval($summary['total_questions']) ?></div>
+                <div class="stat-lbl">Questions</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val"><?= round($totalEarned, 1) ?></div>
+                <div class="stat-lbl">Pts Earned</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val"><?= count($topicRows) ?></div>
+                <div class="stat-lbl">Topics</div>
+            </div>
+        </div>
+    </div>
+    <div class="rh-tabs">
+        <div class="rh-tab active">Results Overview</div>
+        <div class="rh-tab">Question Breakdown</div>
+    </div>
+</div>
+
+<!-- Body -->
+<div class="result-body">
+    <div class="body-grid">
+
+        <!-- Main column -->
+        <div class="body-main">
+
             <!-- Concept Performance -->
-            <div class="section" style="margin-bottom:0; flex:1;">
+            <div class="section">
                 <div class="section-title">Concept Performance</div>
                 <?php if ($topicRows): ?>
-                <div class="topic-list">
+                <div class="concept-list">
                     <?php foreach ($topicRows as $t):
                         $tp = ($t['mp'] > 0) ? min(100, round(($t['ep'] / $t['mp']) * 100)) : 0;
-                        $barColor = $tp >= 75 ? '#10b981' : ($tp >= 50 ? '#f59e0b' : '#ef4444');
+                        if ($tp >= 75) { $bc = '#10b981'; $bandLabel = 'Strong'; $bandBg = '#d1fae5'; $bandColor = '#065f46'; }
+                        elseif ($tp >= 50) { $bc = '#f59e0b'; $bandLabel = 'Average'; $bandBg = '#fef3c7'; $bandColor = '#92400e'; }
+                        else { $bc = '#ef4444'; $bandLabel = 'Needs Work'; $bandBg = '#fee2e2'; $bandColor = '#991b1b'; }
                     ?>
-                    <div class="topic-row">
-                        <span class="topic-name" title="<?= htmlspecialchars($t['concept'] ?: 'General') ?>"><?= htmlspecialchars($t['concept'] ?: 'General') ?></span>
-                        <div class="topic-bar-wrap">
-                            <div class="topic-bar-fill" style="width:<?= $tp ?>%;background:<?= $barColor ?>;"></div>
+                    <div class="concept-row">
+                        <span class="concept-name" title="<?= htmlspecialchars($t['concept'] ?: 'General') ?>"><?= htmlspecialchars($t['concept'] ?: 'General') ?></span>
+                        <div class="concept-bar-wrap">
+                            <div class="concept-bar-fill" style="width:<?= $tp ?>%;background:<?= $bc ?>;"></div>
                         </div>
-                        <span class="topic-pct" style="color:<?= $barColor ?>;"><?= $tp ?>%</span>
+                        <span class="concept-pct" style="color:<?= $bc ?>;"><?= $tp ?>%</span>
+                        <span class="concept-band" style="background:<?= $bandBg ?>;color:<?= $bandColor ?>;"><?= $bandLabel ?></span>
                     </div>
                     <?php endforeach; ?>
                 </div>
@@ -331,74 +399,82 @@ $questions = db()->fetchAll(
                 <?php endif; ?>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="actions-sidebar">
-                <a href="index.php" class="btn btn-outline"><i class="fas fa-plus"></i> New Exam</a>
-                <a href="../index.php" class="btn btn-primary"><i class="fas fa-home"></i> Dashboard</a>
+            <!-- Question Breakdown -->
+            <div class="section section-last">
+                <div class="section-title">Question Breakdown</div>
+                <div class="q-table-wrapper">
+                    <table class="q-table" id="questionsTable">
+                        <thead>
+                            <tr>
+                                <th class="q-num-col">#</th>
+                                <th>Type</th>
+                                <th>Topic</th>
+                                <th class="q-score-col">Score</th>
+                                <th class="q-score-col">Status</th>
+                                <th class="q-action-col">Review</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($questions as $idx => $q):
+                                $isOk      = intval($q['isCorrect']);
+                                $qEp       = floatval($q['earned_points']);
+                                $qMp       = floatval($q['max_points']);
+                                $qNum      = $q['question_number'] ?? ($idx + 1);
+                                $qType     = htmlspecialchars(strtoupper($q['question_type'] ?? ''));
+                                $qTopic    = htmlspecialchars($q['topic'] ?: 'General');
+                                $qTypeCode = strtolower($q['question_type']);
+                            ?>
+                            <tr class="q-row <?= $isOk ? 'correct' : 'incorrect' ?>" data-index="<?= $idx ?>">
+                                <td class="q-num-col"><?= $qNum ?></td>
+                                <td><?= $qType ?></td>
+                                <td><?= $qTopic ?></td>
+                                <td class="q-score-col"><?= round($qEp, 1) ?> / <?= round($qMp, 1) ?></td>
+                                <td class="q-score-col <?= $isOk ? 'q-correct' : 'q-incorrect' ?>"><?= $isOk ? '✓ Correct' : '✗ Incorrect' ?></td>
+                                <td class="q-action-col">
+                                    <button class="view-btn" onclick="openQuestionModal('<?= htmlspecialchars($q['question_uid']) ?>', '<?= $qTypeCode ?>', <?= $idx ?>)">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination">
+                    <button class="pagination-btn" id="prevBtn" onclick="previousPage()"><i class="fas fa-chevron-left"></i> Prev</button>
+                    <span class="pagination-info" id="pageInfo">Page 1 of 1</span>
+                    <button class="pagination-btn" id="nextBtn" onclick="nextPage()">Next <i class="fas fa-chevron-right"></i></button>
+                </div>
             </div>
+
+        </div>
+
+        <!-- Sidebar -->
+        <div class="body-side">
+            <div class="section section-last">
+                <div class="section-title">Actions</div>
+                <div class="action-row">
+                    <a href="../index.php?start_ngn=1" class="btn btn-outline"><i class="fas fa-plus"></i> New Exam</a>
+                    <a href="../index.php" class="btn btn-primary"><i class="fas fa-home"></i> Dashboard</a>
+                </div>
+            </div>
+            <?php if ($topicRows): ?>
+            <div class="section section-last">
+                <div class="section-title">Topic Summary</div>
+                <?php foreach ($topicRows as $t):
+                    $tp = ($t['mp'] > 0) ? min(100, round(($t['ep'] / $t['mp']) * 100)) : 0;
+                    $bc = $tp >= 75 ? '#10b981' : ($tp >= 50 ? '#f59e0b' : '#ef4444');
+                ?>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:13px;font-weight:600;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= htmlspecialchars($t['concept'] ?: 'General') ?></span>
+                    <span style="font-size:13px;font-weight:800;color:<?= $bc ?>;margin-left:10px;"><?= $tp ?>%</span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
 
     </div>
-
-    <!-- Performance Graph -->
-    <div class="section">
-        <div class="section-title">Exam Performance (Streak Chart)</div>
-        <div class="graph-container">
-            <canvas id="performanceChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Per-question detail -->
-    <div class="section">
-        <div class="section-title">Question Breakdown</div>
-        <div class="q-table-wrapper">
-            <table class="q-table" id="questionsTable">
-                <thead>
-                    <tr>
-                        <th class="q-num-col">#</th>
-                        <th>Type</th>
-                        <th>Topic</th>
-                        <th class="q-score-col">Score</th>
-                        <th class="q-score-col">Status</th>
-                        <th class="q-action-col">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="questionsTableBody">
-                    <?php foreach ($questions as $idx => $q):
-                        $isOk  = intval($q['isCorrect']);
-                        $qEp   = floatval($q['earned_points']);
-                        $qMp   = floatval($q['max_points']);
-                        $qNum  = $q['question_number'] ?? ($idx + 1);
-                        $qType = htmlspecialchars(strtoupper($q['question_type'] ?? ''));
-                        $qTopic = htmlspecialchars($q['topic'] ?: 'General');
-                        $qTypeCode = strtolower($q['question_type']);
-                    ?>
-                    <tr class="q-row <?= $isOk ? 'correct' : 'incorrect' ?>" data-index="<?= $idx ?>">
-                        <td class="q-num-col"><?= $qNum ?></td>
-                        <td><?= $qType ?></td>
-                        <td><?= $qTopic ?></td>
-                        <td class="q-score-col"><?= round($qEp, 1) ?> / <?= round($qMp, 1) ?></td>
-                        <td class="q-score-col <?= $isOk ? 'q-correct' : 'q-incorrect' ?>">
-                            <?= $isOk ? '✓ Correct' : '✗ Incorrect' ?>
-                        </td>
-                        <td class="q-action-col">
-                            <button class="view-btn" onclick="openQuestionModal('<?= htmlspecialchars($q['question_uid']) ?>', '<?= $qTypeCode ?>', <?= $idx ?>)">
-                                <i class="fas fa-eye"></i> View
-                            </button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <!-- Pagination -->
-        <div class="pagination">
-            <button class="pagination-btn" id="prevBtn" onclick="previousPage()"><i class="fas fa-chevron-left"></i> Prev</button>
-            <span class="pagination-info" id="pageInfo">Page 1 of 1</span>
-            <button class="pagination-btn" id="nextBtn" onclick="nextPage()">Next <i class="fas fa-chevron-right"></i></button>
-        </div>
-    </div>
-
 </div>
 
 <!-- Question Modal -->
@@ -418,91 +494,6 @@ $questions = db()->fetchAll(
 </div>
 
 <script>
-// Hero chart
-new Chart(document.getElementById('heroChart'), {
-    type: 'doughnut',
-    data: {
-        datasets: [{
-            data: [<?= $percent ?>, <?= 100 - $percent ?>],
-            backgroundColor: ['<?= $cat['color'] ?>', 'rgba(255,255,255,0.15)'],
-            borderWidth: 0,
-            cutout: '82%',
-            borderRadius: 10
-        }]
-    },
-    options: {
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        interaction: { mode: 'none' }
-    }
-});
-
-// Performance chart
-const rawData = [
-    <?php foreach ($questions as $idx => $q): ?>
-    { qNum: <?= ($q['question_number'] ?? ($idx + 1)) ?>, correct: <?= intval($q['isCorrect']) ? 1 : 0 ?> },
-    <?php endforeach; ?>
-];
-
-let streakValue = 0;
-const streakData = rawData.map(q => {
-    streakValue += q.correct ? 1 : -1;
-    return { qNum: q.qNum, correct: q.correct, streak: streakValue };
-});
-
-const chartCtx = document.getElementById('performanceChart');
-if (chartCtx) {
-    new Chart(chartCtx, {
-        type: 'line',
-        data: {
-            labels: streakData.map(d => 'Q' + d.qNum),
-            datasets: [{
-                label: 'Correct/Incorrect Streak',
-                data: streakData.map(d => d.streak),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                pointBorderWidth: 2,
-                pointBackgroundColor: streakData.map(d => d.correct ? '#10b981' : '#ef4444'),
-                pointBorderColor: streakData.map(d => d.correct ? '#10b981' : '#ef4444'),
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: true, position: 'top' },
-                tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    padding: 12,
-                    titleFont: { size: 13, weight: 700 },
-                    bodyFont: { size: 12 },
-                    borderColor: '#e2e8f0',
-                    borderWidth: 1,
-                    callbacks: {
-                        afterLabel: ctx => streakData[ctx.dataIndex].correct ? '✓ Correct' : '✗ Incorrect'
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    title: { display: true, text: 'Streak Points' },
-                    ticks: { font: { size: 11 } },
-                    grid: { color: 'rgba(226, 232, 240, 0.5)' }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 11 } }
-                }
-            }
-        }
-    });
-}
-
-// Questions data for modal
 const questionsData = [
     <?php foreach ($questions as $idx => $q):
         $qUidParts = explode('-', $q['question_uid'], 2);

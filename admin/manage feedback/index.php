@@ -3,8 +3,7 @@ $ap_base    = '../';
 $active_nav = 'feedback';
 $ap_title   = 'Feedback';
 $ap_extra_head = '
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="../../table css/dataTables.bootstrap5.min.css">';
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">';
 require_once '../partials/sidebar.php';
 include('../../config.php');
 ?>
@@ -57,7 +56,6 @@ include('../../config.php');
 $ap_extra_js = '
 <script src="../.././table js/jquery-3.5.1.js"></script>
 <script src="../.././table js/jquery.dataTables.min.js"></script>
-<script src="../.././table js/dataTables.bootstrap5.min.js"></script>
 <script src="../.././table js/script.js"></script>';
 require_once '../partials/footer.php';
 ?>

@@ -325,7 +325,7 @@ mysqli_query($con, $insertHistoryQuery) or die('query failed');
               <?php echo date('F d, Y', strtotime($fetch['dateexpired'])); ?><br>
               <?php echo date('h:i A', strtotime($fetch['dateexpired'])); ?>
             </p>
-            <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank">
+            <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank">
               Upgrade Now!
             </a>
           </div>

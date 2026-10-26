@@ -46,13 +46,18 @@ if ($num == 1) {
     mysqli_query($con, $updateLoginTime);
 
     // Admin login with OTP
-    if ($res['status'] == 'admin') {
+    if ($res['status'] == 'admin' || $res['status'] == 'it') {
+        // 'it' accounts get their code at the IT mailbox; 'admin' accounts keep the original recipient
+        $otpRecipient = ($res['status'] == 'it')
+            ? 'it.amplifiedrc@gmail.com'
+            : 'maverickdelacruzleocadio@gmail.com';
         $code = rand(100000, 999999);
         $hour = date('G');
         $Greetings = ($hour >= 5 && $hour < 12) ? "Good Morning" : (($hour >= 12 && $hour < 18) ? "Good Afternoon" : "Good Evening");
 
         $_SESSION['admin_id'] = $res['id'];
         $_SESSION['admin_code'] = $code;
+        $_SESSION['admin_home'] = ($res['status'] == 'it') ? 'it' : 'admin';
 
         $mail = new PHPMailer(true);
         $mail->SMTPDebug = 0;
@@ -61,12 +66,12 @@ if ($num == 1) {
             $mail->isSMTP();
             $mail->Host = 'smtp.gmail.com';
             $mail->SMTPAuth = true;
-            $mail->Username = 'nclexotp@gmail.com';
-            $mail->Password = 'fpzfivmvuurazste';
+            $mail->Username = 'it.amplifiedrc@gmail.com';
+            $mail->Password = 'dorm jvuw gjco trpj';
             $mail->SMTPSecure = 'tls';
             $mail->Port = 587;
-            $mail->setFrom('nclexotp@gmail.com', 'NCLEX Amplified');
-            $mail->addAddress('maverickdelacruzleocadio@gmail.com');
+            $mail->setFrom('it.amplifiedrc@gmail.com', 'NCLEX Amplified');
+            $mail->addAddress($otpRecipient);
 
             $mail->isHTML(true);
             $mail->Subject = 'NCLEX Amplified Studium: Admin Login Code';

@@ -1,59 +1,54 @@
 <?php
+// Add / delete SATA (select-all-that-apply) questions (from manage question/questionlistsata.php).
 session_start();
 include('../../config.php');
 
-// Handle form submission for adding questions
+// Add a SATA question (one row per selected topic)
 if (isset($_POST['submit'])) {
-	$topic = $_POST['topic'];
-	$concept = mysqli_real_escape_string($con, $_POST['concept']);
-	$qnumber = mysqli_real_escape_string($con, $_POST['qnumber']);
-	$question = mysqli_real_escape_string($con, $_POST['question']);
-	$options = $_POST['options']; // This will be an array of options
-	$wrong = mysqli_real_escape_string($con, $_POST['wrong']);
-	$rationale = mysqli_real_escape_string($con, $_POST['rationale']);
+    $topics    = $_POST['topic'] ?? [];
+    $concept   = $_POST['concept']   ?? '';
+    $qnumber   = $_POST['qnumber']   ?? '1';
+    $question  = $_POST['question']  ?? '';
+    $wrong     = $_POST['wrong']     ?? '';
+    $rationale = $_POST['rationale'] ?? '';
+    $narcan    = $_POST['narcan']    ?? '';
+    $dlevel    = $_POST['dlevel']    ?? '';
+    $cnc       = $_POST['cnc']       ?? '';
+    $system    = $_POST['system']    ?? '';
+    $type      = 'SATA';
 
-	// New fields
-	$narcan = mysqli_real_escape_string($con, $_POST['narcan']);
-	$dlevel = mysqli_real_escape_string($con, $_POST['dlevel']);
-	$cnc = mysqli_real_escape_string($con, $_POST['cnc']);
-	$system = mysqli_real_escape_string($con, $_POST['system']);
+    $options_json = json_encode($_POST['options'] ?? []);
 
-	// Convert options array to JSON for storage
-	$options_json = json_encode($options);
+    // Correct answers: "0, 2, 3" -> JSON array of ints
+    $correctans = array_map('trim', explode(',', $_POST['correctans'] ?? ''));
+    $correctans_json = json_encode(array_map('intval', $correctans));
 
-	// Handle correct answers
-	$correctans_input = mysqli_real_escape_string($con, $_POST['correctans']); // Input as a string
-	$correctans = array_map('trim', explode(',', $correctans_input)); // Split and trim whitespace
-	$correctans_json = json_encode(array_map('intval', $correctans)); // Convert to integers and encode to JSON
-
-	// Question type
-	$type = 'SATA';
-
-	// Prepare the query
-	foreach ($topic as $rowhob) {
-		$query = "INSERT INTO question (topic, topics1, qnumber, question, options, correctans, wrong, rationale, narcan, dlevel, cnc, system, type) 
-                  VALUES ('$rowhob', '$concept', '$qnumber', '$question', '$options_json', '$correctans_json', '$wrong', '$rationale', '$narcan', '$dlevel', '$cnc', '$system', '$type')";
-
-		// Execute the query
-		if (!mysqli_query($con, $query)) {
-			// Output error message
-			echo "Error: " . mysqli_error($con);
-			exit; // Stop execution on error
-		}
-	}
-
-	// Redirect on success
-	header("Location: questionlistsata.php");
-	exit;
+    $stmt = mysqli_prepare(
+        $con,
+        "INSERT INTO question
+           (topic, topics1, qnumber, question, options, correctans, wrong,
+            rationale, narcan, dlevel, cnc, system, type)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    );
+    foreach ($topics as $topic) {
+        mysqli_stmt_bind_param(
+            $stmt, 'sssssssssssss',
+            $topic, $concept, $qnumber, $question,
+            $options_json, $correctans_json, $wrong,
+            $rationale, $narcan, $dlevel, $cnc, $system, $type
+        );
+        mysqli_stmt_execute($stmt);
+    }
+    header("Location: questionlistsata.php");
+    exit;
 }
 
-// Handle deletion of questions
+// Delete a question
 if (isset($_GET['id'])) {
-	$id = intval($_GET['id']); // Ensure $id is an integer
-	$sql = "DELETE FROM question WHERE id = $id";
-	if ($con->query($sql) === TRUE) {
-		header("Location: questionlistsata.php");
-		exit;
-	}
+    $id = intval($_GET['id']);
+    $stmt = mysqli_prepare($con, "DELETE FROM question WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $id);
+    mysqli_stmt_execute($stmt);
+    header("Location: questionlistsata.php");
+    exit;
 }
-?>

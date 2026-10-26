@@ -44,9 +44,6 @@ function _sb_active($pages) {
       <i class="bi bi-bell-fill me-1" style="color:#fbbf24;"></i><?php echo htmlspecialchars($_sb_notif); ?>
     </span>
   <?php endif; ?>
-  <a href="../../logout.php" class="s-logout-btn ms-3" title="Logout">
-    <i class="bi bi-box-arrow-right"></i>
-  </a>
 </div>
 
 <!-- ── Sidebar Overlay (mobile backdrop) ── -->
@@ -99,12 +96,12 @@ function _sb_active($pages) {
       </a>
     </li>
     <li>
-      <a href="../../img/userguide.mp4" target="_blank" rel="noopener noreferrer">
-        <i class="bi bi-play-circle"></i> User Guide
+      <a href="userguide.php" class="<?php echo _sb_active('userguide.php'); ?>">
+        <i class="bi bi-question-circle-fill"></i> User Guide
       </a>
     </li>
     <li>
-      <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank" rel="noopener noreferrer">
+      <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank" rel="noopener noreferrer">
         <i class="bi bi-facebook"></i> Contact Us
       </a>
     </li>
@@ -113,8 +110,17 @@ function _sb_active($pages) {
   <!-- Footer: Expiration + Logout -->
   <div class="s-sidebar-footer">
     <div class="s-exp-label">Expiration Date</div>
-    <div class="s-exp-date"><?php echo $_sb_exp; ?><br><span style="font-weight:400; color:rgba(255,255,255,.5);"><?php echo $_sb_exptime; ?></span></div>
-    <a href="https://www.facebook.com/NCLEX.Amplified.Official" target="_blank" class="s-upgrade-btn mb-2">
+    <?php
+      if ($_sb_daysLeft > 0) {
+        $_sb_daysLabel = '(' . $_sb_daysLeft . ' day' . ($_sb_daysLeft > 1 ? 's' : '') . ' left)';
+      } elseif ((strtotime($_sb['dateexpired']) - time()) > 0) {
+        $_sb_daysLabel = '(expires today)';
+      } else {
+        $_sb_daysLabel = '(expired)';
+      }
+    ?>
+    <div class="s-exp-date"><?php echo $_sb_exp; ?> <span style="font-weight:300; font-size:.85em; color:rgba(255,255,255,.55);"><?php echo $_sb_daysLabel; ?></span><br><span style="font-weight:400; color:rgba(255,255,255,.5);"><?php echo $_sb_exptime; ?></span></div>
+    <a href="https://www.facebook.com/NCLEXAmplifiedReviewCenter" target="_blank" class="s-upgrade-btn mb-2">
       <i class="bi bi-arrow-up-circle me-1"></i> Upgrade Now
     </a>
     <a href="../../logout.php" class="s-logout-link">

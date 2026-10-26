@@ -36,22 +36,13 @@ class count
 
 	// =================================================================================================================
 
-    public function user() {// ACTIVATED STUDENTS
-    date_default_timezone_set('Asia/Manila');
-    $current_date = new DateTime();
-
-    $query = "SELECT * FROM login WHERE dateexpired IS NOT NULL AND dateexpired != ''";
-    $result = $this->conn->query($query);
-
-    $this->course_count = 0;
-    while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
-        $dateexpired = new DateTime($row['dateexpired']);
-        if ($dateexpired > $current_date) {
-            $this->course_count++;
-        }
+    public function user() { // ACTIVATED — matches students.php?filter=activated
+        $query = "SELECT COUNT(*) AS c FROM login
+                  WHERE status='user' AND groupname!='Admin'
+                    AND dateexpired IS NOT NULL AND dateexpired != '' AND dateexpired > NOW()";
+        $row = $this->conn->query($query)->fetch_assoc();
+        return (int) $row['c'];
     }
-    return $this->course_count;
-}
 
 
 
@@ -59,17 +50,11 @@ class count
 	// =================================================================================================================
 
 
-	public function concept()        //TOTAL STUDENTS
+	public function concept() // TOTAL STUDENTS — matches students.php?filter=all
 	{
-		$query = "select * from login";
-		$result = $this->conn->query($query);
-
-		while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
-			// $this->user_details[]=
-			$this->video_count++;
-		}
-		return $this->video_count;
-
+		$query = "SELECT COUNT(*) AS c FROM login WHERE status='user' AND groupname!='Admin'";
+		$row = $this->conn->query($query)->fetch_assoc();
+		return (int) $row['c'];
 	}
 
 
@@ -93,36 +78,23 @@ class count
 	// =================================================================================================================
 
 
-public function bundles() {//TOTAL NOT ACTIVATED
-    $query = "SELECT COUNT(*) as count 
-              FROM login 
-              WHERE (dateexpired IS NULL OR dateexpired = '') 
-              AND status = 'user'";
-    $result = $this->conn->query($query);
-    $row = $result->fetch_assoc();
-
-    $this->books_count = $row['count'];
-    return $this->books_count;
+public function bundles() { // NOT ACTIVATED — matches students.php?filter=notactivated
+    $query = "SELECT COUNT(*) AS c FROM login
+              WHERE status='user' AND groupname!='Admin'
+                AND (dateexpired IS NULL OR dateexpired = '')";
+    $row = $this->conn->query($query)->fetch_assoc();
+    return (int) $row['c'];
 }
 
 
 
 
-public function expired() { //EXPIRED
-    date_default_timezone_set('Asia/Manila');
-    $current_date = new DateTime();
-
-    $query = "SELECT * FROM login WHERE dateexpired IS NOT NULL AND dateexpired != ''";
-    $result = $this->conn->query($query);
-
-    $this->expire_count = 0;
-    while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
-        $dateexpired = new DateTime($row['dateexpired']);
-        if ($dateexpired < $current_date) {
-            $this->expire_count++;
-        }
-    }
-    return $this->expire_count;
+public function expired() { // EXPIRED — matches students.php?filter=expired
+    $query = "SELECT COUNT(*) AS c FROM login
+              WHERE status='user' AND groupname!='Admin'
+                AND dateexpired IS NOT NULL AND dateexpired != '' AND dateexpired < NOW()";
+    $row = $this->conn->query($query)->fetch_assoc();
+    return (int) $row['c'];
 }
 
 
@@ -137,7 +109,7 @@ public function countActiveStudents()
 		$threshold = $currentTime - 600;
 
 		// Query to count active students, excluding those in the 'Admin' group
-		$query = "SELECT COUNT(*) as active_count FROM login WHERE lastlogin >= FROM_UNIXTIME($threshold) AND groupname != 'Admin'";
+		$query = "SELECT COUNT(*) as active_count FROM login WHERE status='user' AND groupname != 'Admin' AND lastlogin >= FROM_UNIXTIME($threshold)";
 		$result = $this->conn->query($query);
 
 		if ($result) {

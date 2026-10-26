@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../../../config.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
@@ -93,16 +93,15 @@ $hasTabs = !empty($tabs_data);
   --text: #0f172a;
 }
 
-html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+html, body { margin: 0; padding: 0; }
 body {
   font-family: 'Inter', sans-serif;
   color: var(--text);
   background: white;
-  overflow: hidden;
 }
 
 /* Two-panel layout */
-.two-panel { display: flex; height: 100%; overflow: hidden; }
+.two-panel { display: flex; }
 .left-panel { width: 40%; min-width: 260px; background: #fff; border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
 .panel-title { padding: 14px 20px; background: #f1f5f9; font-weight: 800; font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
 .tabs-row {
@@ -135,12 +134,21 @@ body {
 .tab-btn.active { background: #f8fafc; color: var(--accent); border: 1px solid var(--border); border-bottom-color: #f8fafc; margin-bottom: -1px; }
 .tab-content-area { flex: 1; overflow-y: auto; padding: 16px; }
 .clinical-record { background: #fdfdfd; border: 1px solid #f1f5f9; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
-.right-panel { flex: 1; overflow-y: auto; padding: clamp(16px, 5vh, 48px) 16px; min-width: 0; display: flex; justify-content: center; align-items: flex-start; }
-@media (max-width: 900px) {
-  body { overflow: auto; }
-  .two-panel { flex-direction: column; height: auto; overflow: visible; }
+.right-panel { flex: 1; overflow-y: auto; padding: 16px; min-width: 0; display: flex; justify-content: center; align-items: flex-start; }
+
+/* Desktop only: lock viewport height */
+@media (min-width: 769px) {
+  html, body { height: 100%; overflow: hidden; }
+  .two-panel { height: 100%; overflow: hidden; }
+  .right-panel { padding: clamp(16px, 5vh, 48px) 16px; }
+}
+
+/* Mobile: column layout */
+@media (max-width: 768px) {
+  html, body { overflow-x: hidden; }
+  .two-panel { flex-direction: column; }
   .left-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 2px solid var(--border); max-height: 35vh; overflow-y: auto; }
-  .right-panel { width: 100% !important; overflow: visible; display: block; }
+  .right-panel { width: 100%; display: block; padding: 8px; overflow-x: hidden; }
 }
 
 .nclex-tips {
@@ -221,10 +229,15 @@ body {
 
 /* RESPONSIVE */
 @media (max-width: 640px) {
-  .card { border-radius: 0; padding: 16px; }
-  .question-text { font-size: 16px; line-height: 1.5; }
-  .passage-box { padding: 16px; font-size: 14px; line-height: 1.6; }
-  .btn { padding: 10px 24px; font-size: 13px; }
+  .card { border-radius: 0; padding: 14px; }
+  .question-text { font-size: 15px; line-height: 1.5; margin-bottom: 16px; }
+  .passage-box { padding: 12px; font-size: 13px; line-height: 1.6; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap; }
+  .btn { padding: 10px 20px; font-size: 13px; }
+  .right-panel { padding: 8px 10px; }
+  .actions { margin-top: 16px; gap: 8px; }
+}
+@media (max-width: 900px) {
+  body { overflow-x: hidden !important; }
 }
 
 .instruction {
@@ -288,8 +301,11 @@ body {
   border: none;
   transition: all 0.2s;
 }
-.btn-primary { background: var(--primary); color: white; }
+.btn-primary { background: #0d9488; color: white; }
+.btn-primary:hover { background: #0b7e74; }
 .btn-outline { background: transparent; border: 2px solid var(--border); color: #64748b; }
+@keyframes ngn-spin { to { transform: rotate(360deg); } }
+.ngn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: ngn-spin 0.7s linear infinite; vertical-align: middle; margin-right: 4px; flex-shrink: 0; }
 
 #result {
   margin-top: 24px;
@@ -330,6 +346,144 @@ body {
 }
 .stats-btn:hover { background: #e2e8f0; color: #0f172a; }
 .stats-btn i { font-size: 14px; color: #3b82f6; }
+
+/* ── Mobile Clinical Reference — Senior-Friendly Design ── */
+@media (max-width: 768px) {
+  /* Hide panel from normal flow */
+  .left-panel { display: none !important; }
+
+  /* Compact banner button above the question */
+  .mobile-clinref-btn {
+    display: flex !important;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #e8f4fd;
+    color: #0369a1;
+    border: 1.5px solid #bae6fd;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 10px;
+    text-align: center;
+    letter-spacing: 0.1px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-clinref-btn i { font-size: 14px; }
+
+  /* Full-screen overlay */
+  .left-panel.mobile-open {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998 !important;
+    width: 100% !important;
+    min-width: unset !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100% !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Header inside modal */
+  .left-panel.mobile-open .panel-title {
+    padding: 16px 18px !important;
+    font-size: 13px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  /* Close button — large, with text */
+  .mobile-clinref-close {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    background: #ef4444;
+    color: #fff !important;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 80px;
+    justify-content: center;
+  }
+
+  /* Tabs — large tap targets */
+  .left-panel.mobile-open .tabs-row {
+    flex-shrink: 0;
+    padding: 6px 8px 0 !important;
+    gap: 3px !important;
+    overflow-x: hidden;
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .left-panel.mobile-open .tab-btn {
+    font-size: 11px !important;
+    padding: 8px 10px !important;
+    font-weight: 600;
+    white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Content area — scrollable, comfortable font */
+  .left-panel.mobile-open .tab-content-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px !important;
+  }
+  .left-panel.mobile-open .clinical-record {
+    font-size: 14.5px !important;
+    line-height: 1.7 !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+}
+
+/* ── Mobile UI: Compact & Readable (≤768px) ── */
+@media (max-width: 768px) {
+  .card { padding: 12px !important; border-radius: 10px !important; margin-bottom: 12px !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; box-sizing: border-box !important; overflow-x: hidden !important; }
+  .instruction { font-size: 9px !important; margin-bottom: 6px !important; letter-spacing: 1px !important; }
+  .question-text { font-size: 14px !important; line-height: 1.55 !important; margin-bottom: 12px !important; }
+  .passage-box { padding: 11px !important; font-size: 13px !important; line-height: 1.6 !important; overflow-wrap: break-word !important; word-break: break-word !important; overflow-x: hidden !important; max-width: 100% !important; white-space: pre-wrap !important; margin-bottom: 12px !important; border-radius: 8px !important; }
+  .actions { margin-top: 12px !important; gap: 8px !important; flex-wrap: wrap !important; }
+  .btn { padding: 10px 16px !important; font-size: 13px !important; border-radius: 8px !important; }
+  .previous-badge { padding: 8px 10px !important; margin-bottom: 10px !important; font-size: 11px !important; }
+  #result { padding: 12px !important; margin-top: 12px !important; border-radius: 8px !important; }
+  #resSummary { margin-bottom: 8px !important; font-size: 13px !important; }
+  #rationaleContent { font-size: 13px !important; line-height: 1.6 !important; }
+  .nclex-tips { padding: 12px !important; margin-top: 12px !important; border-radius: 8px !important; }
+  .tips-title { font-size: 10px !important; margin-bottom: 8px !important; gap: 6px !important; }
+  .tips-list li { font-size: 12.5px !important; gap: 8px !important; margin-bottom: 6px !important; }
+  .stats-btn { padding: 4px 8px !important; font-size: 10px !important; }
+  .rationale-image-wrapper { margin-top: 14px !important; padding-top: 14px !important; }
+  .rationale-image-wrapper img { border-radius: 8px !important; }
+}
+@media (min-width: 769px) {
+  .mobile-clinref-btn { display: none !important; }
+
 </style>
 </head>
 <body>
@@ -589,12 +743,14 @@ $(document).ready(function(){
 
     $('#submitBtn').click(function(){
         if(isReviewMode) return; // Prevent resubmission in review mode
-        
+
         if(selectedText.length === 0) {
             Swal.fire({ icon:'error', title:'Incomplete', text:'Please highlight at least one phrase.' });
             return;
         }
-        
+
+        $(this).prop('disabled', true).html('<span class="ngn-spinner"></span> Submitting...');
+        setTimeout(function() {
         // Capture initial if not done yet (safety net)
         if(initialSelectedText.length === 0){
             initialSelectedText = [...selectedText];
@@ -639,11 +795,44 @@ $(document).ready(function(){
             question_id: <?= json_encode($id) ?>,
             question_type: 'highlight'
         }, '*');
+        }, 60); // end loading-state setTimeout
     });
 
     // Signal parent that this iframe is ready to receive prefill data
     if (window.parent !== window) window.parent.postMessage({ type: 'ready' }, '*');
 });
+</script>
+
+<script>
+(function () {
+  if (window.innerWidth > 768) return;
+  var lp = document.querySelector(".left-panel");
+  if (!lp) return;
+
+  /* Close button inside modal header — text label, not just × */
+  var pt = lp.querySelector(".panel-title");
+  if (pt) {
+    var cb = document.createElement("button");
+    cb.className = "mobile-clinref-close";
+    cb.innerHTML = "&#10005; Close";
+    cb.onclick = function () { lp.classList.remove("mobile-open"); };
+    pt.appendChild(cb);
+  }
+
+  /* Banner button injected at the TOP of right-panel content (before question) */
+  var rp = document.querySelector(".right-panel");
+  var btn = document.createElement("button");
+  btn.className = "mobile-clinref-btn";
+  btn.innerHTML = "<i class='fas fa-folder-open'></i> View Patient Chart &amp; Lab Results";
+  btn.onclick = function () { lp.classList.add("mobile-open"); };
+
+  if (rp) {
+    rp.insertBefore(btn, rp.firstChild);
+  } else {
+    document.body.insertBefore(btn, document.body.firstChild);
+  }
+
+})();
 </script>
 </body>
 </html>

@@ -34,3 +34,6 @@ config_new.php
 test_db.php
 tmp_*.txt
 .ftp-deploy-sync-state.json
+
+# Secret credentials (Google service account)
+.private/

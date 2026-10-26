@@ -729,7 +729,7 @@ ul { list-style: none; padding: 0; margin: 0; }
   color: var(--ap-muted) !important;
 }
 
-/* Previous / Next — pill with icon override */
+/* Previous / Next — pill style */
 .dataTables_wrapper .dataTables_paginate .paginate_button.previous,
 .dataTables_wrapper .dataTables_paginate .paginate_button.next {
   width: auto !important;
@@ -738,25 +738,12 @@ ul { list-style: none; padding: 0; margin: 0; }
   background: #f1f5f9 !important;
   color: var(--ap-text-2) !important;
   font-weight: 600 !important;
-  font-size: 0 !important;
-  gap: 5px !important;
+  font-size: 0.78rem !important;
 }
 .dataTables_wrapper .dataTables_paginate .paginate_button.previous:hover,
 .dataTables_wrapper .dataTables_paginate .paginate_button.next:hover {
   background: rgba(0,124,191,0.09) !important;
   color: var(--ap-primary) !important;
-}
-.dataTables_wrapper .dataTables_paginate .paginate_button.previous::before {
-  content: '← Prev' !important;
-  font-size: 0.78rem !important;
-  font-family: "Inter", sans-serif !important;
-  font-weight: 600 !important;
-}
-.dataTables_wrapper .dataTables_paginate .paginate_button.next::after {
-  content: 'Next →' !important;
-  font-size: 0.78rem !important;
-  font-family: "Inter", sans-serif !important;
-  font-weight: 600 !important;
 }
 .dataTables_wrapper .dataTables_paginate .paginate_button.previous.disabled,
 .dataTables_wrapper .dataTables_paginate .paginate_button.next.disabled {

@@ -1,344 +1,105 @@
-<!DOCTYPE html>
-<!-- Website - www.codingnepalweb.com -->
-<html lang="en" dir="ltr">
+<?php
+$ap_base    = '../';
+$active_nav = 'bundle';
+$ap_title   = 'Bundle Contents';
+$ap_extra_head = '
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">';
+$ap_topbar_actions = '
+  <button class="ap-btn ap-btn-primary ap-btn-sm" onclick="openModal()">
+    <i class="bi bi-plus-lg"></i> Add Topics
+  </button>';
+require_once '../partials/sidebar.php';
+include('../../config.php');
 
-<head>
-  <meta charset="UTF-8" />
-  <title>Studium Admin</title>
-  <link rel="shortcut icon" type="text/css" href="../../img/logo1.svg">
-  <link rel="stylesheet" href="../adminstyles.css" />
-  <link rel="stylesheet" href="topics.css">
-  <!-- Boxicons CDN Link -->
-  <link href="https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+$bundle_name = $_GET['bundle_name'] ?? '';
 
+// Topic options for the multi-select.
+$topics = mysqli_query($con, "SELECT title FROM topics");
 
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-  <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
-  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-    integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-    crossorigin="anonymous"></script>
+// Current contents of this bundle.
+$stmt = mysqli_prepare($con, "SELECT * FROM bundlelist WHERE bundle_name = ?");
+mysqli_stmt_bind_param($stmt, 's', $bundle_name);
+mysqli_stmt_execute($stmt);
+$list = mysqli_stmt_get_result($stmt);
+?>
 
-
-
-</head>
-<style type="text/css">
-  /* Full-width input fields */
-  input[type=text],
-  input[type=file] {
-    width: 100%;
-    padding: 12px 20px;
-    margin: 8px 0;
-    display: inline-block;
-    border: 1px solid #ccc;
-    box-sizing: border-box;
-  }
-
-  /* Set a style for all buttons */
-  button {
-    background-color: #04AA6D;
-    color: white;
-    padding: 14px 20px;
-    margin: 8px 0;
-    border: none;
-    cursor: pointer;
-    width: 100%;
-  }
-
-  button:hover {
-    opacity: 0.8;
-  }
-
-  /* Extra styles for the cancel button */
-  .cancelbtn {
-    width: auto;
-    padding: 10px 18px;
-    background-color: #f44336;
-  }
-
-  /* Center the image and position the close button */
-  .imgcontainer {
-    text-align: center;
-    margin: 24px 0 12px 0;
-    position: relative;
-  }
-
-  .container {
-    padding: 16px;
-  }
-
-
-  /* The Modal (background) */
-  .modal {
-    display: none;
-    /* Hidden by default */
-    position: fixed;
-    /* Stay in place */
-    z-index: 1;
-    /* Sit on top */
-    left: 0;
-    top: 0;
-    width: 100%;
-    /* Full width */
-    height: 100%;
-    /* Full height */
-    overflow: auto;
-    /* Enable scroll if needed */
-    background-color: rgb(0, 0, 0);
-    /* Fallback color */
-    background-color: rgba(0, 0, 0, 0.4);
-    /* Black w/ opacity */
-    padding-top: 60px;
-  }
-
-  /* Modal Content/Box */
-  .modal-content {
-    background-color: #fefefe;
-    margin: 5% auto 15% auto;
-    /* 5% from the top, 15% from the bottom and centered */
-    border: 1px solid #888;
-    width: 30%;
-    /* Could be more or less, depending on screen size */
-  }
-
-  /* The Close Button (x) */
-  .close {
-    position: absolute;
-    right: 25px;
-    top: 0;
-    color: #000;
-    font-size: 35px;
-    font-weight: bold;
-  }
-
-  .close:hover,
-  .close:focus {
-    color: red;
-    cursor: pointer;
-  }
-
-  /* Add Zoom Animation */
-  .animate {
-    -webkit-animation: animatezoom 0.6s;
-    animation: animatezoom 0.6s
-  }
-
-  @-webkit-keyframes animatezoom {
-    from {
-      -webkit-transform: scale(0)
-    }
-
-    to {
-      -webkit-transform: scale(1)
-    }
-  }
-
-  @keyframes animatezoom {
-    from {
-      transform: scale(0)
-    }
-
-    to {
-      transform: scale(1)
-    }
-  }
-
-  /* Change styles for span and cancel button on extra small screens */
-  @media screen and (max-width: 300px) {
-    .cancelbtn {
-      width: 100%;
-    }
-  }
-</style>
-
-<body>
-  <div class="sidebar">
-    <div class="logo-details">
-      <center><img src="../../img/logo1.svg" width="30%"></center>
+<!-- Add Topics Modal -->
+<div class="ap-modal-overlay" id="addModal">
+  <div class="ap-modal">
+    <div class="ap-modal-header">
+      <span class="ap-modal-title"><i class="bi bi-collection-fill me-2" style="color:var(--ap-primary)"></i>Select Topics</span>
+      <button class="ap-modal-close" onclick="closeModal()">×</button>
     </div>
-    <ul class="nav-links">
-      <li>
-        <a href="../">
-          <i class="bx bx-grid-alt"></i>
-          <span class="links_name">Dashboard</span>
-        </a>
-      </li>
-      <li>
-        <a href="../manage topics">
-          <i class="bx bx-box"></i>
-          <span class="links_name">Manage Topics</span>
-        </a>
-      </li>
-      <li>
-        <a href="../manage question">
-          <i class="bx bx-list-ul"></i>
-          <span class="links_name">Manage Question</span>
-        </a>
-      </li>
-      <li>
-        <a href="#" class="active">
-          <i class="bx bx-pie-chart-alt-2"></i>
-          <span class="links_name">Manage Bundle</span>
-        </a>
-      </li>
-      <li>
-        <a href="../manage group">
-          <i class="bx bx-user"></i>
-          <span class="links_name">Manage Group</span>
-        </a>
-      </li>
-      <li>
-        <a href="../manage result">
-          <i class="bx bx-coin-stack"></i>
-          <span class="links_name">Manage Result</span>
-        </a>
-      </li>
-
-      <li>
-        <a href="../manage feedback">
-          <i class="bx bx-heart"></i>
-          <span class="links_name">Feedback</span>
-        </a>
-      </li>
-
-      <li class="log_out">
-        <a href="../../index.php">
-          <i class="bx bx-log-out"></i>
-          <span class="links_name">Log out</span>
-        </a>
-      </li>
-    </ul>
-  </div>
-  <section class="home-section">
-    <nav>
-      <div class="sidebar-button">
-        <i class="bx bx-menu sidebarBtn"></i>
-        <span class="dashboard">Dashboard</span>
-      </div>
-    </nav>
-
-    <div class="home-content">
-      <div class="sales-boxes">
-        <div class="recent-sales box">
-          <div class="title"><?php echo str_replace('Packege', 'Package', $_GET['bundle_name']); ?></div>
-          <div class="title" style="float:right; margin-top: -40px;"
-            onclick="document.getElementById('id01').style.display='block'"><i class='bx bx-plus-medical'></i></div>
-
-          <div id="id01" class="modal">
-            <form class="modal-content animate" action="action.php" method="post" enctype="multipart/form-data">
-              <div class="imgcontainer">
-                <b>Select Topics</b>
-                <span onclick="document.getElementById('id01').style.display='none'" class="close"
-                  title="Close Modal">&times;</span>
-              </div>
-              <br>
-              <div class="container">
-
-                <input type="hidden" name="bundle_name" value="<?php echo $_GET['bundle_name']; ?>">
-
-                <label><b>Bundle Name:</b></label>
-                <select name="bundlelist_name[]" class="form-control multiple-select" style="width: 100%; height: auto;"
-                  multiple>
-
-                  <?php
-                  include("../../config.php");
-                  $query = "SELECT * FROM topics";
-                  $query_run = mysqli_query($con, $query);
-                  if (mysqli_num_rows($query_run) > 0) {
-                    foreach ($query_run as $rowhob) {
-                      ?>
-                      <option value="<?php echo $rowhob['title']; ?>"><?php echo $rowhob['title']; ?></option>
-
-                      <?php
-                    }
-
-                  } else {
-                    echo "No Record Found";
-                  }
-
-                  ?>
-
-                </select>
-
-                <button type="submit" name="createpackage">Submit</button>
-              </div>
-
-              <div class="container" style="background-color:#f1f1f1">
-                <button type="button" onclick="document.getElementById('id01').style.display='none'"
-                  class="cancelbtn">Cancel</button>
-              </div>
-            </form>
-          </div>
-          <br>
-          <div class="container">
-            <div class="sales-details">
-              <?php
-              include("../../config.php");
-
-              $bundle_name = $_GET['bundle_name'];
-              $q = "SELECT * from bundlelist where bundle_name='$bundle_name'";
-              //echo $course_name;
-              $query = mysqli_query($con, $q);
-              while ($row = mysqli_fetch_array($query)) {
-
-                ?>
-                <div class="box-container">
-                  <div class="box">
-                    <h3><?php echo $row['bundlelist_name'] ?></h3>
-                    <a href="#" class="btn1" onclick="confirmDelete('<?php echo $row['id']; ?>')">Delete</a>
-                  </div>
-                </div>
-              <?php } ?>
-            </div>
-          </div>
+    <form action="action.php" method="post" enctype="multipart/form-data">
+      <div class="ap-modal-body">
+        <input type="hidden" name="bundle_name" value="<?= htmlspecialchars($bundle_name) ?>">
+        <div class="ap-form-group">
+          <label class="ap-form-label">Topics</label>
+          <select name="bundlelist_name[]" class="multiple-select" style="width:100%;" multiple>
+            <?php while ($t = mysqli_fetch_assoc($topics)): ?>
+            <option value="<?= htmlspecialchars($t['title']) ?>"><?= htmlspecialchars($t['title']) ?></option>
+            <?php endwhile; ?>
+          </select>
         </div>
       </div>
-  </section>
+      <div class="ap-modal-footer">
+        <button type="button" class="ap-btn ap-btn-ghost ap-btn-sm" onclick="closeModal()">Cancel</button>
+        <button type="submit" name="createpackage" class="ap-btn ap-btn-primary ap-btn-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-  <script>
-    function confirmDelete(id) {
-      swal({
-        title: "Delete Confirmation",
-        text: "Are you sure you want to delete this bundle?",
-        icon: "warning",
-        buttons: true,
-        dangerMode: true,
-      }).then((willDelete) => {
-        if (willDelete) {
-          window.location.href = `action.php?id=${id}&action=delete`;
-        }
-      });
-    }
-  </script>
+<!-- Bundle Contents -->
+<div class="ap-card">
+  <div class="ap-card-header">
+    <div class="ap-card-title">
+      <div class="ap-card-title-icon"><i class="bi bi-collection-fill"></i></div>
+      <?= htmlspecialchars(str_replace('Packege', 'Package', $bundle_name) ?: 'Bundle Contents') ?>
+    </div>
+    <a href="index.php" class="ap-btn ap-btn-ghost ap-btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
+  </div>
 
-  <script>
-    let sidebar = document.querySelector(".sidebar");
-    let sidebarBtn = document.querySelector(".sidebarBtn");
-    sidebarBtn.onclick = function () {
-      sidebar.classList.toggle("active");
-      if (sidebar.classList.contains("active")) {
-        sidebarBtn.classList.replace("bx-menu", "bx-menu-alt-right");
-      } else sidebarBtn.classList.replace("bx-menu-alt-right", "bx-menu");
-    };
-  </script>
+  <div class="ap-box-grid">
+    <?php while ($row = mysqli_fetch_assoc($list)): ?>
+    <div class="ap-box-item">
+      <div class="ap-box-item-icon"><i class="bi bi-journal-text"></i></div>
+      <h3><?= htmlspecialchars($row['bundlelist_name']) ?></h3>
+      <div class="ap-box-actions">
+        <button class="ap-btn ap-btn-danger ap-btn-sm" onclick="confirmDelete('<?= $row['id'] ?>')">
+          <i class="bi bi-trash"></i> Delete
+        </button>
+      </div>
+    </div>
+    <?php endwhile; ?>
+  </div>
+</div>
 
-  <script>
-    // Get the modal
-    var modal = document.getElementById('id01');
+<script>
+function openModal()  { document.getElementById('addModal').classList.add('open'); }
+function closeModal() { document.getElementById('addModal').classList.remove('open'); }
+document.getElementById('addModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+function confirmDelete(id) {
+  Swal.fire({
+    title: 'Delete Topic?',
+    text: 'Remove this topic from the bundle?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#ef4444',
+  }).then(r => { if (r.isConfirmed) window.location.href = `action.php?id=${id}&scope=item&bundle_name=<?= urlencode($bundle_name) ?>`; });
+}
+</script>
 
-    // When the user clicks anywhere outside of the modal, close it
-    window.onclick = function (event) {
-      if (event.target == modal) {
-        modal.style.display = "none";
-      }
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-  <script>
-    $(".multiple-select").select2({
-      // maximumSelectionLength: 20
-    });
-  </script>
-</body>
-
-</html>
+<?php
+$ap_extra_js = '
+<script src="../.././table js/jquery-3.5.1.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>$(".multiple-select").select2({ dropdownParent: $("#addModal .ap-modal") });</script>';
+require_once '../partials/footer.php';
+?>

@@ -42,6 +42,7 @@ $omitted         = isset($body['omitted'])         ? intval($body['omitted'])   
 $changes_count   = isset($body['changes_count'])   ? intval($body['changes_count'])   : 0;
 $time_taken      = isset($body['time_taken'])      ? intval($body['time_taken'])      : 0;
 $totalTime       = isset($body['totalTime'])       ? intval($body['totalTime'])       : 0;
+date_default_timezone_set('Asia/Manila');
 $created_at      = date('Y-m-d H:i:s');
 
 // IRT snapshot fields (exam mode only — stored for audit trail)

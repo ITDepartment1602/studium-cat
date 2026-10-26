@@ -213,8 +213,10 @@ $dbAnswersJs = json_encode($dbAnswers);
       margin: 0;
       padding: 0;
       overflow: hidden;
-      /* Prevent body scroll */
+      -webkit-user-select: none;
+      user-select: none;
     }
+    input, textarea { -webkit-user-select: text; user-select: text; }
 
     body {
       font-family: 'Inter', sans-serif;
@@ -835,26 +837,74 @@ $dbAnswersJs = json_encode($dbAnswers);
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 768px) {
-      .question-nav {
-        display: none;
-      }
-
-      .nav-center {
-        display: none;
-      }
-
-      .navbar {
-        height: 56px;
-        padding: 0 16px;
-      }
-
-      .iframe-wrapper {
+      .question-nav { display: none; }
+      .nav-center   { display: none; }
+      .navbar       { height: 56px; padding: 0 12px; }
+      .iframe-wrapper { padding: 6px; }
+      .controls-bar { padding: 8px 12px; height: 56px; }
+      .user-badge   { font-size: 11px; padding: 5px 10px; gap: 6px; }
+      .user-badge i { font-size: 11px; }
+      .timer-box    { font-size: 12px; padding: 5px 10px; }
+      .nav-right    { gap: 6px; }
+      .btn          { font-size: 12.5px; padding: 8px 14px; }
+      .btn i        { font-size: 11px; }
+      .tools-nav-wrapper { display: none; }
+      .tools-nav.active {
+        display: flex !important;
+        position: fixed;
+        bottom: 150px;
+        right: 12px;
+        flex-direction: column;
+        background: #fff;
+        border-radius: 14px;
         padding: 8px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+        z-index: 1199;
+        gap: 6px;
       }
+      .tools-nav.active .tool-btn {
+        width: 50px;
+        padding: 8px 4px;
+        font-size: 9px;
+      }
+      .tools-nav.active .tool-btn i { font-size: 16px; }
+      #fullBtn { display: none !important; }
 
-      .controls-bar {
-        padding: 10px 16px;
+      /* Start modal — ensure button is reachable on small screens */
+      #startModal .modal-box {
+        max-width: 96vw !important;
+        padding: 20px !important;
+        max-height: 92vh !important;
+        border-radius: 18px !important;
       }
+      #startModal h2 { font-size: 1.35rem !important; margin-bottom: 12px !important; }
+      #startModal .space-y-3 > label,
+      #startModal .space-y-4 > label { padding: 12px !important; }
+      #startModal label span { font-size: 12px !important; }
+      #startExamBtn { padding: 14px !important; font-size: 14px !important; }
+
+      /* Generic modals (calc/note/feed) — fit mobile width */
+      .modal-box {
+        max-width: 94vw !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .navbar       { height: 50px; padding: 0 8px; }
+      .controls-bar { padding: 6px 10px; height: 52px; }
+      .btn          { font-size: 11.5px; padding: 7px 11px; }
+      .btn span     { font-size: 11.5px; }
+      .user-badge   { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .timer-box    { font-size: 11px; padding: 4px 8px; }
+
+      #startModal .modal-box { padding: 16px !important; border-radius: 14px !important; }
+      #startModal h2 { font-size: 1.2rem !important; }
+
+      /* Notes/Feedback modals — keep within viewport */
+      #noteModal .modal-box,
+      #feedModal .modal-box,
+      #calcModal .modal-box { width: 92vw !important; max-width: 92vw !important; }
+      #calcModal #calcDisplay { font-size: 18px; }
     }
   </style>
 </head>
@@ -907,57 +957,55 @@ $dbAnswersJs = json_encode($dbAnswers);
 
   <!-- Pre-Exam Instructions Modal -->
   <div class="modal-overlay active" id="startModal" style="background: rgba(10, 22, 40, 0.98); z-index: 9999;">
-    <div class="modal-box !max-h-[95vh] !overflow-y-auto custom-scrollbar"
-      style="width: 100%; max-width: 500px; padding: clamp(24px, 5vw, 40px); text-align: left; border-radius: min(32px, 5vw); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+    <div class="modal-box"
+      style="width: 100%; max-width: 500px; padding: clamp(20px, 5vw, 36px); text-align: left; border-radius: min(28px, 5vw); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;">
       <div
-        class="w-12 h-12 md:w-16 md:h-16 bg-amber-100 rounded-xl md:rounded-2xl flex items-center justify-center text-amber-600 text-2xl md:text-3xl mb-6 md:mb-8 shadow-sm">
+        class="w-10 h-10 md:w-14 md:h-14 bg-amber-100 rounded-xl md:rounded-2xl flex items-center justify-center text-amber-600 text-xl md:text-2xl mb-4 md:mb-5 shadow-sm">
         <i class="fas fa-shield-halved"></i>
       </div>
 
-      <h2 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight mb-4">Security Protocol
-        <br>& Guidelines
+      <h2 class="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight mb-3">Security Protocol
+        & Guidelines
       </h2>
 
-      <div class="modal-text" style="text-align:left;">
+      <div class="modal-text" style="text-align:left; margin-bottom: 0;">
         <!-- Alert Box -->
         <div
-          class="p-4 md:p-5 bg-red-50 border border-red-100 rounded-xl md:rounded-2xl mb-6 md:mb-8 flex items-start gap-3 md:gap-4 shadow-sm">
+          class="p-3 md:p-4 bg-red-50 border border-red-100 rounded-xl md:rounded-2xl mb-4 md:mb-5 flex items-start gap-3 shadow-sm">
           <div
-            class="w-6 h-6 md:w-8 md:h-8 shrink-0 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] md:text-sm shadow-lg shadow-red-200">
+            class="w-6 h-6 md:w-7 md:h-7 shrink-0 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] md:text-xs shadow-lg shadow-red-200">
             <i class="fas fa-exclamation"></i>
           </div>
-          <div class="text-[12px] md:text-[13px] text-red-900 leading-relaxed pt-0.5">
+          <div class="text-[11px] md:text-[12px] text-red-900 leading-relaxed pt-0.5">
             <strong>ZERO TOLERANCE:</strong> Leaving this tab or clicking outside of this window (Taskbar, dual
             monitors, or other apps) will result in <span class="font-bold underline">Instant Termination</span>.
           </div>
         </div>
 
-        <div class="space-y-3 md:space-y-4">
+        <div class="space-y-2 md:space-y-3">
           <label
-            class="group flex items-center p-4 md:p-5 bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl cursor-pointer transition-all hover:bg-slate-100 hover:border-slate-200">
+            class="group flex items-center p-3 md:p-4 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer transition-all hover:bg-slate-100 hover:border-slate-200">
             <input type="checkbox" id="agreeRules"
-              class="w-5 h-5 md:w-6 md:h-6 shrink-0 accent-blue-600 mr-4 cursor-pointer">
-            <span class="text-[13px] md:text-[14px] font-bold text-slate-700 leading-tight">I agree to the NCLEX
-              Security Guidelines.</span>
+              class="w-5 h-5 shrink-0 accent-blue-600 mr-3 cursor-pointer">
+            <span class="text-[12px] md:text-[13px] font-bold text-slate-700 leading-tight">I have read and agree to all exam security rules.</span>
           </label>
 
           <label
-            class="group flex items-center p-4 md:p-5 bg-red-50/30 border border-red-100 rounded-xl md:rounded-2xl cursor-pointer transition-all hover:bg-red-50/50 hover:border-red-200">
+            class="group flex items-center p-3 md:p-4 bg-red-50/30 border border-red-100 rounded-xl cursor-pointer transition-all hover:bg-red-50/50 hover:border-red-200">
             <input type="checkbox" id="agreeFocus"
-              class="w-5 h-5 md:w-6 md:h-6 shrink-0 accent-red-600 mr-4 cursor-pointer">
-            <span class="text-[13px] md:text-[14px] font-bold text-red-800 leading-tight">I understand that clicking
-              outside this window will immediately fail my exam.</span>
+              class="w-5 h-5 shrink-0 accent-red-600 mr-3 cursor-pointer">
+            <span class="text-[12px] md:text-[13px] font-bold text-red-800 leading-tight">I understand that any violation will result in <u>immediate exam termination</u> and loss of all answers.</span>
           </label>
         </div>
       </div>
 
-      <div class="mt-8 md:mt-10">
+      <div class="mt-5 md:mt-6">
         <button
-          class="btn btn-primary w-full py-4 md:py-5 rounded-xl md:rounded-2xl text-[16px] md:text-lg font-black tracking-wide flex items-center justify-center gap-3 disabled:opacity-30 disabled:grayscale transition-all"
+          class="btn btn-primary w-full py-3 md:py-4 rounded-xl md:rounded-2xl text-[15px] md:text-base font-black tracking-wide flex items-center justify-center gap-3 disabled:opacity-30 disabled:grayscale transition-all"
           id="startExamBtn" disabled>
-          <i class="fas fa-play-circle text-xl md:text-2xl"></i> Start Examination
+          <i class="fas fa-play-circle text-lg md:text-xl"></i> Start Examination
         </button>
-        <p class="text-center text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">Safe
+        <p class="text-center text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-3">Safe
           Exam Browser Mode — Active</p>
       </div>
     </div>
@@ -993,9 +1041,8 @@ $dbAnswersJs = json_encode($dbAnswers);
 
     <!-- Mobile Tools Toggle Button -->
     <div class="md:hidden fixed bottom-[92px] right-3 z-[1200] pointer-events-auto">
-      <button
-        class="w-12 h-12 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-lg transition-transform active:scale-90 border-2 border-white/20"
-        onclick="document.getElementById('toolsNav').classList.toggle('active'); this.classList.toggle('rotate-45');">
+      <button id="ngnToolsFab"
+        class="w-12 h-12 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-lg transition-transform active:scale-90 border-2 border-white/20">
         <i class="fas fa-plus"></i>
       </button>
     </div>
@@ -1015,7 +1062,6 @@ $dbAnswersJs = json_encode($dbAnswers);
           </button>
         </div>
         <div class="controls-right flex items-center gap-3">
-
           <button class="btn btn-primary flex items-center gap-2" id="nextBtn" disabled>
             <span>Next</span> <i class="fas fa-chevron-right"></i>
           </button>
@@ -1023,6 +1069,7 @@ $dbAnswersJs = json_encode($dbAnswers);
       </div>
     </div>
   </div>
+
 
 
 
@@ -1132,35 +1179,96 @@ $dbAnswersJs = json_encode($dbAnswers);
 
     let isExiting = false;
 
-    // Security: Detect Tab Switching & Window Focus Loss
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && !isExiting) {
-        window.location.href = 'security_violation.php?reason=tab_switch';
+
+    // ── VIOLATION SHIELD ───────────────────────────────────────────────────────
+    (function () {
+      function examStarted() {
+        if (isExiting) return false;
+        if (typeof startModal !== 'undefined' && startModal.classList.contains('active')) return false;
+        return true;
       }
-    });
 
-    window.addEventListener('blur', () => {
-      // Add a tiny buffer to allow clinical interactions with the question iframes
-      setTimeout(() => {
-        if (isExiting || (typeof startModal !== 'undefined' && startModal.classList.contains('active'))) return;
+      function triggerViolation(reason) {
+        if (!examStarted()) return;
+        if (isExiting) return;
+        isExiting = true;
 
-        // If focus shifted to our own question frame, it's safe
-        if (document.activeElement && document.activeElement.tagName === 'IFRAME') return;
+        // Cover everything immediately before navigating
+        var shield = document.getElementById('secShield');
+        if (shield) shield.style.display = 'flex';
 
-        // Otherwise, they clicked out to another app or screen
-        window.location.href = 'security_violation.php?reason=window_focus_lost';
-      }, 200);
-    });
+        // Blur the iframe so question content is hidden
+        var fr = document.getElementById('questionFrame');
+        if (fr) fr.style.filter = 'blur(20px)';
 
-    // Security: Disable Keyboard Inspection
+        window.location.href = 'security_violation.php?reason=' + reason;
+      }
+
+      // Build shield overlay
+      var shield = document.createElement('div');
+      shield.id = 'secShield';
+      shield.style.cssText = [
+        'display:none',
+        'position:fixed',
+        'inset:0',
+        'z-index:99999',
+        'background:#0f172a',
+        'align-items:center',
+        'justify-content:center',
+        'flex-direction:column',
+        'gap:16px',
+        'user-select:none',
+        '-webkit-user-select:none',
+      ].join(';');
+      shield.innerHTML =
+        '<div style="font-size:56px;line-height:1;">🚫</div>' +
+        '<div style="color:#f87171;font-size:22px;font-weight:800;letter-spacing:-0.5px;">Violation Detected</div>' +
+        '<div style="color:#94a3b8;font-size:14px;text-align:center;max-width:280px;line-height:1.6;">' +
+          'Leaving the exam screen is not allowed.' +
+        '</div>';
+      document.body.appendChild(shield);
+
+      // visibilitychange — pull-down notification, tab switch, screen lock, app switch
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) triggerViolation('tab_switch');
+      });
+    })();
+
+    // Security: Disable Keyboard Shortcuts & DevTools
     document.onkeydown = function (e) {
       if (e.keyCode == 123) return false; // F12
       if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; // Ctrl+Shift+I
       if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; // Ctrl+Shift+C
       if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; // Ctrl+Shift+J
       if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; // Ctrl+U
+      if (e.ctrlKey && e.keyCode == 'C'.charCodeAt(0)) return false; // Ctrl+C copy
+      if (e.ctrlKey && e.keyCode == 'A'.charCodeAt(0)) return false; // Ctrl+A select all
+      if (e.ctrlKey && e.keyCode == 'P'.charCodeAt(0)) return false; // Ctrl+P print
+      if (e.keyCode == 44) return false;  // PrtSc
     };
 
+    // Security: Disable right-click context menu
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+
+    // Security: Disable text selection & copy/paste
+    document.addEventListener('copy', function(e) { e.preventDefault(); });
+    document.addEventListener('cut',  function(e) { e.preventDefault(); });
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+
+    // Security: Disable print
+    window.addEventListener('beforeprint', function(e) { e.preventDefault(); window.stop(); });
+
+    // Security: Detect screenshot attempts on mobile (screen capture API)
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      var origGDM = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getDisplayMedia = function() {
+        if (isExiting) return origGDM.apply(this, arguments);
+        window.location.href = 'security_violation.php?reason=screen_capture';
+        return Promise.reject(new Error('Blocked'));
+      };
+    }
+
+    // Security: Warn on back button (mobile hardware back = popstate)
     // Security: Confirm Termination on Back Button
     (function () {
       window.history.pushState(null, "", window.location.href);
@@ -1169,8 +1277,13 @@ $dbAnswersJs = json_encode($dbAnswers);
         window.history.pushState(null, "", window.location.href);
 
         Swal.fire({
-          title: 'Confirm Exam Termination?',
-          text: 'Using the browser back button is a violation. If you continue, your ongoing progress will be PERMANENTLY DELETED and your exam will be cancelled. To save your progress instead, use the "Continue Later" button.',
+          title: '⚠️ Back Button Detected',
+          html: '<div style="text-align:left;font-size:14px;line-height:1.7;color:#374151;">' +
+            '<b>Using the back button during an exam is a violation.</b><br><br>' +
+            'Your session is still active. You must <b>finish the exam</b> or use ' +
+            '<b>"Continue Later"</b> to save and pause.<br><br>' +
+            '<span style="color:#ef4444;font-weight:700;">Terminating will permanently delete all your answers.</span>' +
+            '</div>',
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#ef4444',
@@ -1274,14 +1387,20 @@ $dbAnswersJs = json_encode($dbAnswers);
     }
 
     function toggleFullScreen() {
+      const el = document.documentElement;
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (req) {
+          try {
+            const p = req.call(el);
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          } catch (e) {}
+        }
         document.getElementById('fullBtn').innerHTML = '<i class="fas fa-compress"></i><span>Size</span>';
       } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-          document.getElementById('fullBtn').innerHTML = '<i class="fas fa-expand"></i><span>Size</span>';
-        }
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+        if (exit) { try { exit.call(document); } catch (e) {} }
+        document.getElementById('fullBtn').innerHTML = '<i class="fas fa-expand"></i><span>Size</span>';
       }
     }
 
@@ -1467,6 +1586,25 @@ $dbAnswersJs = json_encode($dbAnswers);
       // Security: Disable Iframe Keydowns
       innerDoc.onkeydown = document.onkeydown;
 
+      // Block copy/cut/selection inside iframe
+      innerDoc.addEventListener('copy',        e => e.preventDefault());
+      innerDoc.addEventListener('cut',         e => e.preventDefault());
+      innerDoc.addEventListener('selectstart', e => e.preventDefault());
+
+      // Inject user-select:none into iframe body
+      const _wmStyle = innerDoc.createElement('style');
+      _wmStyle.textContent = [
+        'body, p, span, div, li, td, th, label {',
+        '  -webkit-user-select: none !important;',
+        '  user-select: none !important;',
+        '}',
+        'input, textarea {',
+        '  -webkit-user-select: text !important;',
+        '  user-select: text !important;',
+        '}',
+      ].join('\n');
+      (innerDoc.head || innerDoc.body || innerDoc.documentElement).appendChild(_wmStyle);
+
       const q = questionIds[currentQuestion];
       const uid = `${q.type}-${q.id}`;
       const prevResult = userAnswers[uid] || null;
@@ -1493,6 +1631,18 @@ $dbAnswersJs = json_encode($dbAnswers);
       } else {
         pendingPrefill = { type: 'prefill', answer: [], showRationale: false, isReview: false };
         document.getElementById('nextBtn').disabled = true;
+      }
+
+      // ── Send prefill immediately ────────────────────────────────────────────
+      // The parent iframe 'load' fires after the iframe's window.onload, which is
+      // always AFTER the iframe's DOMContentLoaded where jQuery ready (and all
+      // message listeners) are set up. Sending here is reliable; we no longer
+      // need to wait for the iframe's 'ready' signal (kept below as fallback only).
+      if (pendingPrefill) {
+        try {
+          document.getElementById('questionFrame').contentWindow.postMessage(pendingPrefill, '*');
+        } catch(e) {}
+        pendingPrefill = null;
       }
     });
 
@@ -1636,7 +1786,7 @@ $dbAnswersJs = json_encode($dbAnswers);
             await fetch('../mynotes.php', { method: 'POST', body: fd }).catch(() => {});
           }
 
-          window.location.href = 'result.php?examTaken=' + examTaken + '&finish=1';
+          window.location.href = 'result.php?finish=1';
         } catch (err) {
           console.error('Submit exam error:', err);
           Swal.fire('Error', 'Failed to submit exam: ' + err.message, 'error');
@@ -1668,8 +1818,8 @@ $dbAnswersJs = json_encode($dbAnswers);
     agreeFocus.addEventListener('change', validateStart);
 
     startExamBtn.addEventListener('click', () => {
-      // Attempt fullscreen for better security
-      toggleFullScreen();
+      // Attempt fullscreen — wrapped so iOS failure doesn't block exam start
+      try { toggleFullScreen(); } catch (e) {}
 
       startModal.classList.remove('active');
       // Start timing ONLY when they click start
@@ -1694,6 +1844,31 @@ $dbAnswersJs = json_encode($dbAnswers);
       }
     });
   </script>
+<script>
+(function () {
+  if (window.innerWidth > 768) return;
+
+  // Tools FAB
+  var nav = document.getElementById('toolsNav');
+  var fab = document.getElementById('ngnToolsFab');
+  if (fab && nav) {
+    var open = false;
+    fab.addEventListener('click', function () {
+      open = !open;
+      nav.classList.toggle('active', open);
+      fab.style.transform = open ? 'rotate(45deg)' : '';
+    });
+    nav.querySelectorAll('.tool-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        open = false;
+        nav.classList.remove('active');
+        fab.style.transform = '';
+      });
+    });
+  }
+
+})();
+</script>
 </body>
 
 </html>

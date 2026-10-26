@@ -114,135 +114,328 @@ function resolveQuestionTable($questionType) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Review Grid — Attempt #<?php echo htmlspecialchars($examTaken); ?></title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #0f172a; }
-        .data-grid-container { max-height: 70vh; overflow-y: auto; border-radius: 12px; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #0f172a; -webkit-font-smoothing: antialiased; }
+
+        /* ── NAVBAR (exam/result.php style) ── */
+        .hd-navbar {
+            height: 52px; background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex; align-items: center;
+            padding: 0 40px; gap: 10px;
+            position: static;
+        }
+        .hd-brand { display: flex; align-items: center; gap: 8px; text-decoration: none; flex: 1; }
+        .hd-name  { font-size: 13px; font-weight: 700; color: #0f172a; letter-spacing: -.2px; }
+        .hd-sep   { width: 1px; height: 14px; background: #e2e8f0; flex-shrink: 0; }
+        .hd-ctx   { font-size: 11px; font-weight: 500; color: #94a3b8; }
+        .hd-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11.5px; font-weight: 500; color: #64748b;
+            text-decoration: none; padding: 5px 12px;
+            border: 1px solid #e2e8f0; border-radius: 6px;
+            background: #f8fafc; transition: all .15s; white-space: nowrap;
+        }
+        .hd-btn:hover { color: #0078b8; border-color: #bfdbfe; background: #eff6ff; }
+
+        /* ── RESULT HEADER (exam/result.php style) ── */
+        .hd-result-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            border-top: 3px solid #007CBF;
+            padding: 28px 40px 0;
+            animation: fadeUp .3s ease both;
+        }
+        .hd-rh-top { display: flex; align-items: flex-start; gap: 32px; padding-bottom: 24px; flex-wrap: wrap; }
+        .hd-rh-left { flex: 1; min-width: 0; }
+        .hd-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: #94a3b8; margin-bottom: 10px; }
+        .hd-verdict { font-size: 52px; font-weight: 800; letter-spacing: -2.5px; line-height: .95; margin-bottom: 8px; color: #007CBF; }
+        .hd-verdict-sub { font-size: 13px; font-weight: 300; color: #64748b; line-height: 1.6; }
+
+        /* stat strip */
+        .hd-stat-strip {
+            flex-shrink: 0; display: flex; align-items: stretch;
+            border: 1px solid #e2e8f0; border-radius: 10px;
+            overflow: hidden; background: #f8fafc; align-self: center;
+        }
+        .hd-stat-item { padding: 14px 20px; display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+        .hd-stat-item + .hd-stat-item { border-left: 1px solid #e2e8f0; }
+        .hd-stat-val { font-size: 22px; font-weight: 700; letter-spacing: -.5px; color: #0f172a; line-height: 1; }
+        .hd-stat-lbl { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .8px; }
+
+        /* ── SCORE BADGE (replaces doughnut chart) ── */
+        .hd-score-badge {
+            width: 108px; height: 108px; border-radius: 50%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border: 4px solid #3b82f6; background: #eff6ff;
+            flex-shrink: 0;
+        }
+        .hd-score-badge .hd-pct  { font-size: 26px; font-weight: 800; line-height: 1; color: #1d4ed8; }
+        .hd-score-badge .hd-slbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #3b82f6; margin-top: 3px; }
+
+        /* ── CONTENT CARDS (exam/result.php style) ── */
+        .hd-main-card {
+            background: #fff; border: 1px solid #e2e8f0;
+            border-radius: 12px; overflow: hidden;
+        }
+        .hd-main-card-head {
+            padding: 13px 20px; border-bottom: 1px solid #f1f5f9;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .hd-card-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.1px; color: #94a3b8; }
+
+        /* stat tiles for breakdown */
+        .hd-stat-tiles { display: flex; gap: 0; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #f8fafc; }
+        .hd-tile { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+        .hd-tile + .hd-tile { border-left: 1px solid #e2e8f0; }
+        .hd-tile-val { font-size: 22px; font-weight: 700; line-height: 1; }
+        .hd-tile-lbl { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; color: #94a3b8; }
+        .hd-tile-val.green { color: #10b981; }
+        .hd-tile-val.amber { color: #f59e0b; }
+        .hd-tile-val.red   { color: #ef4444; }
+        .hd-tile-val.slate { color: #94a3b8; }
+
+        /* topic mastery grid */
+        .hd-topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+        .hd-topic-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; border-radius: 10px;
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            font-size: 12px;
+        }
+        .hd-topic-name { font-weight: 600; color: #1e293b; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
+        .hd-topic-pct  { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
+
+        /* table */
+        .hd-table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+        .hd-table-head { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; }
+        .data-grid-container { overflow-x: auto; }
+        .data-grid-container table { width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 12.5px; }
+        .data-grid-container thead { background: #f8fafc; position: sticky; top: 0; z-index: 2; }
+        .data-grid-container thead th { padding: 11px 14px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: #94a3b8; border-bottom: 1px solid #e2e8f0; text-align: left; white-space: nowrap; }
+        .data-grid-container tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .1s; }
+        .data-grid-container tbody tr:hover { background: #f8fafc; }
+        .data-grid-container tbody td { padding: 12px 14px; vertical-align: top; color: #334155; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .type-pill { 
-            font-size: 10px; font-weight: 800; text-transform: uppercase; 
-            padding: 2px 8px; border-radius: 100px; display: inline-flex; 
-            align-items: center; border: 1px solid rgba(0,0,0,0.1);
+
+        .type-pill {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            padding: 2px 8px; border-radius: 20px; display: inline-flex;
+            align-items: center; border: 1px solid rgba(0,0,0,0.08);
+            white-space: nowrap;
         }
         #viewModal { display: none; }
+
+        /* ── Text expand modal ── */
+        #textModal {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,.55);
+            backdrop-filter: blur(3px);
+            z-index: 9000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #textModal.open { display: flex; }
+        #textModal-box {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 24px 60px rgba(0,0,0,.22);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: fadeUp .22s ease both;
+        }
+        #textModal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px; border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc; flex-shrink: 0;
+        }
+        #textModal-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: #64748b; }
+        #textModal-close {
+            width: 32px; height: 32px; border-radius: 8px;
+            border: none; background: #e2e8f0; color: #64748b;
+            cursor: pointer; font-size: 18px; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s, color .15s;
+        }
+        #textModal-close:hover { background: #ef4444; color: #fff; }
+        #textModal-body {
+            flex: 1; overflow-y: auto; padding: 20px 24px 28px;
+            font-size: 14px; line-height: 1.8; color: #1e293b;
+            white-space: pre-wrap; word-break: break-word;
+        }
+        /* Truncation helper */
+        .truncate-cell {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .truncate-cell:hover { text-decoration: underline; text-decoration-color: #94a3b8; text-underline-offset: 3px; }
+        .view-text-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            margin-top: 4px; font-size: 10.5px; font-weight: 600;
+            color: #007cbf; cursor: pointer; background: none; border: none;
+            padding: 0; font-family: inherit; white-space: nowrap;
+        }
+        .view-text-btn:hover { text-decoration: underline; }
+
+        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 1024px) {
+            .hd-main-body { padding: 20px 24px 40px !important; }
+        }
+        @media (max-width: 768px) {
+            .hd-navbar { padding: 0 16px; }
+            .hd-result-header { padding: 20px 16px 0; }
+            .hd-verdict { font-size: 28px; letter-spacing: -1px; }
+            .hd-stat-strip { flex-wrap: wrap; }
+            .hd-stat-item { flex: 1 1 auto; min-width: 80px; }
+            .hd-score-badge { width: 84px; height: 84px; }
+            .hd-score-badge .hd-pct { font-size: 20px; }
+            .hd-stat-tiles { flex-wrap: wrap; }
+            .hd-tile { flex: 1 1 40%; }
+            .hd-topic-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+            .hd-main-body { padding: 16px 16px 32px !important; }
+        }
+        @media (max-width: 480px) {
+            .hd-navbar { height: 48px; }
+            .hd-ctx { display: none; }
+            .hd-rh-top { gap: 12px; }
+            .hd-stat-strip { width: 100%; flex-wrap: wrap; }
+            .hd-stat-item { flex: 1 1 50%; }
+            .hd-stat-item:nth-child(3), .hd-stat-item:nth-child(4) { border-top: 1px solid #e2e8f0; }
+            .hd-stat-item:nth-child(even) { border-left: 1px solid #e2e8f0; }
+            .hd-main-body { padding: 12px 12px 24px !important; }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="pb-10">
 
-    <header class="bg-[#0f172a] text-white py-8 px-6 shadow-xl mb-8 relative overflow-hidden">
-        <div class="max-w-[1600px] mx-auto flex justify-between items-center relative z-10">
-            <div>
-                <h1 class="text-2xl font-extrabold tracking-tight">Practice Exam Review</h1>
-                <div class="flex items-center gap-4 mt-1 opacity-70 text-sm font-medium">
-                    <span>Attempt ID: #<?php echo htmlspecialchars($examTaken); ?></span>
-                    <span class="w-1 h-1 rounded-full bg-white/30"></span>
-                    <span>Student: <?php echo htmlspecialchars($display_fullname); ?></span>
-                </div>
+<!-- ── NAVBAR ── -->
+<nav class="hd-navbar">
+    <a href="../index.php" class="hd-brand">
+        <span class="hd-name">Studium</span>
+    </a>
+    <div class="hd-sep"></div>
+    <span class="hd-ctx">Practice Exam Review</span>
+    <a href="../history.php" class="hd-btn" style="margin-left:auto;"><i class="bi bi-arrow-left"></i> Back</a>
+    <a href="../index.php" class="hd-btn"><i class="bi bi-house"></i> Home</a>
+</nav>
+
+<!-- ── RESULT HEADER ── -->
+<div class="hd-result-header">
+    <div class="hd-rh-top">
+        <div class="hd-rh-left">
+            <div class="hd-eyebrow">Practice Exam Review &mdash; Attempt #<?php echo htmlspecialchars($examTaken); ?></div>
+            <div class="hd-verdict"><?php echo htmlspecialchars($display_fullname); ?></div>
+            <div class="hd-verdict-sub">Student No: <?php echo htmlspecialchars($display_student_no); ?></div>
+        </div>
+        <div class="hd-stat-strip">
+            <div class="hd-stat-item">
+                <div class="hd-stat-val"><?php echo $stats['total']; ?></div>
+                <div class="hd-stat-lbl">Questions</div>
             </div>
-            <div class="flex items-center gap-3">
-                <div class="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10">
-                    <span class="text-xs font-bold opacity-60 uppercase tracking-widest block mb-1">Student No</span>
-                    <span class="text-lg font-mono font-bold"><?php echo htmlspecialchars($display_student_no); ?></span>
-                </div>
-                <a href="../history.php" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all border border-white/20 text-sm font-semibold flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                    Back
-                </a>
-                <a href="../index.php" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all border border-white/20 text-sm font-semibold flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                    Home
-                </a>
+            <div class="hd-stat-item">
+                <div class="hd-stat-val"><?php echo round($stats['total_score'], 1); ?></div>
+                <div class="hd-stat-lbl">Score</div>
+            </div>
+            <div class="hd-stat-item">
+                <div class="hd-stat-val"><?php echo $overall_percent; ?>%</div>
+                <div class="hd-stat-lbl">Mastery</div>
             </div>
         </div>
-        <div class="absolute right-0 top-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-    </header>
+    </div>
+</div>
 
-    <main class="max-w-[1600px] mx-auto px-6">
-        
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <!-- Score Card -->
-            <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-                <div class="relative w-28 h-28 mb-4 text-center">
-                    <canvas id="scoreChart"></canvas>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span class="text-2xl font-black text-slate-800 leading-none"><?php echo $overall_percent; ?>%</span>
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Mastery</span>
-                    </div>
+    <main style="max-width:1600px;margin:0 auto;padding:28px 40px 56px;" class="hd-main-body">
+
+        <!-- ── STATS ROW ── -->
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px;">
+
+            <!-- Score badge + total -->
+            <div class="hd-main-card" style="display:flex;align-items:center;gap:20px;padding:22px 28px;flex-shrink:0;">
+                <div class="hd-score-badge" style="border-color:<?php echo $overall_percent >= 75 ? '#10b981' : ($overall_percent >= 50 ? '#f59e0b' : '#ef4444'); ?>;background:<?php echo $overall_percent >= 75 ? '#f0fdf4' : ($overall_percent >= 50 ? '#fffbeb' : '#fef2f2'); ?>;">
+                    <div class="hd-pct" style="color:<?php echo $overall_percent >= 75 ? '#059669' : ($overall_percent >= 50 ? '#d97706' : '#dc2626'); ?>;"><?php echo $overall_percent; ?>%</div>
+                    <div class="hd-slbl" style="color:<?php echo $overall_percent >= 75 ? '#10b981' : ($overall_percent >= 50 ? '#f59e0b' : '#ef4444'); ?>;">Mastery</div>
                 </div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Score</p>
-                <h2 class="text-xl font-bold text-slate-900 leading-none"><?php echo round($stats['total_score'], 1); ?> <span class="text-sm font-semibold text-slate-300">/ <?php echo $stats['total']; ?></span></h2>
+                <div>
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:#94a3b8;margin-bottom:5px;">Total Score</div>
+                    <div style="font-size:28px;font-weight:800;color:#0f172a;line-height:1;"><?php echo round($stats['total_score'], 1); ?> <span style="font-size:14px;font-weight:500;color:#94a3b8;">/ <?php echo $stats['total']; ?></span></div>
+                </div>
             </div>
 
-            <!-- Stats Mini Cards -->
-            <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                <div>
-                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Execution Breakdown</p>
-                    <div class="flex items-center gap-4 mb-6">
-                        <div>
-                            <span class="block text-3xl font-extrabold text-green-500 leading-none"><?php echo $stats['correct']; ?></span>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Perfect</span>
-                        </div>
-                        <div class="w-px h-8 bg-slate-100"></div>
-                        <div>
-                            <span class="block text-3xl font-extrabold text-amber-500 leading-none"><?php echo $stats['partial']; ?></span>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Partial</span>
-                        </div>
-                        <div class="w-px h-8 bg-slate-100"></div>
-                        <div>
-                            <span class="block text-3xl font-extrabold text-red-500 leading-none"><?php echo $stats['wrong']; ?></span>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Wrong</span>
-                        </div>
-                        <div class="w-px h-8 bg-slate-100"></div>
-                        <div>
-                            <span class="block text-3xl font-extrabold text-slate-400 leading-none"><?php echo $stats['omitted']; ?></span>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Omitted</span>
-                        </div>
+            <!-- Execution breakdown -->
+            <div class="hd-main-card" style="flex:1;min-width:280px;">
+                <div class="hd-main-card-head"><span class="hd-card-lbl">Execution Breakdown</span></div>
+                <div style="padding:18px 20px;">
+                    <div class="hd-stat-tiles" style="margin-bottom:14px;">
+                        <div class="hd-tile"><div class="hd-tile-val green"><?php echo $stats['correct']; ?></div><div class="hd-tile-lbl">Perfect</div></div>
+                        <div class="hd-tile"><div class="hd-tile-val amber"><?php echo $stats['partial']; ?></div><div class="hd-tile-lbl">Partial</div></div>
+                        <div class="hd-tile"><div class="hd-tile-val red"><?php echo $stats['wrong']; ?></div><div class="hd-tile-lbl">Wrong</div></div>
+                        <div class="hd-tile"><div class="hd-tile-val slate"><?php echo $stats['omitted']; ?></div><div class="hd-tile-lbl">Omitted</div></div>
                     </div>
                     <?php if ($stats['changes_total'] > 0): ?>
-                    <div class="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                        <span class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Total Answer Changes</span>
-                        <span class="block text-2xl font-extrabold text-amber-600 leading-none mt-1"><?php echo $stats['changes_total']; ?></span>
+                    <div style="margin-bottom:12px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;display:flex;align-items:center;justify-content:space-between;">
+                        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#d97706;">Answer Changes</span>
+                        <span style="font-size:18px;font-weight:800;color:#d97706;"><?php echo $stats['changes_total']; ?></span>
                     </div>
                     <?php endif; ?>
-                </div>
-                <div>
-                  <div class="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
-                      <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['correct']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-green-400 to-green-500"></div>
-                      <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['partial']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-amber-400 to-amber-500 border-l border-white/20"></div>
-                      <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['wrong']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-red-400 to-red-500 border-l border-white/20"></div>
-                      <div style="width: <?php echo ($stats['total'] > 0 ? ($stats['omitted']/$stats['total'])*100 : 0); ?>%" class="bg-gradient-to-r from-slate-300 to-slate-400 border-l border-white/20"></div>
-                  </div>
-                  <p class="text-[10px] font-bold text-slate-400 mt-3 text-center uppercase tracking-tighter">Performance Distribution</p>
+                    <div style="height:6px;background:#f1f5f9;border-radius:4px;overflow:hidden;display:flex;">
+                        <div style="width:<?php echo ($stats['total'] > 0 ? ($stats['correct']/$stats['total'])*100 : 0); ?>%;background:#10b981;"></div>
+                        <div style="width:<?php echo ($stats['total'] > 0 ? ($stats['partial']/$stats['total'])*100 : 0); ?>%;background:#f59e0b;"></div>
+                        <div style="width:<?php echo ($stats['total'] > 0 ? ($stats['wrong']/$stats['total'])*100 : 0); ?>%;background:#ef4444;"></div>
+                        <div style="width:<?php echo ($stats['total'] > 0 ? ($stats['omitted']/$stats['total'])*100 : 0); ?>%;background:#cbd5e1;"></div>
+                    </div>
+                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-align:center;margin-top:6px;text-transform:uppercase;letter-spacing:.6px;">Performance Distribution</div>
                 </div>
             </div>
 
-            <!-- Topic Performance (Text Grid) -->
-            <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 md:col-span-2">
-                <div class="flex justify-between items-center mb-6">
-                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Mastery by Category</p>
-                    <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase"><?php echo count($stats['topics']); ?> Analyzed</span>
+            <!-- Topic mastery -->
+            <div class="hd-main-card" style="flex:2;min-width:300px;">
+                <div class="hd-main-card-head">
+                    <span class="hd-card-lbl">Mastery by Category</span>
+                    <span style="font-size:10px;font-weight:700;color:#3b82f6;background:#eff6ff;padding:2px 8px;border-radius:6px;text-transform:uppercase;"><?php echo count($stats['topics']); ?> Analyzed</span>
                 </div>
-                <div class="grid grid-cols-2 gap-4 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
-                    <?php 
-                    foreach($stats['topics'] as $topic => $tstats): 
-                        $pct = ($tstats['total'] > 0) ? round(($tstats['score'] / $tstats['total']) * 100) : 0;
-                        $colorClass = $pct >= 80 ? 'text-green-600 bg-green-50' : ($pct >= 50 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50');
-                    ?>
-                    <div class="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100/50">
-                        <span class="text-[12px] font-bold text-slate-600 truncate max-w-[70%]" title="<?php echo htmlspecialchars($topic); ?>"><?php echo htmlspecialchars($topic); ?></span>
-                        <span class="text-xs font-black px-2 py-1 rounded-lg <?php echo $colorClass; ?>"><?php echo $pct; ?>%</span>
+                <div style="padding:16px 20px;">
+                    <div class="hd-topic-grid custom-scrollbar" style="max-height:160px;overflow-y:auto;">
+                        <?php foreach($stats['topics'] as $topic => $tstats):
+                            $pct = ($tstats['total'] > 0) ? round(($tstats['score'] / $tstats['total']) * 100) : 0;
+                            $tc  = $pct >= 80 ? '#059669' : ($pct >= 50 ? '#d97706' : '#dc2626');
+                            $tbg = $pct >= 80 ? '#f0fdf4' : ($pct >= 50 ? '#fffbeb' : '#fef2f2');
+                        ?>
+                        <div class="hd-topic-item">
+                            <span class="hd-topic-name" title="<?php echo htmlspecialchars($topic); ?>"><?php echo htmlspecialchars($topic); ?></span>
+                            <span class="hd-topic-pct" style="color:<?php echo $tc; ?>;background:<?php echo $tbg; ?>;"><?php echo $pct; ?>%</span>
+                        </div>
+                        <?php endforeach; ?>
                     </div>
-                    <?php endforeach; ?>
                 </div>
             </div>
+
         </div>
 
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="data-grid-container custom-scrollbar overflow-x-auto">
+        <!-- ── QUESTION TABLE ── -->
+        <div class="hd-table-wrap">
+            <div class="hd-table-head">
+                <span class="hd-card-lbl">Question-by-Question Review</span>
+            </div>
+            <div class="data-grid-container custom-scrollbar">
                 <table class="w-full text-left border-collapse min-w-[1200px]">
                     <thead class="bg-slate-50 sticky top-0 z-10">
                         <tr class="text-[11px] uppercase tracking-widest text-slate-500 font-bold border-b border-slate-200">
@@ -344,40 +537,65 @@ if (count($results) > 0):
                                 </div>
                             </td>
                             <td class="p-4">
-                                <div class="leading-relaxed text-slate-800 font-semibold line-clamp-3" title="<?php echo htmlspecialchars($displayQuestion); ?>">
-                                    <?php echo htmlspecialchars($displayQuestion); ?>
+                                <?php $qPreview = mb_strimwidth(strip_tags($displayQuestion), 0, 120, '…'); ?>
+                                <div class="leading-relaxed text-slate-800 font-semibold truncate-cell"
+                                     onclick="openTextModal('Question Detail', <?php echo htmlspecialchars(json_encode($displayQuestion), ENT_QUOTES); ?>)">
+                                    <?php echo htmlspecialchars($qPreview); ?>
                                 </div>
+                                <?php if (mb_strlen(strip_tags($displayQuestion)) > 120): ?>
+                                <button class="view-text-btn" onclick="openTextModal('Question Detail', <?php echo htmlspecialchars(json_encode($displayQuestion), ENT_QUOTES); ?>)">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View full
+                                </button>
+                                <?php endif; ?>
                             </td>
                             <td class="p-4">
                                 <span class="block font-bold text-[#0f172a]"><?php echo htmlspecialchars($row['topic'] ?: 'General'); ?></span>
                                 <span class="block text-[10px] text-slate-400 font-medium uppercase mt-1">CNC: <?php echo htmlspecialchars($displayCNC); ?></span>
                             </td>
                             <td class="p-4">
-                                <div class="p-2.5 rounded-xl border <?php echo $isPerfect ? 'bg-green-50 border-green-100 text-green-800' : 'bg-slate-50 border-slate-100 text-slate-600'; ?> font-semibold text-[12px] break-words">
-                                    <?php echo $uAnsDisplay; ?>
+                                <?php $uAnsText = strip_tags(str_replace('<br>', "\n", $uAnsDisplay)); $uPreview = mb_strimwidth($uAnsText, 0, 100, '…'); ?>
+                                <div class="p-2.5 rounded-xl border <?php echo $isPerfect ? 'bg-green-50 border-green-100 text-green-800' : 'bg-slate-50 border-slate-100 text-slate-600'; ?> font-semibold text-[12px]">
+                                    <div class="truncate-cell" onclick="openTextModal('Your Answer', <?php echo htmlspecialchars(json_encode($uAnsText), ENT_QUOTES); ?>)"><?php echo htmlspecialchars($uPreview); ?></div>
+                                    <?php if (mb_strlen($uAnsText) > 100): ?>
+                                    <button class="view-text-btn" onclick="openTextModal('Your Answer', <?php echo htmlspecialchars(json_encode($uAnsText), ENT_QUOTES); ?>)">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View full
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                             <td class="p-4">
                                 <?php if ($initialAnsRaw && $changesData && $changesData['changed']): ?>
-                                    <div class="p-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 font-semibold text-[12px] break-words" style="text-decoration: line-through; opacity: 0.8;">
+                                    <?php $initText = strip_tags(str_replace('<br>', "\n", $formatAns($initialAnsRaw))); $initPreview = mb_strimwidth($initText, 0, 80, '…'); ?>
+                                    <div class="p-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 font-semibold text-[12px]">
                                         <div class="text-[10px] font-bold uppercase text-amber-600 mb-1">Initial Answer:</div>
-                                        <?php echo $formatAns($initialAnsRaw); ?>
+                                        <div class="truncate-cell" style="text-decoration:line-through;opacity:.8;" onclick="openTextModal('Initial Answer', <?php echo htmlspecialchars(json_encode($initText), ENT_QUOTES); ?>)"><?php echo htmlspecialchars($initPreview); ?></div>
                                     </div>
                                 <?php else: ?>
-                                    <div class="p-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 font-semibold text-[12px] text-center">
-                                        —
-                                    </div>
+                                    <div class="p-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 font-semibold text-[12px] text-center">—</div>
                                 <?php endif; ?>
                             </td>
                             <td class="p-4">
-                                <div class="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-800 font-bold text-[12px] break-words">
-                                    <?php echo $cAnsDisplay; ?>
+                                <?php $cAnsText = strip_tags(str_replace('<br>', "\n", $cAnsDisplay)); $cPreview = mb_strimwidth($cAnsText, 0, 100, '…'); ?>
+                                <div class="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-800 font-bold text-[12px]">
+                                    <div class="truncate-cell" onclick="openTextModal('Correct Answer', <?php echo htmlspecialchars(json_encode($cAnsText), ENT_QUOTES); ?>)"><?php echo htmlspecialchars($cPreview); ?></div>
+                                    <?php if (mb_strlen($cAnsText) > 100): ?>
+                                    <button class="view-text-btn" onclick="openTextModal('Correct Answer', <?php echo htmlspecialchars(json_encode($cAnsText), ENT_QUOTES); ?>)">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View full
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                             <td class="p-4">
-                                <div class="text-slate-500 text-[12px] leading-relaxed italic" title="<?php echo htmlspecialchars($displayRationale); ?>">
-                                    <?php echo nl2br(htmlspecialchars($displayRationale, ENT_QUOTES, 'UTF-8')); ?>
+                                <?php $ratPreview = mb_strimwidth($displayRationale, 0, 120, '…'); ?>
+                                <div class="text-slate-500 text-[12px] leading-relaxed italic truncate-cell"
+                                     onclick="openTextModal('Rationale', <?php echo htmlspecialchars(json_encode($displayRationale), ENT_QUOTES); ?>)">
+                                    <?php echo htmlspecialchars($ratPreview); ?>
                                 </div>
+                                <?php if (mb_strlen($displayRationale) > 120): ?>
+                                <button class="view-text-btn" onclick="openTextModal('Rationale', <?php echo htmlspecialchars(json_encode($displayRationale), ENT_QUOTES); ?>)">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View full
+                                </button>
+                                <?php endif; ?>
                             </td>
                             <td class="p-4 text-center">
                                 <button class="btn-view inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
@@ -436,6 +654,33 @@ endif; ?>
         </div>
     </div>
 
+    <!-- ── Text Content Modal ── -->
+    <div id="textModal" role="dialog" aria-modal="true" aria-labelledby="textModal-title" onclick="if(event.target===this)closeTextModal()">
+        <div id="textModal-box">
+            <div id="textModal-header">
+                <span id="textModal-title">Content</span>
+                <button id="textModal-close" onclick="closeTextModal()" aria-label="Close">&times;</button>
+            </div>
+            <div id="textModal-body"></div>
+        </div>
+    </div>
+
+    <script>
+    function openTextModal(title, content) {
+        document.getElementById('textModal-title').textContent = title;
+        document.getElementById('textModal-body').textContent = content;
+        document.getElementById('textModal').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeTextModal() {
+        document.getElementById('textModal').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeTextModal();
+    });
+    </script>
+
     <script>
     let currentPayload = null;
     function viewQuestion(payload) {
@@ -473,17 +718,6 @@ endif; ?>
         }
     });
 
-    new Chart(document.getElementById('scoreChart'), {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [<?php echo $overall_percent; ?>, <?php echo max(0, 100 - $overall_percent); ?>],
-                backgroundColor: ['#3b82f6', '#f1f5f9'],
-                borderWidth: 0, cutout: '85%', borderRadius: 10
-            }]
-        },
-        options: { plugins: { legend: { display: false }, tooltip: { enabled: false } } }
-    });
     </script>
 </body>
 </html>

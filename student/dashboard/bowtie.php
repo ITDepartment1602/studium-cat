@@ -60,12 +60,20 @@ $correctAnswers = [
             'potentialConditions' => 'Condition Most Likely Experiencing',
             'parametersToMonitor' => 'Parameter to Monitor'
         ];
+        // Color-coded option types: Actions (#F7DD7D), Condition (#6EADBC), Parameters (#F1F7D4)
+        $columnColors = [
+            'actionsToTake'       => ['accent' => '#e3c354', 'head' => '#8A6D1B', 'tint' => '#fdf6e0'],
+            'potentialConditions' => ['accent' => '#6EADBC', 'head' => '#3F8294', 'tint' => '#eff8fa'],
+            'parametersToMonitor' => ['accent' => '#c5d27a', 'head' => '#7E8C2F', 'tint' => '#f8fbe9'],
+        ];
         foreach($columns as $key => $label):
+            $cc = $columnColors[$key];
         ?>
-            <div class="bg-white p-4 rounded shadow">
-                <h3 class="font-semibold mb-2"><?php echo $label; ?></h3>
+            <div class="bg-white p-4 rounded shadow" style="border-top:4px solid <?php echo $cc['accent']; ?>">
+                <h3 class="font-semibold mb-2" style="color:<?php echo $cc['head']; ?>"><?php echo $label; ?></h3>
                 <ul id="<?php echo $key; ?>"
-                    class="dropzone min-h-[150px] border-2 border-dashed border-gray-300 p-2 rounded"
+                    class="dropzone min-h-[150px] border-2 border-dashed p-2 rounded"
+                    style="border-color:<?php echo $cc['accent']; ?>;background:<?php echo $cc['tint']; ?>"
                     data-column="<?php echo $key; ?>">
                 </ul>
             </div>
@@ -87,8 +95,10 @@ $correctAnswers = [
                         }
                     }
                 ?>
-                <li class="draggable bg-gray-200 p-2 rounded cursor-move"
+                <?php $chip = isset($columnColors[$columnType]) ? $columnColors[$columnType] : ['accent' => '#d9b441', 'head' => '#5c4a13', 'tint' => '#F7DD7D']; ?>
+                <li class="draggable p-2 rounded cursor-move"
                     draggable="true"
+                    style="background:<?php echo $chip['tint']; ?>;border:1px solid <?php echo $chip['accent']; ?>;color:<?php echo $chip['head']; ?>"
                     data-column="<?php echo $columnType; ?>">
                     <?php echo htmlspecialchars($ans); ?>
                 </li>

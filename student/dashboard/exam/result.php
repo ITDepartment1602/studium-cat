@@ -1,5 +1,6 @@
 <?php
 require_once '../../../config.php';
+date_default_timezone_set('Asia/Manila');
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . BASE_URL . 'index.php');
@@ -94,6 +95,35 @@ if (!$isPassed) {
         );
     }
 }
+
+// Omitted-question stats — see student/dashboard/exam/index.php for MIN_ITEMS/MAX_ITEMS source of truth
+$TARGET_TOTAL_PHP = 30;     // keep in sync with $TARGET_TOTAL in exam/index.php
+$IS_DEV_MODE_PHP  = true;   // keep in sync with IS_DEV_MODE in exam/index.php
+$MIN_ITEMS_PHP = $IS_DEV_MODE_PHP ? 10 : 85;
+$MAX_ITEMS_PHP = $TARGET_TOTAL_PHP;
+
+$omitStats = db()->fetchOne(
+    "SELECT COUNT(*) AS total, COALESCE(SUM(omitted), 0) AS omitted_count
+     FROM exammoderesults WHERE student_id = ? AND examTaken = ?",
+    [$student_id, $examTaken]
+);
+$omittedCount = intval($omitStats['omitted_count'] ?? 0);
+$omissionRate = $totalItems > 0 ? round(($omittedCount / $totalItems) * 100, 1) : 0.0;
+
+$omittedNumbers = [];
+if ($omittedCount > 0) {
+    $omittedRows = db()->fetchAll(
+        "SELECT question_number FROM exammoderesults
+         WHERE student_id = ? AND examTaken = ? AND omitted = 1
+         ORDER BY question_number ASC",
+        [$student_id, $examTaken]
+    );
+    $omittedNumbers = array_map(fn($r) => intval($r['question_number']), $omittedRows);
+}
+
+$endedAtMinimum         = $totalItems === $MIN_ITEMS_PHP;
+$continuedBeyondMinimum = $totalItems > $MIN_ITEMS_PHP && $totalItems < $MAX_ITEMS_PHP;
+$reachedMaximum         = $totalItems >= $MAX_ITEMS_PHP;
 
 function getCprLabel(float $ratio): array {
     if ($ratio >= 0.65) return ['label' => 'Above Passing Standard', 'class' => 'above'];
@@ -326,6 +356,16 @@ function getCprLabel(float $ratio): array {
     .cpr-fill.below { background: #ef4444; }
     .cpr-count { font-size: 10.5px; color: #94a3b8; }
 
+    /* omission card */
+    .omit-card { margin-bottom: 20px; }
+    .omit-stats { display: flex; gap: 24px; flex-wrap: wrap; padding: 18px 22px; }
+    .omit-stat-val { font-size: 22px; font-weight: 700; color: #0f172a; }
+    .omit-stat-lbl { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .8px; margin-top: 2px; }
+    .omit-numbers { padding: 0 22px 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .omit-chip { font-size: 11px; font-weight: 600; color: #b91c1c; background: #fee2e2; border-radius: 5px; padding: 3px 9px; }
+    .stop-point { padding: 0 22px 18px; font-size: 12.5px; color: #475569; line-height: 1.7; }
+    .stop-point strong { color: #0f172a; }
+
     /* notice */
     .notice {
       margin-top: 32px; padding-top: 18px;
@@ -349,20 +389,49 @@ function getCprLabel(float $ratio): array {
       .stat-item  { flex: 1; min-width: 0; }
     }
     @media (max-width: 768px) {
-      .navbar        { padding: 0 20px; }
-      .result-header { padding: 24px 20px 0; }
-      .result-body   { padding: 20px 20px 48px; }
-      .verdict       { font-size: 52px; letter-spacing: -2.5px; }
-      .body-wrap     { flex-direction: column; }
-      .side-col      { flex: none; width: 100%; position: static; flex-direction: row; flex-wrap: wrap; gap: 10px; }
-      .side-card     { flex: 1 1 260px; }
+      body           { overflow-x: hidden; }
+      .navbar        { padding: 0 14px; height: 48px; }
+      .nb-name       { font-size: 12px; }
+      .nb-ctx        { font-size: 10px; }
+      .nb-btn        { font-size: 10.5px; padding: 4px 9px; }
+      .result-header { padding: 22px 16px 0; }
+      .result-body   { padding: 18px 16px 44px; }
+      .eyebrow       { font-size: 9px; }
+      .verdict       { font-size: 48px; letter-spacing: -2px; }
+      .verdict-sub   { font-size: 12.5px; }
+      .body-wrap     { flex-direction: column; gap: 14px; }
+      .side-col      { flex: none; width: 100%; position: static; flex-direction: column; gap: 10px; }
+      .side-card     { flex: none; width: 100%; }
+      .main-card-head { padding: 12px 16px; }
+      .main-card-body { padding: 18px 16px; }
+      .intro         { font-size: 12.5px; }
+      .step          { gap: 12px; padding: 13px 0; }
+      .step-title    { font-size: 12.5px; }
+      .step-desc     { font-size: 12px; }
+      .cpr-area      { font-size: 12.5px; }
+      .cpr-pct       { font-size: 11.5px; }
+      .cpr-badge     { font-size: 9px; padding: 2px 7px; }
+      .rh-tab        { font-size: 11px; padding: 9px 14px; }
     }
     @media (max-width: 480px) {
-      .verdict    { font-size: 42px; letter-spacing: -2px; }
-      .stat-strip { flex-wrap: wrap; }
-      .stat-item  { flex: 1 1 50%; }
-      .side-col   { flex-direction: column; }
-      .side-card  { flex: none; }
+      .navbar        { padding: 0 10px; }
+      .nb-ctx        { display: none; }
+      .result-header { padding: 18px 12px 0; }
+      .result-body   { padding: 14px 12px 36px; }
+      .verdict       { font-size: 38px; letter-spacing: -1.5px; }
+      .verdict-sub   { font-size: 12px; line-height: 1.5; }
+      .stat-strip    { flex-wrap: wrap; width: 100%; }
+      .stat-item     { flex: 1 1 50%; min-width: 0; padding: 12px 14px; }
+      .stat-item + .stat-item { border-left: none; }
+      .stat-item:nth-child(2), .stat-item:nth-child(4) { border-left: 1px solid #e2e8f0; }
+      .stat-item:nth-child(3), .stat-item:nth-child(4) { border-top: 1px solid #e2e8f0; }
+      .stat-val      { font-size: 20px; }
+      .stat-lbl      { font-size: 9px; }
+      .rh-tabs       { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .rh-tab        { white-space: nowrap; flex-shrink: 0; }
+      .cpr-top       { flex-wrap: wrap; gap: 6px; }
+      .cpr-area      { flex: 1 1 100%; }
+      .cpr-right     { width: 100%; justify-content: space-between; }
     }
   </style>
 </head>
@@ -420,6 +489,36 @@ function getCprLabel(float $ratio): array {
 
 <!-- BODY -->
 <div class="result-body">
+
+  <div class="main-card omit-card">
+    <div class="main-card-head">
+      <span class="main-card-lbl">Omitted Questions &amp; Exam Stop Point</span>
+    </div>
+    <div class="omit-stats">
+      <div><div class="omit-stat-val"><?= $omittedCount ?></div><div class="omit-stat-lbl">Total Omitted</div></div>
+      <div><div class="omit-stat-val"><?= $omissionRate ?>%</div><div class="omit-stat-lbl">Omission Rate</div></div>
+      <div><div class="omit-stat-val"><?= $totalItems ?> / <?= $MAX_ITEMS_PHP ?></div><div class="omit-stat-lbl">Items Delivered</div></div>
+    </div>
+    <?php if (!empty($omittedNumbers)): ?>
+    <div class="omit-numbers">
+      <?php foreach ($omittedNumbers as $n): ?>
+        <span class="omit-chip">Q<?= $n ?> — OMITTED</span>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+    <div class="stop-point">
+      <?php if ($endedAtMinimum): ?>
+        Exam stopped at the <strong>minimum item threshold (<?= $MIN_ITEMS_PHP ?>)</strong> — the adaptive engine reached a confident pass/fail determination at the earliest possible point.
+      <?php elseif ($continuedBeyondMinimum): ?>
+        Exam <strong>continued beyond the minimum threshold (<?= $MIN_ITEMS_PHP ?>)</strong> and stopped at item <strong><?= $totalItems ?></strong> — additional questions were needed before the engine was confident enough to make a final determination.
+      <?php elseif ($reachedMaximum): ?>
+        Exam <strong>reached the maximum item limit (<?= $MAX_ITEMS_PHP ?>)</strong> without an earlier confident determination — the final result uses the ability estimate from all items answered.
+      <?php else: ?>
+        Exam ended at item <strong><?= $totalItems ?></strong> (below the minimum threshold of <?= $MIN_ITEMS_PHP ?>).
+      <?php endif; ?>
+    </div>
+  </div>
+
   <div class="body-wrap">
 
     <?php if ($isPassed): ?>
@@ -552,8 +651,8 @@ function getCprLabel(float $ratio): array {
     <script>
     document.addEventListener('DOMContentLoaded', function () {
       requestAnimationFrame(function () {
-        document.querySelectorAll('.cpr-fill[data-w]').forEach(function (el) {
-          var d = parseInt(el.dataset.w > 0 ? el.style.transitionDelay : 0) || 0;
+        document.querySelectorAll('.cpr-fill[data-w]').forEach(function (el, i) {
+          var d = i * 80;
           setTimeout(function () { el.style.width = el.dataset.w + '%'; }, d + 120);
         });
       });
