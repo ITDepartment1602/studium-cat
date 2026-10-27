@@ -346,6 +346,10 @@ if (isset($con)) {
     _addColIfMissing($con, 'temporary_exam_state', 'irt_sem',             'FLOAT DEFAULT 1.0');
     _addColIfMissing($con, 'temporary_exam_state', 'irt_history',         'LONGTEXT DEFAULT NULL');
 
+    // 6.4d — login.tutorial: NULL = welcome tutorial not finished yet (shown on Home);
+    // tutorial_complete.php sets it to 1. Without this column the tutorial shows on every reload.
+    _addColIfMissing($con, 'login', 'tutorial', 'TINYINT(1) DEFAULT NULL');
+
     // 6.4c — email_sent_status: records which students have already been sent
     // their access email.  Created here rather than only in admin/import_csv.php
     // because it_admin.php, access_history.php, send_email.php and
