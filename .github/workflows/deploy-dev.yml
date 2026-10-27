@@ -8,13 +8,32 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
+    # Block the deploy if any PHP file has a syntax error, so a broken file
+    # never reaches dev.studium.cat. Each failure shows as an annotation.
+    - name: PHP syntax check
+      shell: bash
+      run: |
+        php -v | head -1
+        status=0
+        while IFS= read -r -d '' f; do
+          if ! out=$(php -l "$f" 2>&1); then
+            echo "::error file=${f#./}::${out//$'\n'/ }"
+            status=1
+          fi
+        done < <(find . -name '*.php' -not -path './node_modules/*' -not -path './vendor/*' -print0)
+        exit $status
+
+    # Hostinger FTP sometimes resets the data connection (ECONNRESET);
+    # the action resumes from its sync-state file, so one retry is safe.
     - name: Deploy to Hostinger
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      id: deploy1
+      continue-on-error: true
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
@@ -39,6 +58,11 @@ jobs:
           **/node_modules/**
           **/vendor
           **/vendor/**
-    
+
+    - name: Deploy to Hostinger (retry)
+      if: steps.deploy1.outcome == 'failure'
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with: *ftp
+
     - name: Deployment complete
       run: echo "✅ Deployed to https://dev.studium.cat/"
