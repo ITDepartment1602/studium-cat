@@ -3,11 +3,23 @@ include("count.php");
 $count = new count;
 include('../config.php');
 
+// Form date value → DB value; empty, zero or the 1970 epoch placeholder becomes NULL.
+function formDateOrNull($value) {
+    $value = str_replace('T', ' ', trim((string)$value));
+    return ($value === '' || $value < '1000-01-01' || strpos($value, '1970-01-01') === 0) ? null : $value;
+}
+
+// DB date value → form input value ('' when NULL/zero, so the browser never shows 1970).
+function dateForInput($value, $format) {
+    return ((string)$value >= '1000-01-01') ? date($format, strtotime($value)) : '';
+}
+
 if (count($_POST) > 0) {
-    $bundle_name = implode(",", $_POST['bundle_name']);
-    $subMonth    = !empty($_POST['subMonth']) ? $_POST['subMonth'] : null;
-    $dateexpired = $_POST['dateexpired'];
-    if (empty($dateexpired) || $dateexpired === '0000-00-00 00:00:00') $dateexpired = null;
+    $bundle_name  = implode(",", $_POST['bundle_name']);
+    $subMonth     = !empty($_POST['subMonth']) ? $_POST['subMonth'] : null;
+    $dateexpired  = formDateOrNull($_POST['dateexpired'] ?? '');
+    $dateenrolled = formDateOrNull($_POST['dateenrolled'] ?? '');
+    $access_date  = formDateOrNull($_POST['access_date'] ?? '');
 
     $query = "UPDATE login SET
         studentnumber = ?,
@@ -16,6 +28,7 @@ if (count($_POST) > 0) {
         groupname     = ?,
         dateexpired   = ?,
         dateenrolled  = ?,
+        access_date   = ?,
         subMonth      = ?,
         password      = ?,
         email         = ?
@@ -24,9 +37,9 @@ if (count($_POST) > 0) {
     $sid = intval($_POST['id']);
     $stmt = mysqli_prepare($con, $query);
     mysqli_stmt_bind_param(
-        $stmt, 'sssssssssi',
+        $stmt, 'ssssssssssi',
         $_POST['studentnumber'], $_POST['fullname'], $bundle_name, $_POST['groupname'],
-        $dateexpired, $_POST['dateenrolled'], $subMonth, $_POST['password'], $_POST['email'], $sid
+        $dateexpired, $dateenrolled, $access_date, $subMonth, $_POST['password'], $_POST['email'], $sid
     );
     mysqli_stmt_execute($stmt);
     $message = 'Record updated successfully.';
@@ -105,14 +118,22 @@ require_once 'partials/sidebar.php';
         <div class="ap-form-group">
           <label class="ap-form-label">Date Expired</label>
           <input type="datetime-local" name="dateexpired" class="ap-form-input"
-            value="<?= date('Y-m-d\TH:i', strtotime($row['dateexpired'])) ?>">
-          <small style="color:var(--ap-text-muted);font-size:0.72rem;">1970-01-01 08:00 AM is treated as NULL</small>
+            value="<?= dateForInput($row['dateexpired'], 'Y-m-d\TH:i') ?>">
+          <small style="color:var(--ap-text-muted);font-size:0.72rem;">Leave empty for NULL (not yet activated)</small>
         </div>
 
         <div class="ap-form-group">
           <label class="ap-form-label">Date Enrolled</label>
-          <input type="datetime-local" name="dateenrolled" class="ap-form-input"
-            value="<?= date('Y-m-d\TH:i', strtotime($row['dateenrolled'])) ?>">
+          <input type="date" name="dateenrolled" class="ap-form-input"
+            value="<?= dateForInput($row['dateenrolled'], 'Y-m-d') ?>">
+          <small style="color:var(--ap-text-muted);font-size:0.72rem;">Date the enrollment fee was paid. Leave empty for NULL</small>
+        </div>
+
+        <div class="ap-form-group">
+          <label class="ap-form-label">Access Date</label>
+          <input type="datetime-local" name="access_date" class="ap-form-input"
+            value="<?= dateForInput($row['access_date'] ?? null, 'Y-m-d\TH:i') ?>">
+          <small style="color:var(--ap-text-muted);font-size:0.72rem;">When the account was created and access was given. Leave empty for NULL</small>
         </div>
 
         <div class="ap-form-group">

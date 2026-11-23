@@ -108,11 +108,15 @@ $ap_extra_head = '
   .btq-row{display:flex;align-items:center;gap:8px;}
   .btq-row input[type=text]{flex:1;min-width:0;}
   @media(max-width:900px){.qp-grid{grid-template-columns:1fr;}.qp-sticky{position:static;}}
-</style>';
+</style>
+<link rel="stylesheet" href="device_preview.css">';
 $ap_topbar_actions = '
 <a href="list.php?type='.urlencode($type).'" class="ap-btn ap-btn-ghost ap-btn-sm">
   <i class="bi bi-arrow-left"></i> Back to list
 </a>
+<button type="button" class="ap-btn ap-btn-ghost ap-btn-sm" onclick="previewForm()">
+  <i class="bi bi-eye"></i> Preview
+</button>
 <button form="qForm" type="submit" class="ap-btn ap-btn-primary ap-btn-sm">
   <i class="bi bi-check-lg"></i> '.($isEdit ? 'Update' : 'Save').' Question
 </button>';
@@ -407,6 +411,9 @@ $qt = $q; // the question data array
     <!-- Bottom submit (convenience for long forms) -->
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px;">
       <a href="list.php?type=<?= urlencode($type) ?>" class="ap-btn ap-btn-ghost ap-btn-sm">Cancel</a>
+      <button type="button" class="ap-btn ap-btn-ghost ap-btn-sm" onclick="previewForm()">
+        <i class="bi bi-eye"></i> Preview
+      </button>
       <button form="qForm" type="submit" class="ap-btn ap-btn-primary ap-btn-sm">
         <i class="bi bi-check-lg"></i> <?= $isEdit ? 'Update' : 'Save' ?> Question
       </button>
@@ -487,6 +494,7 @@ $qt = $q; // the question data array
 </div><!-- /qp-grid -->
 </form>
 
+<script src="device_preview.js"></script>
 <script>
 /* ── Dynamic row helpers ── */
 function removeRow(btn) { btn.closest('.dyn-row,.btq-row').remove(); }
@@ -549,7 +557,7 @@ function buildMatrix() {
 }
 
 /* ── Pre-submit: encode JSON fields ── */
-document.getElementById('qForm').addEventListener('submit', function() {
+function encodeJsonFields() {
   <?php if ($type==='sata'): ?>
   const items = [...document.querySelectorAll('#sataList input[type=text]')].map(i=>i.value);
   const chk   = [...document.querySelectorAll('#sataList input[type=checkbox]')].map((cb,i)=>cb.checked?i:null).filter(v=>v!==null);
@@ -578,7 +586,24 @@ document.getElementById('qForm').addEventListener('submit', function() {
     document.getElementById(`${key}_json`).value=JSON.stringify(data);
   });
   <?php endif; ?>
-});
+}
+document.getElementById('qForm').addEventListener('submit', encodeJsonFields);
+
+/* ── Student preview: sends the form down the same path as Save, and stores nothing ── */
+function previewForm() {
+  const form = document.getElementById('qForm');
+  const pickedImage = form.elements.image && form.elements.image.files.length > 0;
+  DevicePreview.open([{
+    note: pickedImage ? 'The new image is only shown after you save the question.' : '',
+    load() {
+      encodeJsonFields();
+      const data = new FormData(form);
+      data.set('action', 'preview');
+      data.delete('image');
+      return DevicePreview.request('qaction.php', { method: 'POST', body: data });
+    }
+  }], 0);
+}
 
 /* ── Init MMR matrix with existing data (edit mode) ── */
 <?php if ($type==='mmr' && $isEdit): ?>

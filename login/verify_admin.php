@@ -130,10 +130,5 @@ if (isset($_POST['verify_btn'])) {
     </div>
     <br><br><br><br><br>
     <?php include "../student/dashboard/footer.php"; ?>
-
-  
 </body>
 </html>
-
-
-

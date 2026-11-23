@@ -73,7 +73,7 @@ $pageTitle = 'My Notes — Studium';
   <?php else: ?>
   <div class="row g-3 mb-5">
     <?php foreach ($notes as $note):
-      $fmtDate = date('M d, Y · h:i A', strtotime($note['date_time']));
+      $fmtDate = date('M d, Y', strtotime($note['date_time']));
       $safeTitle   = htmlspecialchars($note['note_title'], ENT_QUOTES, 'UTF-8');
       $safeContent = htmlspecialchars($note['note'],       ENT_QUOTES, 'UTF-8');
     ?>

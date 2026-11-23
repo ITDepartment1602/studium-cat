@@ -25,9 +25,32 @@ function formatGroupStudent($value) {
     return $value ?: "Unassigned";
 }
 
+// Index of a CSV header column by name (case-insensitive, ignores a UTF-8 BOM), or null.
+function csvColumnIndex($header, $name) {
+    if (!is_array($header)) return null;
+    foreach ($header as $i => $col) {
+        if (strtolower(trim(preg_replace('/^\xEF\xBB\xBF/', '', (string)$col))) === $name) return $i;
+    }
+    return null;
+}
+
+// CSV date_enroll ("Y-m-d", optionally with a time part) → "Y-m-d", or null if empty/invalid.
+function parseEnrollDate($value) {
+    $day = substr(trim((string)$value), 0, 10);
+    $d   = DateTime::createFromFormat('!Y-m-d', $day);
+    return ($d && $d->format('Y-m-d') === $day && $day >= '2000-01-01') ? $day : null;
+}
+
 $file   = $_FILES['csvFile']['tmp_name'];
 $handle = fopen($file, 'r');
-fgetcsv($handle); // skip header
+$enrollCol = csvColumnIndex(fgetcsv($handle), 'date_enroll');
+if ($enrollCol === null) {
+    // Old CSV format: importing it would store the import time as the enrollment date.
+    fclose($handle);
+    $msg = 'Old CSV format: no date_enroll column, so nothing was imported. Re-download the CSV from the CSV Maker and import that file.';
+    header('Location: import_csv.php?import=error&msg=' . urlencode($msg));
+    exit;
+}
 
 // Ensure today's tally exists
 if (!tally_read()) {
@@ -38,12 +61,13 @@ if (!tally_read()) {
 
 $sql = "INSERT INTO login (
     studentnumber, fullname, bundle_name, groupname,
-    dateenrolled, dateexpired, subMonth, type,
+    dateenrolled, access_date, dateexpired, subMonth, type,
     email, password, status, loginstatus, lastlogin, examTaken
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 $stmt = $con->prepare($sql);
-$rowCount = 0;
+$rowCount      = 0;
+$fallbackCount = 0; // imported rows whose date_enroll was empty/invalid
 
 $batch = [
     'added_1month'       => 0,
@@ -63,7 +87,9 @@ while (($data = fgetcsv($handle)) !== FALSE) {
     $bundle_name   = $data[3];
     $rawGroup      = trim($data[4]);
     $groupname     = formatGroupStudent($rawGroup);
-    $dateenrolled  = date('Y-m-d H:i:s');
+    $dateenrolled  = parseEnrollDate($data[$enrollCol] ?? '');
+    $usedFallback  = ($dateenrolled === null);
+    if ($usedFallback) $dateenrolled = date('Y-m-d');
     $dateexpired   = null;
     $subMonth      = $data[5];
     $type          = null;
@@ -83,6 +109,7 @@ while (($data = fgetcsv($handle)) !== FALSE) {
 
     if ($stmt->execute()) {
         $rowCount++;
+        if ($usedFallback) $fallbackCount++;
         $isFree = stripos($groupname, 'FREE') !== false;
         $months = (int)$subMonth;
         if ($isFree) {
@@ -104,6 +131,6 @@ $stmt->close();
 if ($rowCount > 0) tally_increment($batch);
 mysqli_close($con);
 
-header("Location: import_csv.php?import=success&rows=$rowCount");
+header("Location: import_csv.php?import=success&rows=$rowCount&fallback=$fallbackCount");
 exit;
 ?>

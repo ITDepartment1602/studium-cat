@@ -1,5 +1,6 @@
 ﻿<?php
 require_once '../../../../config.php';
+require_once '../../../../includes/question_preview.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 function table_exists($con, $table) {
@@ -57,6 +58,7 @@ foreach (['dropdown', 'dropdown_questions'] as $tbl) {
     }
 }
 
+$data = questionPreviewRow('dropdown') ?? $data; // admin preview of an unsaved question
 if (!$data) {
     die('<div style="font-family: Inter, sans-serif; padding: 24px;">No dropdown question found.</div>');
 }

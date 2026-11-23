@@ -15,6 +15,7 @@ $ap_title   = 'Import Questions — ' . $typeLabel;
 $ap_extra_head = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="device_preview.css">
 <style>
   .ji-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;padding:0 20px 30px;}
   @media(max-width:1050px){.ji-grid{grid-template-columns:1fr;}}
@@ -49,7 +50,6 @@ $ap_extra_head = '
   .ji-empty{font-size:0.8rem;color:var(--ap-text-3);text-align:center;padding:40px 20px;}
   .ji-mismatch{border-color:#fcd34d;background:#fffbeb;}
   .ji-mismatch code{background:rgba(180,83,9,.12);color:#92400e;padding:1px 6px;border-radius:4px;font-weight:700;}
-  #previewFrame{width:100%;height:78vh;border:none;background:#fff;}
 </style>';
 $ap_topbar_actions = '
 <a href="list.php?type='.urlencode($type).'" class="ap-btn ap-btn-ghost ap-btn-sm">
@@ -137,20 +137,8 @@ require_once '../partials/sidebar.php';
 
 </div>
 
-<!-- ════ Student-side preview modal ════ -->
-<div class="ap-modal-overlay" id="previewModal">
-  <div class="ap-modal" style="max-width:1000px;width:95%;">
-    <div class="ap-modal-header">
-      <span class="ap-modal-title"><i class="bi bi-eye" style="color:var(--ap-primary);margin-right:6px;"></i>Student-Side Preview</span>
-      <button class="ap-modal-close" onclick="closePreview()">×</button>
-    </div>
-    <div style="padding:0;">
-      <iframe id="previewFrame"></iframe>
-    </div>
-  </div>
-</div>
-
 <script src="question_preview.js"></script>
+<script src="device_preview.js"></script>
 <script>
 const TYPE = <?= json_encode($type) ?>;
 const IMPORT_ACTION_URL = 'json_import_action.php';
@@ -606,23 +594,15 @@ document.getElementById('jsonFile').addEventListener('change', function(e) {
 });
 
 /* ══════════════════════════════════════════════════════
-   5. STUDENT-SIDE PREVIEW MODAL
+   5. STUDENT PREVIEW — opens on one question, the arrows step
+      through every valid question in the paste.
    ══════════════════════════════════════════════════════ */
 function previewQuestion(index) {
-  const r = lastResults.find(x => x.index === index);
-  if (!r || !r.valid) return;
-  const html = CFG.buildPreview(r.normalized);
-  const frame = document.getElementById('previewFrame');
-  frame.srcdoc = html;
-  document.getElementById('previewModal').classList.add('open');
+  const valid = lastResults.filter(r => r.valid);
+  const start = valid.findIndex(r => r.index === index);
+  if (start < 0) return;
+  DevicePreview.openRaw(TYPE, valid.map(r => ({ question: lastRaw[r.index] })), start);
 }
-function closePreview() {
-  document.getElementById('previewModal').classList.remove('open');
-  document.getElementById('previewFrame').srcdoc = 'about:blank';
-}
-document.getElementById('previewModal').addEventListener('click', function(e) {
-  if (e.target === this) closePreview();
-});
 
 /* ══════════════════════════════════════════════════════
    6. IMPORT — send normalized + selected questions to server

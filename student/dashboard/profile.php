@@ -104,7 +104,11 @@ $pageTitle = 'My Profile — Studium';
           </div>
           <div class="col-md-6 col-12">
             <label class="s-label">Date Enrolled</label>
-            <div class="s-info-field"><i class="bi bi-calendar-plus"></i><?php echo date('F d, Y', strtotime($fetch['dateenrolled'])); ?></div>
+            <div class="s-info-field"><i class="bi bi-calendar-plus"></i><?php
+              // Older accounts have no enrollment date (NULL); show their access date instead.
+              $enrolledOn = ($fetch['dateenrolled'] ?? '') >= '1000-01-01' ? $fetch['dateenrolled'] : ($fetch['access_date'] ?? '');
+              echo $enrolledOn >= '1000-01-01' ? date('F d, Y', strtotime($enrolledOn)) : '—';
+            ?></div>
           </div>
           <div class="col-md-6 col-12">
             <label class="s-label">Date Expires</label>

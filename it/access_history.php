@@ -3,9 +3,9 @@ date_default_timezone_set('Asia/Manila');
 include_once '../config.php';
 
 $query = "
-    SELECT id, studentnumber, fullname, dateenrolled, subMonth, dateexpired
+    SELECT id, studentnumber, fullname, dateenrolled, access_date, subMonth, dateexpired
     FROM login
-    WHERE dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    WHERE access_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
     ORDER BY id DESC
 ";
 $result = $con->query($query);
@@ -13,7 +13,7 @@ $result = $con->query($query);
 $ap_base    = '';
 $active_nav = 'history';
 $ap_title   = 'Access History';
-$ap_subtitle = 'Students enrolled in the last 12 months';
+$ap_subtitle = 'Students given access in the last 12 months';
 $ap_extra_head = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">';
@@ -39,6 +39,7 @@ require_once 'partials/sidebar.php';
           <th>Student No.</th>
           <th>Full Name</th>
           <th>Date Enrolled</th>
+          <th>Access Date</th>
           <th>Subscription</th>
           <th>Email</th>
         </tr>
@@ -59,7 +60,8 @@ require_once 'partials/sidebar.php';
           <td><?= $row['id'] ?></td>
           <td><?= htmlspecialchars($row['studentnumber']) ?></td>
           <td style="font-weight:500;"><?= htmlspecialchars($row['fullname']) ?></td>
-          <td><?= date('F d, Y | h:i A', strtotime($row['dateenrolled'])) ?></td>
+          <td data-order="<?= htmlspecialchars((string)$row['dateenrolled']) ?>"><?= ($row['dateenrolled'] ?? '') >= '1000-01-01' ? date('F d, Y', strtotime($row['dateenrolled'])) : '—' ?></td>
+          <td data-order="<?= htmlspecialchars((string)$row['access_date']) ?>"><?= ($row['access_date'] ?? '') >= '1000-01-01' ? date('F d, Y | h:i A', strtotime($row['access_date'])) : '—' ?></td>
           <td>
             <?php
             if (!empty($subMonth)) {

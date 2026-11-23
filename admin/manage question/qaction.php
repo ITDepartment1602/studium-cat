@@ -18,17 +18,28 @@ $tableMap = [
     'highlight'   => 'highlight',
 ];
 
-if (!array_key_exists($type, $tableMap) || !in_array($action, ['add','edit','delete'])) {
+if (!array_key_exists($type, $tableMap) || !in_array($action, ['add','edit','delete','preview'])) {
     flash(false, 'Invalid request.'); redirect($type); exit;
 }
 
 $table = $tableMap[$type];
+
+if ($action === 'preview' && !isset($_SESSION['admin_id']) && !isset($_SESSION['admin_login'])) {
+    flash(false, 'Please log in again.'); redirect($type);
+}
 
 /* ── Helpers ── */
 function flash(bool $ok, string $msg) {
     $_SESSION['qflash'] = ['ok'=>$ok,'msg'=>$msg];
 }
 function redirect(string $type) {
+    // A preview is a fetch from the form, so a failed check has to come back as an answer to it.
+    if (($_POST['action'] ?? '') === 'preview') {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => $_SESSION['qflash']['msg'] ?? 'Could not build the preview.']);
+        unset($_SESSION['qflash']);
+        exit;
+    }
     header('Location: list.php?type=' . urlencode($type));
     exit;
 }
@@ -90,11 +101,11 @@ if (!$question || !$rationale) {
 
 /* ── Fetch existing image for edit ── */
 $existingImage = null;
-if ($action === 'edit' && $id) {
+if (($action === 'edit' || $action === 'preview') && $id) {
     $r = mysqli_query($con, "SELECT image FROM `$table` WHERE id=$id LIMIT 1");
     if ($r && $row = mysqli_fetch_assoc($r)) $existingImage = $row['image'];
 }
-$image = handleImageUpload('image', $existingImage);
+$image = $action === 'preview' ? $existingImage : handleImageUpload('image', $existingImage);
 
 /* ════════════════════════════════════════════════
    BUILD type-specific payload
@@ -207,6 +218,26 @@ switch ($type) {
     break;
   }
 
+}
+
+/* ════════════════════════════════════════════════
+   PREVIEW — the row ADD / EDIT below would write, nothing saved
+   ════════════════════════════════════════════════ */
+if ($action === 'preview') {
+    require_once __DIR__ . '/../../includes/question_preview.php';
+
+    // An edit only changes the columns on this form, so the rest of the stored row still applies.
+    $row = $id ? (db()->fetchOne("SELECT * FROM `$table` WHERE id = ?", [$id]) ?? []) : [];
+    $extra_names = array_values(array_filter(array_map(fn($c) => trim($c, " `"), explode(',', $extra_cols))));
+    $row = array_merge($row, [
+        'question' => $question, 'rationale' => $rationale, 'topic' => $topic, 'system' => $system,
+        'cnc' => $cnc, 'dlevel' => $dlevel, 'concept' => $concept, 'difficulty_logit' => $difficulty_logit,
+        'narcan' => $narcan, 'furtherinfo' => $furtherinfo, 'image' => $image,
+    ], $extra_names ? array_combine($extra_names, $extra_params) : []);
+
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'url' => storeQuestionPreview($type, $row)]);
+    exit;
 }
 
 /* ════════════════════════════════════════════════

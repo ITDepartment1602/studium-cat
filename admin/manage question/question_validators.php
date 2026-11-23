@@ -123,6 +123,7 @@ function getTableColumns($con, string $table): array {
 function addPassthroughColumns($con, string $table, array $q, array $d): array {
     foreach (getTableColumns($con, $table) as $col) {
         if ($col === 'id') continue;               // never let admin input set the primary key
+        if ($col === 'created_at') continue;       // set by the database when the row goes in
         if (array_key_exists($col, $d)) continue;   // already produced by the type validator
         if (!array_key_exists($col, $q)) continue;  // admin didn't supply this field at all
         $val = $q[$col];

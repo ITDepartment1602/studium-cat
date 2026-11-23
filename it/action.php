@@ -5,16 +5,21 @@ include('../config.php');
 
 // Add a student
 if (isset($_POST['submit'])) {
+    // Empty date inputs are stored as NULL; access_date is when the account is created (Manila time).
+    $dateenrolled = trim($_POST['dateenrolled'] ?? '') !== '' ? $_POST['dateenrolled'] : null;
+    $dateexpired  = trim($_POST['dateexpired'] ?? '') !== '' ? $_POST['dateexpired'] : null;
+    $access_date  = (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s');
+
     $stmt = mysqli_prepare(
         $con,
         "INSERT INTO login
-           (studentnumber, fullname, bundle_name, groupname, dateenrolled, dateexpired, email, password, status)
-         VALUES (?,?,?,?,?,?,?,?,?)"
+           (studentnumber, fullname, bundle_name, groupname, dateenrolled, access_date, dateexpired, email, password, status)
+         VALUES (?,?,?,?,?,?,?,?,?,?)"
     );
     mysqli_stmt_bind_param(
-        $stmt, 'sssssssss',
+        $stmt, 'ssssssssss',
         $_POST['studentnumber'], $_POST['fullname'], $_POST['bundle_name'], $_POST['groupname'],
-        $_POST['dateenrolled'], $_POST['dateexpired'], $_POST['email'], $_POST['password'], $_POST['status']
+        $dateenrolled, $access_date, $dateexpired, $_POST['email'], $_POST['password'], $_POST['status']
     );
     mysqli_stmt_execute($stmt);
     header("Location: index.php");

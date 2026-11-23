@@ -1,5 +1,6 @@
 ﻿<?php
 require_once '../../../../config.php';
+require_once '../../../../includes/question_preview.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $question_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -10,6 +11,7 @@ if($question_id > 0){
 }
 
 $data = mysqli_fetch_assoc($q);
+$data = questionPreviewRow('mpr') ?? $data; // admin preview of an unsaved question
 if (!$data) {
     die('<div style="font-family: Arial; padding: 20px;">No MPR question found.</div>');
 }

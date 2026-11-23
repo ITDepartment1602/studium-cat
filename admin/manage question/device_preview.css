@@ -1,0 +1,43 @@
+/* device_preview.css — Device preview modal (see device_preview.js). */
+.dp-overlay,.dp-overlay *{box-sizing:border-box;}
+.dp-overlay{position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;background:#0f172a;}
+.dp-overlay.open{display:flex;}
+
+.dp-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;}
+.dp-title{font-size:0.82rem;font-weight:700;color:#0f172a;}
+.dp-title i{color:#007CBF;margin-right:5px;}
+.dp-devices{display:flex;gap:4px;background:#f1f5f9;border-radius:9px;padding:3px;}
+.dp-device{display:flex;align-items:center;gap:6px;border:none;background:none;border-radius:7px;padding:6px 12px;font-size:0.76rem;font-weight:600;color:#475569;cursor:pointer;font-family:inherit;}
+.dp-device.active{background:#007CBF;color:#fff;}
+.dp-info{font-size:0.72rem;color:#64748b;}
+.dp-actions{display:flex;align-items:center;gap:6px;margin-left:auto;}
+.dp-btn{display:inline-flex;align-items:center;gap:5px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:7px;padding:6px 10px;font-size:0.74rem;font-weight:600;cursor:pointer;font-family:inherit;}
+.dp-btn:disabled{opacity:.45;cursor:not-allowed;}
+.dp-count{font-size:0.74rem;font-weight:700;color:#334155;min-width:52px;text-align:center;}
+.dp-close{border:none;background:#fee2e2;color:#dc2626;border-radius:7px;width:30px;height:30px;font-size:1.1rem;cursor:pointer;}
+
+.dp-note{padding:7px 14px;background:#fef3c7;color:#92400e;font-size:0.74rem;}
+.dp-stage{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;}
+/* Holds the scaled size, because a transform does not change the space an element takes up. */
+.dp-sizer{margin:auto;flex-shrink:0;}
+.dp-screen{position:relative;display:flex;flex-direction:column;overflow:hidden;background:#f1f5f9;transform-origin:top left;box-shadow:0 0 0 8px #334155;border-radius:4px;}
+
+.dp-error{margin:auto;max-width:560px;background:#fff;border-radius:12px;padding:22px 24px;text-align:center;font-size:0.84rem;line-height:1.6;color:#b91c1c;}
+.dp-error i{display:block;font-size:1.7rem;margin-bottom:8px;}
+
+/* Copy of the exam shell's chrome (student/dashboard/ngn/index.php). The heights, widths and
+   padding are set from DP_DEVICES, so the question frame gets the size it gets in a real exam. */
+.dp-nav{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 12px;color:#fff;background:linear-gradient(135deg,#0a1628 0%,#1e3a5f 100%);font-size:14px;font-weight:700;}
+.dp-nav-left{display:flex;align-items:center;gap:10px;min-width:0;}
+.dp-nav-badge{font-size:10px;font-weight:700;background:rgba(255,255,255,.15);border-radius:6px;padding:3px 8px;white-space:nowrap;}
+.dp-nav-timer{font-size:12px;background:rgba(255,255,255,.1);border-radius:8px;padding:5px 10px;font-variant-numeric:tabular-nums;}
+.dp-progress{flex-shrink:0;height:3px;background:#3b82f6;}
+.dp-main{flex:1;min-height:0;display:flex;}
+.dp-tools{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:22px;padding-top:18px;background:#fff;border-right:1px solid #e2e8f0;color:#64748b;font-size:17px;}
+.dp-framewrap{flex:1;min-width:0;display:flex;}
+.dp-frame{width:100%;height:100%;border:none;background:#fff;box-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);}
+.dp-bar{flex-shrink:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:#fff;border-top:1px solid #e2e8f0;}
+.dp-bar.small{padding:0 16px;}
+.dp-bar-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;color:#475569;background:#f1f5f9;}
+.dp-bar-btn.next{color:#fff;background:#3b82f6;}
+.dp-fab{position:absolute;right:12px;bottom:92px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:#2563eb;font-size:18px;box-shadow:0 20px 25px -5px rgba(0,0,0,.25);pointer-events:none;}

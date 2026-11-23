@@ -1,6 +1,7 @@
 ﻿<?php
 // bowtie/index.php
 require_once '../../../../config.php';
+require_once '../../../../includes/question_preview.php';
 // Suppress deprecated notices from json_decode(null) on older data rows
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
@@ -11,6 +12,7 @@ if ($id > 0) {
     $q = mysqli_query($con, "SELECT * FROM btq ORDER BY RAND() LIMIT 1");
 }
 $data = mysqli_fetch_assoc($q);
+$data = questionPreviewRow('btq') ?? $data; // admin preview of an unsaved question
 if (!$data) die('Question not found.');
 
 // Use ?: '[]' so json_decode always receives a non-null string

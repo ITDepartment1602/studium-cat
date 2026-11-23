@@ -37,3 +37,6 @@ tmp_*.txt
 
 # Secret credentials (Google service account)
 .private/
+
+# Pre-change file backups (manual-deploy safety copies, never deploy)
+docs/backups/

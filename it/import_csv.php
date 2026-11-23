@@ -15,7 +15,7 @@ $flash = '';
 if (!$flash && isset($_GET['import'])) {
     if ($_GET['import'] === 'success') {
         $rows = (int)($_GET['rows'] ?? 0);
-        $flash = "success|Successfully imported {$rows} student(s).";
+        $flash = "success|Successfully imported {$rows} student(s)." . enrollFallbackNote((int)($_GET['fallback'] ?? 0));
     } elseif ($_GET['import'] === 'error') {
         $flash = "error|" . htmlspecialchars($_GET['msg'] ?? 'Import failed.');
     }
@@ -26,11 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csvFile'])) {
     // Guard: file upload error
     if ($_FILES['csvFile']['error'] !== UPLOAD_ERR_OK) {
         $flash = "error|File upload failed (code: {$_FILES['csvFile']['error']}). Check php.ini upload_max_filesize / post_max_size.";
+    } elseif (!($handle = fopen($_FILES['csvFile']['tmp_name'], 'r'))) {
+        $flash = "error|Could not read the uploaded file.";
+    } elseif (($enrollCol = csvColumnIndex(fgetcsv($handle), 'date_enroll')) === null) {
+        // Old CSV format: importing it would store the import time as the enrollment date.
+        fclose($handle);
+        $flash = "error|Old CSV format: no date_enroll column, so nothing was imported. Re-download the CSV from the CSV Maker and import that file.";
     } else {
-        $file   = $_FILES['csvFile']['tmp_name'];
-        $handle = fopen($file, 'r');
-        fgetcsv($handle); // skip header
-
         if (!tally_read()) {
             $morningRes = mysqli_query($con, "SELECT COUNT(*) as cnt FROM login");
             $morningRow = mysqli_fetch_assoc($morningRes);
@@ -39,16 +41,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csvFile'])) {
 
         $sql = "INSERT INTO login (
             studentnumber, fullname, bundle_name, groupname,
-            dateenrolled, dateexpired, subMonth, type,
+            dateenrolled, access_date, dateexpired, subMonth, type,
             email, password, status, loginstatus, lastlogin, examTaken
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $con->prepare($sql);
         if (!$stmt) {
             $flash = "error|DB prepare failed: " . htmlspecialchars($con->error);
         } else {
-            $rowCount  = 0;
-            $skipCount = 0;
+            $rowCount      = 0;
+            $skipCount     = 0;
+            $fallbackCount = 0; // imported rows whose date_enroll was empty/invalid
 
             $batch = [
                 'added_1month'       => 0,
@@ -68,7 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csvFile'])) {
                 $bundle_name   = $data[3];
                 $rawGroup      = trim($data[4]);
                 $groupname     = formatGroupStudent($rawGroup);
-                $dateenrolled  = date('Y-m-d H:i:s');
+                $dateenrolled  = parseEnrollDate($data[$enrollCol] ?? '');
+                $usedFallback  = ($dateenrolled === null);
+                if ($usedFallback) $dateenrolled = date('Y-m-d');
                 $dateexpired   = null;
                 $subMonth      = $data[5];
                 $type          = null;
@@ -88,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csvFile'])) {
 
                 if ($stmt->execute()) {
                     $rowCount++;
+                    if ($usedFallback) $fallbackCount++;
                     $isFree = stripos($groupname, 'FREE') !== false;
                     $months = (int)$subMonth;
                     if ($isFree) {
@@ -114,10 +120,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csvFile'])) {
 
             if ($rowCount > 0) tally_increment($batch);
 
+            $fallbackNote = enrollFallbackNote($fallbackCount);
             if ($rowCount > 0 && $skipCount === 0) {
-                $flash = "success|Successfully imported {$rowCount} student(s).";
+                $flash = "success|Successfully imported {$rowCount} student(s).{$fallbackNote}";
             } elseif ($rowCount > 0) {
-                $flash = "success|Imported {$rowCount} student(s). {$skipCount} row(s) skipped (duplicate email/ID or DB error).";
+                $flash = "success|Imported {$rowCount} student(s). {$skipCount} row(s) skipped (duplicate email/ID or DB error).{$fallbackNote}";
             } else {
                 $errDetail = !empty($firstErr) ? " DB error: " . htmlspecialchars($firstErr) : '';
                 $flash = "error|No rows were imported. {$skipCount} row(s) failed.{$errDetail}";
@@ -140,6 +147,26 @@ function formatGroupStudent($value) {
     return $value ?: "Unassigned";
 }
 
+// Index of a CSV header column by name (case-insensitive, ignores a UTF-8 BOM), or null.
+function csvColumnIndex($header, $name) {
+    if (!is_array($header)) return null;
+    foreach ($header as $i => $col) {
+        if (strtolower(trim(preg_replace('/^\xEF\xBB\xBF/', '', (string)$col))) === $name) return $i;
+    }
+    return null;
+}
+
+// CSV date_enroll ("Y-m-d", optionally with a time part) → "Y-m-d", or null if empty/invalid.
+function parseEnrollDate($value) {
+    $day = substr(trim((string)$value), 0, 10);
+    $d   = DateTime::createFromFormat('!Y-m-d', $day);
+    return ($d && $d->format('Y-m-d') === $day && $day >= '2000-01-01') ? $day : null;
+}
+
+function enrollFallbackNote($n) {
+    return $n > 0 ? " {$n} row(s) had an empty or invalid date_enroll, so today's date was saved as Date Enrolled." : '';
+}
+
 // ── Handle flash from email send redirect ────────────────────
 if (!$flash && isset($_GET['sent'])) {
     $s = (int)$_GET['sent'];
@@ -157,20 +184,20 @@ $con->query("CREATE TABLE IF NOT EXISTS `email_sent_status` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 
 // ── Counts for table ─────────────────────────────────────────
-$all_res   = $con->query("SELECT COUNT(*) as cnt FROM login WHERE dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR)");
+$all_res   = $con->query("SELECT COUNT(*) as cnt FROM login WHERE access_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR)");
 $all_count = (int)$all_res->fetch_assoc()['cnt'];
 
-$not_sent_res   = $con->query("SELECT COUNT(*) as cnt FROM login l WHERE l.dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR) AND NOT EXISTS (SELECT 1 FROM email_sent_status e WHERE e.student_id = l.id)");
+$not_sent_res   = $con->query("SELECT COUNT(*) as cnt FROM login l WHERE l.access_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR) AND NOT EXISTS (SELECT 1 FROM email_sent_status e WHERE e.student_id = l.id)");
 $not_sent_count = (int)$not_sent_res->fetch_assoc()['cnt'];
 
 // ── Students data ────────────────────────────────────────────
 $rows_data = [];
 $res = $con->query("
-    SELECT l.id, l.studentnumber, l.fullname, l.dateenrolled, l.subMonth, l.dateexpired,
+    SELECT l.id, l.studentnumber, l.fullname, l.dateenrolled, l.access_date, l.subMonth, l.dateexpired,
            CASE WHEN e.student_id IS NOT NULL THEN 1 ELSE 0 END as email_sent
     FROM login l
     LEFT JOIN email_sent_status e ON e.student_id = l.id
-    WHERE l.dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    WHERE l.access_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
     ORDER BY l.id DESC
 ");
 while ($r = $res->fetch_assoc()) $rows_data[] = $r;
@@ -373,6 +400,7 @@ require_once 'partials/sidebar.php';
           <th>Student ID</th>
           <th>Full Name</th>
           <th>Date Enrolled</th>
+          <th>Access Date</th>
           <th>Subscription</th>
           <th>Action</th>
         </tr>
@@ -408,7 +436,8 @@ require_once 'partials/sidebar.php';
           <td><span class="as-serial">E<?= $row['id'] ?></span></td>
           <td><span class="as-student-id"><?= htmlspecialchars($row['studentnumber']) ?></span></td>
           <td><span class="as-name"><?= htmlspecialchars($row['fullname']) ?></span></td>
-          <td><span class="as-date"><?= date('M d, Y | h:i A', strtotime($row['dateenrolled'])) ?></span></td>
+          <td data-order="<?= htmlspecialchars((string)$row['dateenrolled']) ?>"><span class="as-date"><?= ($row['dateenrolled'] ?? '') >= '1000-01-01' ? date('M d, Y', strtotime($row['dateenrolled'])) : '—' ?></span></td>
+          <td data-order="<?= htmlspecialchars((string)$row['access_date']) ?>"><span class="as-date"><?= ($row['access_date'] ?? '') >= '1000-01-01' ? date('M d, Y | h:i A', strtotime($row['access_date'])) : '—' ?></span></td>
           <td><?= $subBadge ?></td>
           <td>
             <?php if ($emailSent): ?>
@@ -455,7 +484,8 @@ require_once 'partials/sidebar.php';
           <div style="font-weight:700;color:var(--ap-primary);margin-bottom:5px;">
             <i class="bi bi-info-circle me-1"></i> CSV Format Notes
           </div>
-          <div>• <strong>dateenrolled</strong> — leave blank, auto-set to Manila time</div>
+          <div>• <strong>date_enroll</strong> — required column (enrollment fee date, <code>YYYY-MM-DD</code>). Use the CSV Maker file; older CSVs without it are rejected</div>
+          <div>• <strong>Access Date</strong> — auto-set to the import time (Manila)</div>
           <div>• <strong>dateexpired</strong> — leave NULL</div>
           <div>• <strong style="color:#dc2626;">subMonth</strong> — use <code>1</code>, <code>3</code>, <code>6</code>, or <code>12</code> for paid; <code>1</code> or <code>2</code> for FREE groups</div>
         </div>
@@ -480,7 +510,7 @@ var table = $('#accessTable').DataTable({
     infoEmpty: "No students found",
     paginate:  { previous: '← Prev', next: 'Next →' }
   },
-  columnDefs: [{ orderable: false, targets: [0, 6] }]
+  columnDefs: [{ orderable: false, targets: [0, 7] }]
 });
 
 document.getElementById('searchInput').addEventListener('input', function () {

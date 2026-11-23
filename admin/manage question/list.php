@@ -42,6 +42,30 @@ $questions = [];
 $res = mysqli_query($con, "SELECT id, question, dlevel, topic, concept FROM `$table` ORDER BY id DESC");
 while ($row = mysqli_fetch_assoc($res)) $questions[] = $row;
 
+/* ── Difficulty totals, for the filter cards ──────── */
+function questionLevel(?string $dlevel): string {
+    $map = ['easy' => 'Easy', 'medium' => 'Medium', 'moderate' => 'Medium', 'med' => 'Medium', 'hard' => 'Hard'];
+    return $map[strtolower(trim((string)$dlevel))] ?? 'None';
+}
+$levelCounts = ['Easy' => 0, 'Medium' => 0, 'Hard' => 0, 'None' => 0];
+foreach ($questions as $q) $levelCounts[questionLevel($q['dlevel'])]++;
+
+$levelStyles = [
+    'Easy'   => ['label' => 'Easy',     'color' => '#16a34a'],
+    'Medium' => ['label' => 'Medium',   'color' => '#d97706'],
+    'Hard'   => ['label' => 'Hard',     'color' => '#dc2626'],
+    'None'   => ['label' => 'No level', 'color' => '#64748b'],
+];
+$totalQuestions = count($questions);
+$levelShare     = fn(int $n): float => $totalQuestions ? $n / $totalQuestions * 100 : 0;
+
+/* The All card's bar shows the mix of every level; each other card shows its own share. */
+$levelCards = [['level' => '', 'label' => 'All questions', 'color' => '#007CBF', 'count' => $totalQuestions, 'share' => null]];
+foreach ($levelStyles as $key => $style) {
+    if ($key === 'None' && !$levelCounts['None']) continue;
+    $levelCards[] = $style + ['level' => $key, 'count' => $levelCounts[$key], 'share' => $levelShare($levelCounts[$key])];
+}
+
 /* ── How many imports are still waiting for approval ── */
 $pendingCount = 0;
 $pstmt = $con->prepare("SELECT COUNT(*) c FROM `pending_questions` WHERE `type` = ? AND status = 'pending'");
@@ -151,6 +175,34 @@ document.getElementById('addChoiceModal').addEventListener('click', function(e) 
     <span style="font-size:0.8rem;color:var(--ap-text-3);"><?= count($questions) ?> questions</span>
   </div>
 
+  <style>
+    .ql-levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:16px 20px 0;}
+    .ql-level{display:block;width:100%;padding:14px 16px;background:var(--ap-card);border:1px solid var(--ap-border);border-radius:var(--ap-radius);box-shadow:var(--ap-shadow-sm);cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s,background-color .15s,box-shadow .15s;}
+    .ql-level:hover{border-color:var(--ap-border-2);box-shadow:var(--ap-shadow);}
+    .ql-level:focus-visible{outline:2px solid var(--ql-color);outline-offset:2px;}
+    .ql-level.active{border-color:var(--ql-color);background:color-mix(in srgb,var(--ql-color) 5%,var(--ap-card));box-shadow:inset 0 0 0 1px var(--ql-color);}
+    .ql-level-name{display:flex;align-items:center;gap:7px;font-size:0.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ap-muted);}
+    .ql-level-name::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ql-color);}
+    .ql-level-count{display:block;margin:8px 0 12px;font-size:1.55rem;font-weight:700;line-height:1.1;letter-spacing:-.01em;color:var(--ap-text);font-variant-numeric:tabular-nums;}
+    .ql-level-bar{display:flex;height:4px;border-radius:100px;overflow:hidden;background:var(--ap-border);}
+    .ql-level-bar span{display:block;height:100%;}
+  </style>
+  <div class="ql-levels">
+    <?php foreach ($levelCards as $card): ?>
+    <button type="button" class="ql-level<?= $card['level'] === '' ? ' active' : '' ?>" data-level="<?= $card['level'] ?>" style="--ql-color:<?= $card['color'] ?>;">
+      <span class="ql-level-name"><?= $card['label'] ?></span>
+      <span class="ql-level-count"><?= number_format($card['count']) ?></span>
+      <span class="ql-level-bar">
+        <?php if ($card['share'] !== null): ?>
+        <span style="width:<?= $card['share'] ?>%;background:<?= $card['color'] ?>;"></span>
+        <?php else: foreach ($levelStyles as $key => $style): ?>
+        <span style="width:<?= $levelShare($levelCounts[$key]) ?>%;background:<?= $style['color'] ?>;"></span>
+        <?php endforeach; endif; ?>
+      </span>
+    </button>
+    <?php endforeach; ?>
+  </div>
+
   <div style="padding:16px 20px;overflow-x:auto;">
     <table id="qTable" class="table table-bordered" style="width:100%;">
       <thead>
@@ -171,10 +223,11 @@ document.getElementById('addChoiceModal').addEventListener('click', function(e) 
               <?= htmlspecialchars(strip_tags($q['question'])) ?>
             </span>
           </td>
-          <td>
-            <?php
-            $cls = ['Easy'=>'ap-badge-success','Medium'=>'ap-badge-warning','Hard'=>'ap-badge-danger'][$q['dlevel']??''] ?? 'ap-badge-gray';
-            ?>
+          <?php
+          $level = questionLevel($q['dlevel']);
+          $cls   = ['Easy'=>'ap-badge-success','Medium'=>'ap-badge-warning','Hard'=>'ap-badge-danger'][$level] ?? 'ap-badge-gray';
+          ?>
+          <td data-search="<?= $level ?>">
             <span class="ap-badge <?= $cls ?>"><?= htmlspecialchars($q['dlevel'] ?: '—') ?></span>
           </td>
           <td style="font-size:0.78rem;"><?= htmlspecialchars($q['concept'] ?: '—') ?></td>
@@ -225,12 +278,27 @@ $ap_extra_js = '
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
-$(\'#qTable\').DataTable({
+const qTable = $(\'#qTable\').DataTable({
   order: [[0,"desc"]],
   columnDefs: [{"targets":0,"visible":false}],
   dom: \'frtip\',
   language: { paginate: { previous: \'← Prev\', next: \'Next →\' } }
 });
+
+/* Difficulty cards filter the table. The choice is kept for this tab, because saving or
+   deleting a question reloads the list and would otherwise drop the filter each time. */
+const LEVEL_KEY = \'qlist_level_' . $type . '\';
+function applyLevel(level) {
+  $(\'.ql-level\').removeClass(\'active\').filter(function () { return this.dataset.level === level; }).addClass(\'active\');
+  qTable.column(2).search(level ? \'^\' + level + \'$\' : \'\', true, false).draw();
+  sessionStorage.setItem(LEVEL_KEY, level);
+}
+$(\'.ql-level\').on(\'click\', function () {
+  const isActive = this.classList.contains(\'active\');
+  applyLevel(isActive ? \'\' : this.dataset.level);
+});
+const savedLevel = sessionStorage.getItem(LEVEL_KEY);
+if (savedLevel && $(\'.ql-level\').filter(function () { return this.dataset.level === savedLevel; }).length) applyLevel(savedLevel);
 </script>';
 require_once '../partials/footer.php';
 ?>

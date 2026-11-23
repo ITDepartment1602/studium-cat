@@ -441,6 +441,38 @@ if (isset($con)) {
             KEY `type_status` (`type`, `status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
+
+    // 6.9 — `created_at` on the real question tables, so the admin bank can count what came in today.
+    // The column is added empty and given its default afterwards: adding it with
+    // DEFAULT current_timestamp in one step would stamp every old question with today's date.
+    $questionBankTables = [
+        'traditional' => 'mcq', 'sata' => 'sata', 'mpr' => 'mpr', 'mmr' => 'mmr', 'btq' => 'btq',
+        'dragndrop' => 'dragndrop', 'dropdown' => 'dropdown_questions', 'highlight' => 'highlight',
+    ];
+    foreach ($questionBankTables as $bankType => $bankTable) {
+        try {
+            $tbl = mysqli_query($con, "SHOW TABLES LIKE '{$bankTable}'");
+            if (!$tbl || mysqli_num_rows($tbl) === 0) continue;
+
+            $colRes = mysqli_query($con, "SHOW COLUMNS FROM `{$bankTable}` LIKE 'created_at'");
+            $col    = $colRes ? mysqli_fetch_assoc($colRes) : null;
+            if ($col && stripos((string)$col['Default'], 'current_timestamp') !== false) continue;
+
+            if (!$col) {
+                mysqli_query($con, "ALTER TABLE `{$bankTable}` ADD COLUMN `created_at` DATETIME NULL DEFAULT NULL");
+                // Approved imports already recorded when they went into the bank.
+                mysqli_query($con, "
+                    UPDATE `{$bankTable}` q
+                    JOIN `pending_questions` p ON p.imported_id = q.id AND p.`type` = '{$bankType}' AND p.status = 'approved'
+                    SET q.created_at = p.reviewed_at
+                ");
+            }
+            mysqli_query($con, "ALTER TABLE `{$bankTable}` MODIFY `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP");
+        } catch (\mysqli_sql_exception $e) {
+            // A concurrent request may be running the same change; the next request finishes it.
+            error_log('created_at migration on ' . $bankTable . ': ' . $e->getMessage());
+        }
+    }
 }
 
 // ── 7. HELPER FUNCTIONS ───────────────────────────────────────

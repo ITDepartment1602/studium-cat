@@ -1,5 +1,6 @@
 ﻿<?php
 require_once '../../../../config.php';
+require_once '../../../../includes/question_preview.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -9,6 +10,7 @@ if ($id > 0) {
     $q = mysqli_query($con, "SELECT * FROM mmr ORDER BY RAND() LIMIT 1");
 }
 $data = mysqli_fetch_assoc($q);
+$data = questionPreviewRow('mmr') ?? $data; // admin preview of an unsaved question
 if (!$data) {
     die('<div style="font-family: Arial; padding: 20px;">No MMR question found.</div>');
 }

@@ -66,6 +66,7 @@ $ap_title   = 'Waiting for Approval — ' . $typeLabel;
 $ap_extra_head = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="device_preview.css">
 <style>
   .pq-wrap{padding:0 20px 30px;}
   .pq-tabs{display:flex;gap:6px;padding:14px 0 0;flex-wrap:wrap;}
@@ -94,7 +95,6 @@ $ap_extra_head = '
   .pq-actions{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;max-width:260px;}
   .pq-empty{text-align:center;padding:60px 20px;color:var(--ap-text-3);font-size:0.85rem;}
   .pq-empty i{font-size:2rem;display:block;margin-bottom:10px;opacity:.5;}
-  #pqPreviewFrame{width:100%;height:78vh;border:none;background:#fff;}
   .pq-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:700px){.pq-edit-grid{grid-template-columns:1fr;}}
   .pq-edit-full{grid-column:1/-1;}
@@ -234,16 +234,6 @@ require_once '../partials/sidebar.php';
   </div>
 </div>
 
-<!-- Student-side preview -->
-<div class="ap-modal-overlay" id="pqPreviewModal">
-  <div class="ap-modal" style="max-width:1000px;width:95%;">
-    <div class="ap-modal-header">
-      <span class="ap-modal-title"><i class="bi bi-eye" style="color:var(--ap-primary);margin-right:6px;"></i>Student-Side Preview</span>
-      <button class="ap-modal-close" onclick="document.getElementById('pqPreviewModal').classList.remove('open')">&times;</button>
-    </div>
-    <div style="padding:0;"><iframe id="pqPreviewFrame"></iframe></div>
-  </div>
-</div>
 
 <!-- Edit before approval -->
 <div class="ap-modal-overlay" id="pqEditModal">
@@ -340,6 +330,7 @@ require_once '../partials/sidebar.php';
 </div>
 
 <script src="question_preview.js"></script>
+<script src="device_preview.js"></script>
 <script>
 const TYPE   = <?= json_encode($type) ?>;
 const STATUS = <?= json_encode($status) ?>;
@@ -558,17 +549,11 @@ document.getElementById('pqCmpModal').addEventListener('click', function (e) {
   if (e.target === this) this.classList.remove('open');
 });
 
-/* ── Preview ───────────────────────────────────── */
+/* ── Preview — the arrows step through the rest of this queue ── */
 function pqPreview(id) {
-  const raw = payloadOf(id);
-  if (!raw) return;
-  const result = TYPE_CONFIG[TYPE].validate(raw, 0);
-  if (!result.valid) {
-    Swal.fire({ icon: 'error', title: 'Cannot preview', html: result.errors.map(escapeHtml).join('<br>') });
-    return;
-  }
-  document.getElementById('pqPreviewFrame').srcdoc = TYPE_CONFIG[TYPE].buildPreview(result.normalized);
-  document.getElementById('pqPreviewModal').classList.add('open');
+  const start = ROWS.findIndex(r => r.id === id);
+  if (start < 0) return;
+  DevicePreview.openRaw(TYPE, ROWS.map(r => ({ question: r.payload })), start);
 }
 
 /* ── Edit ──────────────────────────────────────── */
@@ -645,10 +630,8 @@ function pqEditSave() {
   }).catch(err => Swal.fire({ icon: 'error', title: 'Request failed', text: String(err) }));
 }
 
-[['pqPreviewModal'], ['pqEditModal']].forEach(([id]) => {
-  document.getElementById(id).addEventListener('click', function (e) {
-    if (e.target === this) this.classList.remove('open');
-  });
+document.getElementById('pqEditModal').addEventListener('click', function (e) {
+  if (e.target === this) this.classList.remove('open');
 });
 
 pqSync();

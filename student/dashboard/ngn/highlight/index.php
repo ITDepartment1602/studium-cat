@@ -1,5 +1,6 @@
 ﻿<?php
 require_once '../../../../config.php';
+require_once '../../../../includes/question_preview.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -11,6 +12,7 @@ mysqli_stmt_execute($stmt);
 $data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 mysqli_stmt_close($stmt);
 
+$data = questionPreviewRow('highlight') ?? $data; // admin preview of an unsaved question
 if (!$data) die("Question not found.");
 
 $topic = $data['topic'] ?? '';

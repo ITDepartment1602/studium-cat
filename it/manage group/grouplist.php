@@ -34,6 +34,7 @@ $data = mysqli_stmt_get_result($stmt);
           <th>Full Name</th>
           <th>Bundle Name</th>
           <th>Date Enrolled</th>
+          <th>Access Date</th>
           <th>Date Expired</th>
           <th>Action</th>
         </tr>
@@ -44,7 +45,8 @@ $data = mysqli_stmt_get_result($stmt);
           <td><?= htmlspecialchars($rows['studentnumber']) ?></td>
           <td style="font-weight:500;"><?= htmlspecialchars($rows['fullname']) ?></td>
           <td><?= htmlspecialchars(str_replace('Packege', 'Package', $rows['bundle_name'])) ?></td>
-          <td><?= htmlspecialchars($rows['dateenrolled']) ?></td>
+          <td><?= ($rows['dateenrolled'] ?? '') >= '1000-01-01' ? htmlspecialchars(substr($rows['dateenrolled'], 0, 10)) : '—' ?></td>
+          <td><?= ($rows['access_date'] ?? '') >= '1000-01-01' ? htmlspecialchars($rows['access_date']) : '—' ?></td>
           <td><?= htmlspecialchars($rows['dateexpired']) ?></td>
           <td>
             <button class="ap-btn ap-btn-danger ap-btn-xs" onclick="confirmDelete('<?= $rows['id'] ?>')">

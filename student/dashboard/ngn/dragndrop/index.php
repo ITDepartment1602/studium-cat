@@ -1,6 +1,7 @@
 ﻿<?php
 // dragndrop/index.php
 require_once '../../../../config.php';
+require_once '../../../../includes/question_preview.php';
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -8,6 +9,7 @@ if ($id === 0) die("No question ID provided!");
 
 $q = mysqli_query($con, "SELECT * FROM dragndrop WHERE id='$id'");
 $data = mysqli_fetch_assoc($q);
+$data = questionPreviewRow('dragndrop') ?? $data; // admin preview of an unsaved question
 if (!$data) die("Question not found!");
 
 $topic = $data['topic'];

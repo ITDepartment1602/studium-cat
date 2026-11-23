@@ -5,20 +5,20 @@ include("count.php");
 $count = new count;
 
 // ── Counts ──────────────────────────────────────────────────
-$all_res   = $con->query("SELECT COUNT(*) as cnt FROM login WHERE dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR)");
+$all_res   = $con->query("SELECT COUNT(*) as cnt FROM login WHERE access_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR)");
 $all_count = (int)$all_res->fetch_assoc()['cnt'];
 
-$not_sent_res   = $con->query("SELECT COUNT(*) as cnt FROM login l WHERE l.dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR) AND NOT EXISTS (SELECT 1 FROM email_sent_status e WHERE e.student_id = l.id)");
+$not_sent_res   = $con->query("SELECT COUNT(*) as cnt FROM login l WHERE l.access_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR) AND NOT EXISTS (SELECT 1 FROM email_sent_status e WHERE e.student_id = l.id)");
 $not_sent_count = (int)$not_sent_res->fetch_assoc()['cnt'];
 
 // ── Students data ────────────────────────────────────────────
 $rows_data = [];
 $res = $con->query("
-    SELECT l.id, l.studentnumber, l.fullname, l.dateenrolled, l.subMonth, l.dateexpired,
+    SELECT l.id, l.studentnumber, l.fullname, l.dateenrolled, l.access_date, l.subMonth, l.dateexpired,
            CASE WHEN e.student_id IS NOT NULL THEN 1 ELSE 0 END as email_sent
     FROM login l
     LEFT JOIN email_sent_status e ON e.student_id = l.id
-    WHERE l.dateenrolled >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    WHERE l.access_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
     ORDER BY l.id DESC
 ");
 while ($r = $res->fetch_assoc()) $rows_data[] = $r;
@@ -360,6 +360,7 @@ require_once 'partials/sidebar.php';
           <th>Student ID</th>
           <th>Full Name</th>
           <th>Date Enrolled</th>
+          <th>Access Date</th>
           <th>Subscription</th>
           <th>Action</th>
         </tr>
@@ -396,7 +397,8 @@ require_once 'partials/sidebar.php';
           <td><span class="as-serial">E<?= $row['id'] ?></span></td>
           <td><span class="as-student-id"><?= htmlspecialchars($row['studentnumber']) ?></span></td>
           <td><span class="as-name"><?= htmlspecialchars($row['fullname']) ?></span></td>
-          <td><span class="as-date"><?= date('M d, Y | h:i A', strtotime($row['dateenrolled'])) ?></span></td>
+          <td data-order="<?= htmlspecialchars((string)$row['dateenrolled']) ?>"><span class="as-date"><?= ($row['dateenrolled'] ?? '') >= '1000-01-01' ? date('M d, Y', strtotime($row['dateenrolled'])) : '—' ?></span></td>
+          <td data-order="<?= htmlspecialchars((string)$row['access_date']) ?>"><span class="as-date"><?= ($row['access_date'] ?? '') >= '1000-01-01' ? date('M d, Y | h:i A', strtotime($row['access_date'])) : '—' ?></span></td>
           <td><?= $subBadge ?></td>
           <td>
             <?php if ($emailSent): ?>
@@ -445,7 +447,8 @@ require_once 'partials/sidebar.php';
           <div style="font-weight:700;color:var(--ap-primary);margin-bottom:5px;">
             <i class="bi bi-info-circle me-1"></i> CSV Format Notes
           </div>
-          <div>• <strong>dateenrolled</strong> — leave blank, auto-set to Manila time</div>
+          <div>• <strong>date_enroll</strong> — required column (enrollment fee date, <code>YYYY-MM-DD</code>). Use the CSV Maker file; older CSVs without it are rejected</div>
+          <div>• <strong>Access Date</strong> — auto-set to the import time (Manila)</div>
           <div>• <strong>dateexpired</strong> — leave NULL</div>
           <div>• <strong style="color:#dc2626;">subMonth</strong> — use <code>1</code>, <code>3</code>, <code>6</code>, or <code>12</code> for paid; <code>1</code> or <code>2</code> for FREE groups</div>
         </div>
@@ -473,7 +476,7 @@ var table = $('#accessTable').DataTable({
     paginate: { previous: '← Prev', next: 'Next →' }
   },
   columnDefs: [
-    { orderable: false, targets: [0, 6] }
+    { orderable: false, targets: [0, 7] }
   ]
 });
 
