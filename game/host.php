@@ -77,16 +77,43 @@ $joinShort = preg_replace('#^https?://#', '', rtrim($joinUrl, '/'));
     .pin-big { font-size: clamp(3rem, 8vw, 7rem); font-weight: 900; letter-spacing: .04em; line-height: 1; color: #fff; text-shadow: 0 6px 0 rgba(4,30,55,.35); font-variant-numeric: tabular-nums; }
     .qr { justify-self: end; background: #fff; border-radius: 18px; padding: 10px; width: clamp(120px, 14vw, 200px); aspect-ratio: 1; box-shadow: 0 16px 40px rgba(4,30,55,.4); }
     .qr svg { width: 100%; height: 100%; display: block; }
+    /* Once players join, the PIN header shrinks so the player circles get the room */
+    .lobby .lobby-head, .lobby .pin-big, .lobby .qr, .lobby .join-at b { transition: padding .45s var(--ease), font-size .45s var(--ease), width .45s var(--ease); }
+    .lobby.compact .lobby-head { padding: 12px clamp(16px, 2vw, 26px); }
+    .lobby.compact .pin-big { font-size: clamp(2.2rem, 4.6vw, 4.2rem); }
+    .lobby.compact .qr { width: clamp(84px, 8vw, 130px); padding: 7px; border-radius: 12px; }
+    .lobby.compact .join-at b { font-size: clamp(1.05rem, 1.8vw, 1.7rem); }
+    .players.sizing .pl { transition: width .45s var(--ease); }
+    .players.sizing .pl-av { transition: width .45s var(--ease), height .45s var(--ease), box-shadow .45s var(--ease); }
+    .players.sizing .pl-name { transition: font-size .45s var(--ease), margin .45s var(--ease), max-width .45s var(--ease); }
     .lobby-body { flex: 1; display: flex; flex-direction: column; padding: 20px; min-height: 240px; }
     .lobby-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .count { font-weight: 800; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
     .count b { font-size: 2rem; color: var(--gold-2); }
-    .players { display: flex; flex-wrap: wrap; gap: 12px; align-content: flex-start; }
-    .player { position: relative; display: inline-flex; align-items: center; gap: 10px; padding: 6px 18px 6px 6px; border-radius: 999px; background: #fff; color: var(--ink); font-weight: 800; font-size: clamp(.95rem, 1.35vw, 1.2rem); box-shadow: 0 8px 18px -10px rgba(4,30,55,.6); animation: lq-join .55s var(--spring) both; }
-    .player .av { box-shadow: none; }
-    .player button { position: absolute; top: -8px; right: -8px; border: 0; background: var(--bad); color: #fff; width: 24px; height: 24px; border-radius: 50%; font-weight: 900; line-height: 1; opacity: 0; transition: opacity .15s; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
-    .player:hover button, .player button:focus-visible { opacity: 1; }
-    @keyframes lq-join { from { opacity: 0; transform: scale(.3) rotate(-8deg); } to { opacity: 1; transform: none; } }
+    /* Lobby players: big avatar circles + name; all shrink together to fit the screen */
+    .players { --s: 180px; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: var(--g, 22px); overflow-y: auto; overflow-x: hidden; padding: 14px 6px 6px; }
+    .players:empty { display: none; }
+    .pl { position: relative; width: var(--s); flex: 0 0 auto; will-change: transform; }
+    .pl-in { animation: lq-pl-in .8s cubic-bezier(.22, 1.3, .36, 1) both; }
+    .pl-bob { display: flex; flex-direction: column; align-items: center; }
+    .pl-av { position: relative; width: var(--s); height: var(--s); border-radius: 50%; background: #fff; box-shadow: 0 0 0 calc(var(--s) * .055) #fff, 0 calc(var(--s) * .08) calc(var(--s) * .14) -4px rgba(4, 30, 55, .5); }
+    .pl-av .av { width: 100%; height: 100%; font-size: calc(var(--s) * .34); box-shadow: none; }
+    .pl-av::after { content: ''; position: absolute; inset: -6%; border-radius: 50%; border: calc(var(--s) * .04) solid var(--gold-2); opacity: 0; animation: lq-pl-burst .9s .15s ease-out both; pointer-events: none; }
+    .pl-name { max-width: calc(var(--s) + var(--g, 20px) * .8); margin-top: calc(var(--s) * .09 + 4px); color: #fff; font-weight: 900; font-size: max(12px, calc(var(--s) * .16)); line-height: 1.15; letter-spacing: -.01em; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 3px 0 rgba(4, 30, 55, .35); animation: lq-pl-name .5s .3s var(--spring) both; }
+    .pl button { position: absolute; top: 2%; right: 2%; z-index: 2; display: grid; place-items: center; border: 0; background: var(--bad); color: #fff; width: 28px; height: 28px; border-radius: 50%; opacity: 0; transform: scale(.6); transition: opacity .15s, transform .2s var(--spring); box-shadow: 0 2px 8px rgba(0,0,0,.35); cursor: pointer; }
+    .pl:hover button, .pl button:focus-visible { opacity: 1; transform: none; }
+    .pl.out .pl-in { animation: lq-pl-out .35s ease-in both; }
+    @keyframes lq-pl-in {
+      0%   { opacity: 0; transform: translateY(-60%) scale(.1) rotate(-25deg); }
+      45%  { opacity: 1; transform: translateY(6%) scale(1.18, .86) rotate(8deg); }
+      65%  { transform: translateY(-4%) scale(.92, 1.08) rotate(-4deg); }
+      82%  { transform: translateY(0) scale(1.04, .97) rotate(2deg); }
+      100% { opacity: 1; transform: none; }
+    }
+    @keyframes lq-pl-burst { 0% { opacity: .9; transform: scale(.85); } 100% { opacity: 0; transform: scale(1.35); } }
+    @keyframes lq-pl-name { from { opacity: 0; transform: translateY(14px) scale(.7); } to { opacity: 1; transform: none; } }
+    @keyframes lq-pl-out { to { opacity: 0; transform: scale(.2) rotate(15deg); } }
+    @media (prefers-reduced-motion: reduce) { .pl-in, .pl-name, .pl-av::after { animation: none !important; } }
     .waiting { flex: 1; display: grid; place-items: center; text-align: center; color: var(--on-blue-2); font-weight: 700; font-size: 1.15rem; }
     .waiting .dots i { display: inline-block; width: 10px; height: 10px; margin: 0 4px; border-radius: 50%; background: var(--gold-2); animation: lq-beat .6s ease-in-out infinite alternate; }
     .waiting .dots i:nth-child(2) { animation-delay: .2s; } .waiting .dots i:nth-child(3) { animation-delay: .4s; }

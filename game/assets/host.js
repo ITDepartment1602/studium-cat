@@ -261,7 +261,7 @@
     const url = CFG.joinUrl + '?pin=' + s.pin;
     knownPlayers = new Set();
     app.innerHTML = `
-      <section class="screen">
+      <section class="screen lobby">
         <div class="panel lobby-head">
           <div class="join-at">Join on your phone at<b>${esc(CFG.joinShort)}</b><span style="display:block;margin-top:6px">or scan the QR code</span></div>
           <div class="pin-box"><small>Game PIN</small><div class="pin-big">${esc(s.pin.slice(0, 3))} ${esc(s.pin.slice(3))}</div></div>
@@ -269,7 +269,7 @@
         </div>
         <div class="panel lobby-body">
           <div class="lobby-bar">
-            <div class="count"><b id="pCount">0</b> <span id="pWord">players</span> joined</div>
+            <div class="count"><b id="pCount">0</b><span><span id="pWord">players</span> joined</span></div>
             <div class="row" style="align-items:center">
               <span class="pill gold">${esc(s.title)} · ${s.q_total} questions</span>
               <button class="btn btn-go btn-lg" id="startBtn" disabled>Start game ${LQ.icon('play')}</button>
@@ -286,30 +286,92 @@
       $('#qr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 0, scalable: true });
     } catch (e) { $('#qr').textContent = url; }
     $('#startBtn').addEventListener('click', () => act('next'));
+    // Re-fit the player circles whenever the PIN header changes height (it shrinks once players join)
+    if (window.ResizeObserver) {
+      let t = 0;
+      new ResizeObserver(() => {
+        clearTimeout(t);
+        t = setTimeout(() => { const b = $('#players'); if (b) refitPlayers(b); }, 120);
+      }).observe($('.lobby-head'));
+    }
     paintPlayers(s.player_list || []);
   }
+
+  /* Pick the biggest circle size at which every player fits the free space below the bar */
+  function fitPlayers(box, n) {
+    if (!n) { box.style.height = ''; return; }
+    const W = box.clientWidth - 12;
+    const H = Math.max(180, window.innerHeight - box.getBoundingClientRect().top - 50);
+    const maxS = Math.min(230, W * 0.7), minS = 54;
+    let s = maxS, g = 0;
+    for (; s > minS; s -= 2) {
+      g = Math.max(10, s * 0.16);
+      const cols = Math.max(1, Math.floor((W + g) / (s + g)));
+      const rows = Math.ceil(n / cols);
+      if (rows * (s * 1.28 + 12) + (rows - 1) * g + 20 <= H) break;
+    }
+    box.style.setProperty('--s', Math.round(s) + 'px');
+    box.style.setProperty('--g', Math.round(Math.max(10, s * 0.16)) + 'px');
+    box.style.height = H + 'px';
+  }
+  function refitPlayers(box) {
+    box.classList.add('sizing');
+    fitPlayers(box, box.querySelectorAll('.pl:not(.out)').length);
+    clearTimeout(box._sizing);
+    box._sizing = setTimeout(() => box.classList.remove('sizing'), 500);
+  }
+  window.addEventListener('resize', () => { const b = $('#players'); if (b) refitPlayers(b); });
 
   function paintPlayers(list) {
     const box = $('#players'); if (!box) return;
     const ids = new Set(list.map(p => String(p.id)));
-    box.querySelectorAll('.player').forEach(el => { if (!ids.has(el.dataset.id)) el.remove(); });
-    let added = false;
+    $('#waiting').hidden = list.length > 0;
+    const lobby = box.closest('.lobby');
+    if (lobby && lobby.classList.contains('compact') !== list.length > 0) {
+      lobby.classList.toggle('compact', list.length > 0);
+    }
+    // FLIP: remember where everyone was before the layout changes
+    const first = new Map();
+    box.querySelectorAll('.pl:not(.out)').forEach(el => first.set(el, el.getBoundingClientRect()));
+    let changed = false, added = false;
+    box.querySelectorAll('.pl:not(.out)').forEach(el => {
+      if (ids.has(el.dataset.id)) return;
+      knownPlayers.delete(el.dataset.id);
+      el.classList.add('out');
+      changed = true;
+      setTimeout(() => { el.remove(); const b = $('#players'); if (b) refitPlayers(b); }, 340);
+    });
     list.forEach(p => {
       const id = String(p.id);
-      if (knownPlayers.has(id) && box.querySelector('[data-id="' + id + '"]')) return;
+      if (knownPlayers.has(id) && box.querySelector('.pl[data-id="' + id + '"]:not(.out)')) return;
       knownPlayers.add(id);
-      const el = document.createElement('span');
-      el.className = 'player';
+      const el = document.createElement('div');
+      el.className = 'pl';
       el.dataset.id = id;
-      el.innerHTML = LQ.avatar(p.name, p.avatar) + esc(p.name) + '<button type="button" title="Remove ' + esc(p.name) + '" aria-label="Remove ' + esc(p.name) + '">' + LQ.icon('x') + '</button>';
+      el.innerHTML = '<div class="pl-in"><div class="pl-bob"><div class="pl-av">' + LQ.avatar(p.name, p.avatar) +
+        '</div><div class="pl-name" title="' + esc(p.name) + '">' + esc(p.name) + '</div></div></div>' +
+        '<button type="button" title="Remove ' + esc(p.name) + '" aria-label="Remove ' + esc(p.name) + '">' + LQ.icon('x') + '</button>';
       el.querySelector('button').addEventListener('click', () => act('kick', { id: p.id }));
       box.appendChild(el);
-      added = true;
+      added = changed = true;
     });
+    if (changed) {
+      fitPlayers(box, list.length);
+      first.forEach((r, el) => {
+        if (!el.isConnected || el.classList.contains('out')) return;
+        const l = el.getBoundingClientRect();
+        if (!l.width) return;
+        const dx = r.left - l.left, dy = r.top - l.top, k = r.width / l.width;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(k - 1) < 0.01) return;
+        el.animate([
+          { transformOrigin: '0 0', transform: `translate(${dx}px, ${dy}px) scale(${k})` },
+          { transformOrigin: '0 0', transform: 'none' },
+        ], { duration: 520, easing: 'cubic-bezier(.22, 1.2, .36, 1)' });
+      });
+    }
     if (added) sfx.join();
     $('#pCount').textContent = list.length;
     $('#pWord').textContent = list.length === 1 ? 'player' : 'players';
-    $('#waiting').hidden = list.length > 0;
     $('#startBtn').disabled = list.length === 0;
   }
 
