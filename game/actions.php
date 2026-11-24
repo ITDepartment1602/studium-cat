@@ -316,7 +316,7 @@ function player_state(string $token): array {
         $out['prev_rank'] = (int) $p['prev_rank'];
         $out['top'] = leaderboard_rows(5, $qi);
     }
-    if ($s['phase'] === 'podium') $out['top'] = leaderboard_rows(3, $qi);
+    // Podium: phones get only their own place (no winners list), by design.
     return $out;
 }
 

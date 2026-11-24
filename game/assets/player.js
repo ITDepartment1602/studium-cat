@@ -375,24 +375,28 @@
         </div>`);
       return;
     }
-    const medal = s.rank <= 3 ? LQ.medal(s.rank) : LQ.icon('cap');
-    const msg = s.rank === 1 ? 'Champion! Outstanding clinical judgment.' : s.rank <= 3 ? 'On the podium — amazing work!' : 'Great effort! Every question brings you closer to that RN license.';
-    const head = s.rank === 1 ? `
-      <div class="champ-card">
-        <div class="trophy">${LQ.icon('trophy')}</div>
+    // Top 3 get a podium card (gold / silver / bronze). Nobody sees who else won:
+    // the phone shows only your own place.
+    const PODIUM = {
+      1: { cls: '', icon: LQ.icon('trophy'), line: "You're the Live Quiz Champion" },
+      2: { cls: ' silver', icon: LQ.medal(2), line: 'You placed 2nd overall' },
+      3: { cls: ' bronze', icon: LQ.medal(3), line: 'You placed 3rd overall' },
+    };
+    const pod = PODIUM[s.rank];
+    const body = pod ? `
+      <div class="champ-card${pod.cls}">
+        <div class="trophy">${pod.icon}</div>
         ${LQ.avatar(s.name, s.avatar)}
         <h2>Congratulations, ${esc(s.name)}!</h2>
-        <p>You're the Live Quiz Champion · ${s.score.toLocaleString()} pts</p>
-      </div>` : '';
-    if (!show('final', head + `
-      <div class="center" style="flex:0;padding-top:10px"${s.rank === 1 ? ' hidden' : ''}>
-        <div style="font-size:4rem;line-height:1">${medal}</div>
+        <p>${pod.line} · ${s.score.toLocaleString()} pts</p>
+      </div>` : `
+      <div class="center" style="flex:0;padding-top:10px">
+        <div style="font-size:4rem;line-height:1">${LQ.icon('cap')}</div>
         <div class="rank-big">#${s.rank}</div>
-        <h2>${esc(msg)}</h2>
+        <h2>Great effort! Every question brings you closer to that RN license.</h2>
         <div class="stand"><span class="pill gold">${s.score.toLocaleString()} pts</span><span class="pill">${plural(s.players, 'player')}</span></div>
-      </div>
-      <div class="section-title">Winners</div>
-      <div class="lb">${rowsHtml(s.top || [], s.name)}</div>`)) return;
+      </div>`;
+    if (!show('final', body)) return;
     if (s.rank <= 3) { confetti(); if (s.rank === 1) { timers.push(setTimeout(confetti, 1800)); timers.push(setTimeout(confetti, 3600)); } }
   }
 
