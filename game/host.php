@@ -210,37 +210,41 @@ $joinUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . rtrim(dirname($_SERVER['SCR
     </div>
   </div>
 
-  <template id="promptTpl">You are an NCLEX question writer for NCLEX Amplified Review Center. Write [10] NCLEX-style questions about [TOPIC] for a live classroom quiz game. Mix these NCSBN item types: mc, sata, mmr, mpr, highlight, dragndrop, dropdown, bowtie.
+  <template id="promptTpl">You are an expert NCLEX item writer for NCLEX Amplified Review Center. Write [10] NCLEX-RN style questions about [TOPIC] for a live classroom quiz game. Use only these item types and mix them: mc, sata, mmr, mpr, dragndrop.
 
-Return ONLY one MySQL statement, no explanation, in exactly this shape:
+ACCURACY COMES FIRST. Before you answer, silently check every question:
+- Base each item on current, evidence-based nursing practice and NCSBN / NCLEX-RN test-plan content. Do not invent facts, doses, lab values or guidelines. If you are not certain something is correct, write a different question.
+- The keyed answer must be defensible and unambiguous: exactly one best answer for mc; every keyed choice must be clearly right and every non-keyed choice clearly wrong for sata, mmr and mpr.
+- Every key in "answer" must exist in "options" (same letters, row ids, column names and token text, spelled exactly).
+- Distractors must be plausible but wrong. Do not use "all of the above" or "none of the above".
+- Use realistic client data in the scenario (age, findings, vital signs, lab values with units) that support the keyed answer.
+- The rationale (1-3 sentences) must explain why the key is right and, briefly, why the others are wrong.
+- Re-read the finished SQL once and make sure it is valid before sending.
+
+Return ONLY one MySQL statement, no explanation, no code fence, in exactly this shape:
 
 INSERT INTO live_quiz_questions (q_order, q_type, scenario, question, options, answer, rationale, time_limit) VALUES
 (1, 'mc', NULL, 'Question text?', '{"choices":{"A":"...","B":"...","C":"...","D":"..."}}', '"B"', 'Why B is correct.', 30),
 (2, 'sata', 'Short client scenario.', 'Which actions should the nurse take? Select all that apply.', '{"choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."}}', '["A","C","E"]', 'Rationale.', 45);
 
-Rules:
+Formatting rules:
+- q_order counts 1, 2, 3 ... in order.
 - Text values use single quotes. Write an apostrophe inside text as two single quotes ('').
-- Never use double quotes (") inside question, choice or rationale text.
+- Never use double quotes (") inside question, choice, token or rationale text.
 - options and answer are JSON written inside single quotes.
-- time_limit is seconds: 20–30 for mc, 40–60 for sata/highlight/dropdown/dragndrop, 60–90 for mmr/mpr/bowtie.
+- time_limit is seconds: 20-30 for mc, 40-60 for sata and dragndrop, 60-90 for mmr and mpr.
 - scenario is a short client case (vital signs, findings) or NULL.
 - question is a short instruction or question. NEVER put {{1}} placeholders in question; they belong only inside options.text.
 
 JSON format for each q_type:
-- mc:        options {"choices":{"A":"..","B":"..","C":"..","D":".."}}   answer "B"
-- sata:      options {"choices":{"A":"..",…,"E":".."}} (5–8 choices)      answer ["A","C","E"]
+- mc:        options {"choices":{"A":"..","B":"..","C":"..","D":".."}}   answer "B"   (exactly 4 choices, one correct)
+- sata:      options {"choices":{"A":"..",...,"E":".."}}  answer ["A","C","E"]   (5-6 choices, 2-4 correct, never all correct)
 - mmr:       options {"columns":["Pneumonia","Asthma","COPD"],"rows":{"r1":"finding 1","r2":"finding 2","r3":"finding 3","r4":"finding 4"}}
-             answer {"r1":["Pneumonia"],"r2":["Asthma","COPD"],"r3":["COPD"],"r4":["Pneumonia","Asthma"]}  (each row: one or more columns)
+             answer {"r1":["Pneumonia"],"r2":["Asthma","COPD"],"r3":["COPD"],"r4":["Pneumonia","Asthma"]}   (3-4 columns, 4-5 rows; each row has one or more correct columns)
 - mpr:       options {"columns":["Indicated","Not Indicated"],"rows":{"r1":"action 1","r2":"action 2","r3":"action 3","r4":"action 4"}}
-             answer {"r1":"Indicated","r2":"Not Indicated","r3":"Indicated","r4":"Not Indicated"}  (each row: exactly one column)
-- highlight: options {"text":"The client reports {{h1}} since this morning. Vital signs: {{h2}}, {{h3}}, {{h4}}. The client also has {{h5}}.","items":{"h1":"a productive cough","h2":"Temp 38.9 C","h3":"HR 118","h4":"BP 128/76","h5":"clear lung sounds on the left"}}
-             answer ["h1","h2","h3"]  (the findings that require follow-up; every {{key}} in text must be an item)
-- dropdown:  question "Complete the sentence."  options {"text":"The client is most likely experiencing {{1}} as evidenced by {{2}}.","blanks":{"1":["DKA","HHS","Hypoglycemia"],"2":["Kussmaul respirations","Bradycardia","Hypertension"]}}
-             answer {"1":"DKA","2":"Kussmaul respirations"}
+             answer {"r1":"Indicated","r2":"Not Indicated","r3":"Indicated","r4":"Not Indicated"}   (4-5 rows; each row has exactly one correct column)
 - dragndrop: question "Drag the actions into the correct order."  options {"text":"The nurse should first {{1}} and then {{2}}.","tokens":["elevate the head of the bed","apply oxygen","call the provider","document findings"]}
-             answer {"1":"elevate the head of the bed","2":"apply oxygen"}  (each token used once; add 1–2 extra wrong tokens)
-- bowtie:    options {"conditions":{"c1":"..","c2":"..","c3":".."},"actions":{"a1":"..","a2":"..","a3":"..","a4":".."},"parameters":{"p1":"..","p2":"..","p3":"..","p4":".."}}
-             answer {"condition":"c2","actions":["a1","a3"],"parameters":["p2","p4"]}  (exactly 1 condition, 2 actions, 2 parameters)</template>
+             answer {"1":"elevate the head of the bed","2":"apply oxygen"}   (2-3 blanks numbered {{1}}, {{2}}, ...; every blank is in the answer; each token is used at most once; add 1-2 extra wrong tokens; the sentence must read correctly when filled in)</template>
 
   <script>
     window.LQ_HOST = {

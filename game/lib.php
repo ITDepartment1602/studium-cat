@@ -16,10 +16,7 @@ const LQ_TYPES = [
     'sata'      => 'Select All That Apply',
     'mmr'       => 'Matrix Multiple Response',
     'mpr'       => 'Matrix Multiple Choice',
-    'highlight' => 'Highlight',
     'dragndrop' => 'Drag & Drop',
-    'dropdown'  => 'Drop-down',
-    'bowtie'    => 'Bowtie',
 ];
 
 const LQ_COLUMNS      = ['q_order', 'q_type', 'scenario', 'question', 'options', 'answer', 'rationale', 'time_limit'];
