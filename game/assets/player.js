@@ -415,7 +415,7 @@
         <div class="stand"><span class="pill gold">${s.score.toLocaleString()} pts</span><span class="pill">${plural(s.players, 'player')}</span></div>
       </div>`;
     if (!show('final', body)) return;
-    if (s.rank <= 3) { confetti(); if (s.rank === 1) { timers.push(setTimeout(confetti, 1800)); timers.push(setTimeout(confetti, 3600)); } }
+    if (s.rank <= 3) { if (window.LQMusic) LQMusic.clap(s.rank === 1 ? 1.2 : s.rank === 2 ? 0.85 : 0.65); confetti(); if (s.rank === 1) { timers.push(setTimeout(confetti, 1800)); timers.push(setTimeout(confetti, 3600)); } }
   }
 
   function confetti() {

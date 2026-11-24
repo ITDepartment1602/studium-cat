@@ -537,6 +537,7 @@
       </section>`;
     autoAdvance($('#nextBtn'), s.phase_start, LEADERBOARD_MS, 'next', isLast ? LQ.icon('trophy') + ' Reveal the winners' : 'Next question ' + LQ.icon('play'));
     sfx.whoosh();
+    if (window.LQMusic) LQMusic.clap(0.5); // applause as the leaderboard appears
 
     // FLIP: slide every row from its old spot to its new one while scores count up
     later(() => {
@@ -598,13 +599,13 @@
     const roll = text => { drum.innerHTML = LQ.icon('drum') + ' ' + text; drum.classList.add('pulse'); sfx.drum(); };
     // Same timeline the phones use before showing each player's own final rank
     roll('In 3rd place…');
-    later(() => { reveal(2, LQ.medal(3) + ' 3rd place!'); sfx.ta(); }, 2000);
+    later(() => { reveal(2, LQ.medal(3) + ' 3rd place!'); sfx.ta(); if (window.LQMusic) LQMusic.clap(0.45); }, 2000);
     later(() => roll('In 2nd place…'), 3800);
-    later(() => { reveal(1, LQ.medal(2) + ' 2nd place!'); sfx.ta(); }, 5200);
+    later(() => { reveal(1, LQ.medal(2) + ' 2nd place!'); sfx.ta(); if (window.LQMusic) LQMusic.clap(0.7); }, 5200);
     later(() => roll('And the champion is…'), 7000);
     later(() => {
       reveal(0, LQ.icon('trophy') + ' Champion!');
-      sfx.fanfare(); confetti();
+      sfx.fanfare(); confetti(); if (window.LQMusic) LQMusic.clap(1.3);
       const champ = rows[0];
       if (champ) {
         app.querySelector('.podium').classList.add('crowned');
@@ -612,7 +613,7 @@
       }
     }, 8800);
     later(() => confetti(), 10600);
-    later(() => { sfx.ta(); confetti(); }, 12600);
+    later(() => { sfx.ta(); confetti(); if (window.LQMusic) LQMusic.clap(0.9); }, 12600);
     later(() => { $('#rest').classList.add('show'); $('#finalActions').classList.add('show'); }, 10400);
   }
 

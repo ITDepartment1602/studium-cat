@@ -25,7 +25,7 @@ const LQ_GRACE_MS     = 1500;   // late answers in flight when the timer hits ze
 const LQ_INTRO_MS     = 3500;   // "Get ready 3-2-1" before each question's clock starts
 const LQ_MAX_QUESTION = 50;
 // Bump on every front-end change: open host screens and phones reload themselves when it changes
-const LQ_VERSION      = '2026.11.24.10';
+const LQ_VERSION      = '2026.11.24.12';
 
 function lq_now_ms(): int {
     return (int) round(microtime(true) * 1000);
