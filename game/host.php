@@ -25,7 +25,6 @@ if (empty($_SESSION['lq_csrf'])) $_SESSION['lq_csrf'] = bin2hex(random_bytes(16)
 
 $scheme  = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $joinUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/';
-$joinShort = preg_replace('#^https?://#', '', rtrim($joinUrl, '/'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -69,13 +68,13 @@ $joinShort = preg_replace('#^https?://#', '', rtrim($joinUrl, '/'));
     .ok-msg { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-weight: 700; }
 
     /* Lobby */
-    .lobby-head { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center; padding: clamp(16px, 2.5vw, 30px); }
+    .lobby-head { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; padding: clamp(16px, 2.5vw, 30px); }
     .join-at { font-weight: 600; color: var(--on-blue-2); }
-    .join-at b { display: block; color: #fff; font-size: clamp(1.3rem, 2.6vw, 2.4rem); font-weight: 900; letter-spacing: -.01em; }
+    .join-at b { display: block; color: #fff; font-size: clamp(1.6rem, 4vw, 3.6rem); font-weight: 900; letter-spacing: -.01em; }
     .pin-box { text-align: center; }
     .pin-box small { display: block; font-weight: 800; color: var(--on-blue-2); letter-spacing: .16em; text-transform: uppercase; font-size: .82rem; }
     .pin-big { font-size: clamp(3rem, 8vw, 7rem); font-weight: 900; letter-spacing: .04em; line-height: 1; color: #fff; text-shadow: 0 6px 0 rgba(4,30,55,.35); font-variant-numeric: tabular-nums; }
-    .qr { justify-self: end; background: #fff; border-radius: 18px; padding: 10px; width: clamp(120px, 14vw, 200px); aspect-ratio: 1; box-shadow: 0 16px 40px rgba(4,30,55,.4); }
+    .qr { justify-self: end; background: #fff; border-radius: 18px; padding: 10px; width: clamp(140px, 17vw, 240px); aspect-ratio: 1; box-shadow: 0 16px 40px rgba(4,30,55,.4); }
     .qr svg { width: 100%; height: 100%; display: block; }
     /* Once players join, the PIN header shrinks so the player circles get the room */
     .lobby .lobby-head, .lobby .pin-big, .lobby .qr, .lobby .join-at b { transition: padding .45s var(--ease), font-size .45s var(--ease), width .45s var(--ease); }
@@ -189,7 +188,6 @@ $joinShort = preg_replace('#^https?://#', '', rtrim($joinUrl, '/'));
       <span><b>Studium</b><small>Live Quiz</small></span>
     </a>
     <div class="grow"></div>
-    <span class="pill gold pin-chip" id="pinChip" hidden>PIN —</span>
     <span class="pill" id="playerChip" hidden>0 players</span>
     <button class="pill auto-toggle" id="autoBtn" title="Move on automatically after the answer and the leaderboard">Auto</button>
     <button class="icon-btn" id="soundBtn" title="Sound on/off" aria-label="Toggle sound"></button>
@@ -249,12 +247,12 @@ JSON format for each q_type:
       csrf: <?= json_encode($_SESSION['lq_csrf']) ?>,
       hk: <?= json_encode($hostKey) ?>,
       v: <?= json_encode(LQ_VERSION) ?>,
-      joinUrl: <?= json_encode($joinUrl) ?>,
-      joinShort: <?= json_encode($joinShort) ?>
+      joinUrl: <?= json_encode($joinUrl) ?>
     };
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
   <script src="assets/render.js?v=<?= LQ_VERSION ?>"></script>
+  <script src="assets/music.js?v=<?= LQ_VERSION ?>"></script>
   <script src="assets/host.js?v=<?= LQ_VERSION ?>"></script>
 </body>
 </html>

@@ -20,6 +20,9 @@ $pin = preg_replace('/\D/', '', $_GET['pin'] ?? '');
   <style>
     body { min-height: 100dvh; display: flex; flex-direction: column; }
     .bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); }
+    .bar-right { display: flex; align-items: center; gap: 10px; }
+    .snd-btn { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 1px solid var(--glass-line); background: var(--glass); color: #fff; display: grid; place-items: center; cursor: pointer; }
+    .snd-btn .ic { width: 20px; height: 20px; }
     .bar .lq-brand .mark { width: 36px; height: 36px; border-radius: 10px; }
     .bar .lq-brand .mark img { width: 26px; height: 26px; }
     .me { display: flex; align-items: center; gap: 8px; text-align: right; font-weight: 800; line-height: 1.15; }
@@ -83,11 +86,12 @@ $pin = preg_replace('/\D/', '', $_GET['pin'] ?? '');
   <div class="lq-bg" aria-hidden="true"></div>
   <header class="bar">
     <span class="lq-brand"><span class="mark"><img src="../assets/LOGO.svg" alt=""></span><span><b>Studium</b><small>Live Quiz</small></span></span>
-    <span class="me" id="me" hidden></span>
+    <span class="bar-right"><span class="me" id="me" hidden></span><button type="button" class="snd-btn" id="soundBtn" aria-label="Music on/off" title="Music on/off"></button></span>
   </header>
   <main id="app"></main>
   <script>window.LQ_PIN = <?= json_encode($pin) ?>; window.LQ_V = <?= json_encode(LQ_VERSION) ?>;</script>
   <script src="assets/render.js?v=<?= LQ_VERSION ?>"></script>
+  <script src="assets/music.js?v=<?= LQ_VERSION ?>"></script>
   <script src="assets/player.js?v=<?= LQ_VERSION ?>"></script>
 </body>
 </html>

@@ -76,6 +76,14 @@
     requestAnimationFrame(f);
   }
 
+  const sndBtn = document.getElementById('soundBtn');
+  if (sndBtn && window.LQMusic) {
+    const paintSnd = on => { sndBtn.innerHTML = LQ.icon(on ? 'volume' : 'mute'); sndBtn.setAttribute('aria-pressed', on ? 'false' : 'true'); };
+    paintSnd(LQMusic.isOn());
+    LQMusic.onChange(paintSnd);
+    sndBtn.addEventListener('click', () => LQMusic.toggle());
+  } else if (sndBtn) sndBtn.hidden = true;
+
   let shownScore = null, meKey = '';
   function setMe(s) {
     if (!s || !s.name) { me.hidden = true; meKey = ''; shownScore = null; return; }

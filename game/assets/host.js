@@ -51,7 +51,7 @@
   }
 
   /* ── Sound (WebAudio, no files) ── */
-  let soundOn = localStorage.getItem('lq_sound') !== '0';
+  let soundOn = window.LQMusic ? LQMusic.isOn() : localStorage.getItem('lq_sound') !== '0';
   let actx = null;
   function beep(freq, dur, type, vol, when) {
     if (!soundOn) return;
@@ -79,7 +79,13 @@
   };
   const soundBtn = $('#soundBtn');
   const paintSound = () => { soundBtn.innerHTML = LQ.icon(soundOn ? 'volume' : 'mute'); };
-  soundBtn.addEventListener('click', () => { soundOn = !soundOn; localStorage.setItem('lq_sound', soundOn ? '1' : '0'); paintSound(); if (soundOn) sfx.join(); });
+  soundBtn.title = 'Music & sound on/off';
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    if (window.LQMusic) LQMusic.setOn(soundOn); else localStorage.setItem('lq_sound', soundOn ? '1' : '0');
+    paintSound();
+    if (soundOn) sfx.join();
+  });
   paintSound();
   $('#fsBtn').innerHTML = LQ.icon('expand');
 
@@ -150,11 +156,9 @@
   function render() {
     const s = state;
     const inGame = s.phase !== 'setup';
-    $('#pinChip').hidden = !inGame;
     $('#playerChip').hidden = !inGame;
     $('#endBtn').hidden = !inGame;
     if (inGame) {
-      $('#pinChip').textContent = 'PIN ' + s.pin;
       $('#playerChip').textContent = s.players + (s.players === 1 ? ' player' : ' players');
     }
 
@@ -263,8 +267,7 @@
     app.innerHTML = `
       <section class="screen lobby">
         <div class="panel lobby-head">
-          <div class="join-at">Join on your phone at<b>${esc(CFG.joinShort)}</b><span style="display:block;margin-top:6px">or scan the QR code</span></div>
-          <div class="pin-box"><small>Game PIN</small><div class="pin-big">${esc(s.pin.slice(0, 3))} ${esc(s.pin.slice(3))}</div></div>
+          <div class="join-at"><b>Scan the QR code</b><span style="display:block;margin-top:6px">with your phone camera to join the game</span></div>
           <div class="qr" id="qr" aria-label="QR code to join"></div>
         </div>
         <div class="panel lobby-body">
