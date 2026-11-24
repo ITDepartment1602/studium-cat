@@ -6,6 +6,7 @@
   'use strict';
   const CFG = window.LQ_HOST;
   const app = document.getElementById('app');
+  LQ.autoFit(app);
   const esc = LQ.esc;
   const $ = (sel, root) => (root || document).querySelector(sel);
 
@@ -483,7 +484,7 @@
             </div>
             ${s.rationale ? '<div class="rationale"><b>Rationale</b>' + esc(s.rationale) + '</div>' : ''}
             <div class="controls">
-              <button class="btn btn-go btn-lg" id="lbBtn">${isLast ? LQ.icon('trophy') + ' Final standings' : 'Leaderboard ' + LQ.icon('play')}</button>
+              <button class="btn btn-go btn-lg" id="lbBtn">${isLast ? LQ.icon('trophy') + ' Reveal the winners' : 'Leaderboard ' + LQ.icon('play')}</button>
             </div>
           </div>
         </div>
@@ -492,7 +493,7 @@
     LQ.renderQuestion($('#qAnswers'), q, { mode: 'show', answer: s.answer, counts });
     later(() => app.querySelectorAll('.stat-bar span').forEach(b => { b.style.width = b.dataset.w + '%'; }), 60);
     countUp($('#pctNum'), 0, pct(st.full), 900);
-    autoAdvance($('#lbBtn'), s.phase_start, REVEAL_MS, 'leaderboard', isLast ? LQ.icon('trophy') + ' Final standings' : 'Leaderboard ' + LQ.icon('play'));
+    autoAdvance($('#lbBtn'), s.phase_start, REVEAL_MS, 'leaderboard', isLast ? LQ.icon('trophy') + ' Reveal the winners' : 'Leaderboard ' + LQ.icon('play'));
   }
 
   function countUp(el, from, to, ms) {
@@ -523,6 +524,7 @@
 
   function drawLeaderboard(s) {
     const isLast = s.q_index + 1 >= s.q_total;
+    if (isLast) { act('next'); return; } // no standings before the winners are revealed
     const rows = s.leaderboard || [];
     const before = rows.slice().sort((a, b) => (a.prev_rank || 999) - (b.prev_rank || 999));
     app.innerHTML = `

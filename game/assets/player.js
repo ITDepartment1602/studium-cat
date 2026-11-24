@@ -6,6 +6,7 @@
 (function () {
   'use strict';
   const app = document.getElementById('app');
+  LQ.autoFit(app);
   const me = document.getElementById('me');
   const esc = LQ.esc;
   const $ = s => app.querySelector(s);
@@ -129,7 +130,7 @@
   /* ═════════ Join ═════════ */
   function joinCard(title, sub, body) {
     return `
-      <section class="view"><div class="center">
+      <section class="view" data-nofit><div class="center">
         <div class="card join-card">
           <div class="logo"><img src="../assets/LOGO.svg" alt="Studium"></div>
           <h1>${title}</h1>
@@ -355,6 +356,15 @@
     let move = '';
     if (s.prev_rank > 0 && s.prev_rank !== s.rank) move = s.prev_rank > s.rank ? LQ.icon('up') + ' Up ' + (s.prev_rank - s.rank) : LQ.icon('down') + ' Down ' + (s.rank - s.prev_rank);
     const last = s.q_index + 1 >= s.q_total;
+    if (last) { // no standings before the big reveal: keep everyone guessing
+      show('lbwait', `
+        <div class="center">
+          <div class="pulse">${LQ.icon('drum')}</div>
+          <h2>And the winners are…</h2>
+          <p>Watch the big screen!</p>
+        </div>`);
+      return;
+    }
     show('lb' + s.q_index, `
       <div class="center" style="flex:0;padding-top:8px">
         <p>You're currently</p>

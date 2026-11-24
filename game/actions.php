@@ -312,7 +312,7 @@ function player_state(string $token): array {
             $out['rationale'] = $q['rationale'];
         }
     }
-    if ($s['phase'] === 'leaderboard') {
+    if ($s['phase'] === 'leaderboard' && $qi + 1 < (int) $s['q_total']) {
         $out['prev_rank'] = (int) $p['prev_rank'];
         $out['top'] = leaderboard_rows(5, $qi);
     }

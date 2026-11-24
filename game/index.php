@@ -60,7 +60,7 @@ $pin = preg_replace('/\D/', '', $_GET['pin'] ?? '');
     .secs { font-weight: 900; font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; font-size: 1.15rem; }
     .q-card .q-text { font-size: clamp(1.08rem, 4.5vw, 1.45rem); }
     .q-card .q-scenario { font-size: .93rem; }
-    .submit-wrap { position: sticky; bottom: 0; padding: 12px 0 calc(4px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, rgba(6,62,99,.95) 40%); }
+    .submit-wrap { padding: 12px 0 4px; } /* in the flow: views are fitted to the screen, so no sticky bar is needed */
     .wait-bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: #fff; color: var(--ink); font-weight: 800; box-shadow: 0 14px 30px -12px rgba(4,30,55,.6); animation: lq-pop .4s var(--spring); }
     .wait-bar .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid #cbe4f3; border-top-color: var(--brand); animation: lq-spin .8s linear infinite; flex-shrink: 0; }
     .wait-bar small { display: block; color: var(--muted); font-weight: 600; font-size: .85rem; }

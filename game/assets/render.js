@@ -645,5 +645,78 @@
       '<text x="24" y="40.5" text-anchor="middle" font-family="Inter, sans-serif" font-weight="900" font-size="17" fill="' + c[2] + '">' + place + '</text></svg>';
   }
 
-  window.LQ = { renderQuestion, esc, avatar, icon, medal, nurseSvg, NURSE_IDS, cleanText };
+
+  /* ═════════ Fit-to-screen: scale a view down so it never needs scrolling ═════════
+   * Uses the individual `scale` property (so it cooperates with entrance animations) and
+   * widens the box by 1/scale so text reflows exactly as on a bigger screen, then pulls the
+   * bottom margin up so the page height equals what is actually shown. */
+  const FIT_MIN = 0.42;
+  function fit(el) {
+    if (!el || !el.isConnected) return;
+    const parent = el.parentElement;
+    const reset = () => { el.style.scale = ''; el.style.width = ''; el.style.marginBottom = ''; el.style.flex = ''; el.style.transformOrigin = ''; };
+    reset();
+    el.style.flex = 'none';
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    const pad = parent ? (parseFloat(getComputedStyle(parent).paddingBottom) || 0) : 0;
+    const avail = Math.max(120, window.innerHeight - top - Math.min(pad, 18) - 4);
+    let h = el.offsetHeight;
+    if (h <= avail) { reset(); return; }
+    let z = Math.max(FIT_MIN, avail / h);
+    const apply = zz => {
+      el.style.transformOrigin = 'top left';
+      el.style.width = (100 / zz) + '%';
+      el.style.scale = String(zz);
+      return el.offsetHeight;
+    };
+    for (let i = 0; i < 6; i++) {
+      h = apply(z);
+      const target = Math.max(FIT_MIN, Math.min(1, avail / h));
+      if (Math.abs(target - z) < 0.01) { z = Math.min(z, target); break; }
+      z = target;
+    }
+    h = apply(z);
+    while (h * z > avail + 1 && z > FIT_MIN) { z = Math.max(FIT_MIN, z - 0.02); h = apply(z); }
+    el.style.marginBottom = (-(h * (1 - z))) + 'px';
+  }
+
+  /* Keep the first view inside `app` fitted: on every view change, resize, and late layout
+   * (fonts, animations). Views flagged data-nofit (lobby, forms) keep their own layout. */
+  function autoFit(app) {
+    let t = 0, timers = [];
+    const run = () => {
+      const el = app.firstElementChild;
+      if (!el || el.hasAttribute('data-nofit') || el.classList.contains('lobby') || el.classList.contains('setup')) { if (el) { el.style.scale = ''; el.style.width = ''; el.style.marginBottom = ''; el.style.flex = ''; } return; }
+      fit(el);
+    };
+    const soon = () => {
+      clearTimeout(t); timers.forEach(clearTimeout);
+      t = setTimeout(run, 30);
+      timers = [setTimeout(run, 350), setTimeout(run, 1100)];
+    };
+    new MutationObserver(soon).observe(app, { childList: true });
+    window.addEventListener('resize', soon);
+    window.addEventListener('orientationchange', soon);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(soon);
+    if (window.ResizeObserver) {
+      // Watch the current view itself (its layout height changes as content appears or reflows).
+      let last = '', watching = null;
+      const ro = new ResizeObserver(() => {
+        const el = app.firstElementChild; if (!el) return;
+        const k = el.scrollHeight + ':' + el.offsetWidth;
+        if (k !== last) { last = k; clearTimeout(t); t = setTimeout(run, 120); }
+      });
+      new MutationObserver(() => {
+        const el = app.firstElementChild;
+        if (el === watching) return;
+        if (watching) ro.unobserve(watching);
+        watching = el; last = '';
+        if (el) ro.observe(el);
+      }).observe(app, { childList: true });
+    }
+    soon();
+    return soon;
+  }
+
+  window.LQ = { renderQuestion, esc, avatar, icon, medal, nurseSvg, NURSE_IDS, cleanText, fit, autoFit };
 })();

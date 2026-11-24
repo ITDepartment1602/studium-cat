@@ -48,7 +48,11 @@ if (strpos($action, 'host_') === 0 || in_array($action, ['import', 'create', 'ne
         case 'create':      lq_json_out(host_create((string) ($in['title'] ?? '')));
         case 'next':        lq_json_out(host_next());
         case 'reveal':      lq_json_out(host_reveal(true));
-        case 'leaderboard': lq_json_out(host_set_phase('reveal', 'leaderboard'));
+        case 'leaderboard':
+            $ls = lq_session();
+            // After the last question there is no leaderboard: go straight to the winners.
+            if ($ls && (int) $ls['q_index'] + 1 >= (int) $ls['q_total']) lq_json_out(host_next());
+            lq_json_out(host_set_phase('reveal', 'leaderboard'));
         case 'kick':        lq_json_out(host_kick((int) ($in['id'] ?? 0)));
         case 'end':         lq_wipe_game(); lq_json_out(['ok' => true]);
     }
