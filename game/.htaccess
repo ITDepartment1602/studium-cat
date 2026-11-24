@@ -1,0 +1,8 @@
+# host.php sends its own Content-Security-Policy frame-ancestors (Studium + the
+# NCLEX Amplified dashboard), so the site-wide SAMEORIGIN frame block is lifted here.
+<IfModule mod_headers.c>
+    <Files "host.php">
+        Header always unset X-Frame-Options
+        Header unset X-Frame-Options
+    </Files>
+</IfModule>

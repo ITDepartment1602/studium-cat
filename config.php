@@ -116,8 +116,10 @@ if (!function_exists('getQuizConnection')) {
 }
 
 // ── 6. AUTO-CREATE REQUIRED TABLES ───────────────────────────
-// Ensures the Hostinger database stays in sync automatically
-if (isset($con)) {
+// Ensures the Hostinger database stays in sync automatically.
+// High-frequency endpoints (the Live Quiz polling API) define STUDIUM_SKIP_SCHEMA
+// before including this file so they skip these checks; any normal page load runs them.
+if (isset($con) && !defined('STUDIUM_SKIP_SCHEMA')) {
     mysqli_query($con, "
         CREATE TABLE IF NOT EXISTS `temporary_exam_state` (
             `student_id`       int(11)      NOT NULL,
@@ -473,6 +475,84 @@ if (isset($con)) {
             error_log('created_at migration on ' . $bankTable . ': ' . $e->getMessage());
         }
     }
+
+    // 6.10 — Live Quiz game (game/). live_quiz_questions is the only table the host
+    // fills (pasted SQL replaces it each time); session/players/answers are live
+    // game data, wiped when a game ends. Only one game runs at a time (session id = 1).
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `live_quiz_questions` (
+            `id`         int(11)      NOT NULL AUTO_INCREMENT,
+            `q_order`    int(11)      NOT NULL DEFAULT 0,
+            `q_type`     varchar(20)  NOT NULL DEFAULT 'mc',
+            `scenario`   text         DEFAULT NULL,
+            `question`   text         NOT NULL,
+            `options`    longtext     NOT NULL,
+            `answer`     longtext     NOT NULL,
+            `rationale`  text         DEFAULT NULL,
+            `time_limit` int(11)      NOT NULL DEFAULT 30,
+            PRIMARY KEY (`id`),
+            KEY `q_order` (`q_order`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `live_quiz_session` (
+            `id`          tinyint(4)   NOT NULL,
+            `pin`         char(6)      NOT NULL,
+            `title`       varchar(150) NOT NULL DEFAULT 'NCLEX Amplified Live Quiz',
+            `phase`       varchar(20)  NOT NULL DEFAULT 'lobby',
+            `q_index`     int(11)      NOT NULL DEFAULT -1,
+            `q_total`     int(11)      NOT NULL DEFAULT 0,
+            `phase_start` bigint(20)   NOT NULL DEFAULT 0,
+            `q_ends`      bigint(20)   NOT NULL DEFAULT 0,
+            `created_at`  datetime     DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `live_quiz_players` (
+            `id`         int(11)      NOT NULL AUTO_INCREMENT,
+            `name`       varchar(40)  NOT NULL,
+            `token`      char(32)     NOT NULL,
+            `score`      int(11)      NOT NULL DEFAULT 0,
+            `streak`     int(11)      NOT NULL DEFAULT 0,
+            `prev_rank`  int(11)      NOT NULL DEFAULT 0,
+            `time_ms`    int(11)      NOT NULL DEFAULT 0,
+            `avatar`     tinyint(4)   NOT NULL DEFAULT 0,
+            `joined_at`  datetime     DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `token` (`token`),
+            UNIQUE KEY `name` (`name`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `live_quiz_answers` (
+            `id`         int(11)      NOT NULL AUTO_INCREMENT,
+            `player_id`  int(11)      NOT NULL,
+            `q_index`    int(11)      NOT NULL,
+            `answer`     longtext     NOT NULL,
+            `fraction`   decimal(5,3) NOT NULL DEFAULT 0,
+            `points`     int(11)      NOT NULL DEFAULT 0,
+            `ms`         int(11)      NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `player_q` (`player_id`, `q_index`),
+            KEY `q_index` (`q_index`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+    // Total answering time — breaks score ties (faster player ranks higher)
+    _addColIfMissing($con, 'live_quiz_players', 'time_ms', 'INT(11) NOT NULL DEFAULT 0');
+    // Nurse avatar the player picked when joining (1-6; 0 = initials)
+    _addColIfMissing($con, 'live_quiz_players', 'avatar', 'TINYINT(4) NOT NULL DEFAULT 0');
+    // Host keys from the NCLEX Amplified IT dashboard (sha256 of the key only)
+    mysqli_query($con, "
+        CREATE TABLE IF NOT EXISTS `live_quiz_host_keys` (
+            `key_hash`   char(64)     NOT NULL,
+            `created_by` varchar(64)  NOT NULL DEFAULT '',
+            `expires_at` datetime     NOT NULL,
+            `created_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`key_hash`),
+            KEY `expires_at` (`expires_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
 }
 
 // ── 7. HELPER FUNCTIONS ───────────────────────────────────────

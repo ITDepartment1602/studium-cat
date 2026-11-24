@@ -20,6 +20,7 @@ $nav_items = [
     ['id'=>'result',      'label'=>'Manage Result',    'icon'=>'bi bi-bar-chart-fill',      'href'=> $ap_base . 'manage result/'],
     ['id'=>'feedback',    'label'=>'Feedback',         'icon'=>'bi bi-chat-heart-fill',     'href'=> $ap_base . 'manage feedback/'],
     ['id'=>'exam_mode',   'label'=>'Exam Mode',        'icon'=>'bi bi-clipboard-data-fill', 'href'=> $ap_base . 'manage exam/'],
+    ['id'=>'live_quiz',   'label'=>'Live Quiz Game',   'icon'=>'bi bi-controller',          'href'=> $ap_base . 'live_quiz.php'],
 ];
 ?>
 <!DOCTYPE html>
